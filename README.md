@@ -69,8 +69,8 @@ La solución reemplaza los registros manuales, eliminando problemas de trazabili
 
 <h3>1️⃣ Clonar repositorio</h3>
 <pre>
-git clone https://github.com/usuario/proyecto-asistencia.git
-cd proyecto-asistencia
+git clone https://github.com/moisesAraya/RegistraUbb
+cd registra
 </pre>
 
 <h3>2️⃣ Configurar Módulo Lector</h3>
