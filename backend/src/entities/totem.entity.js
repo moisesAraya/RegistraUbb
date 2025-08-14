@@ -1,5 +1,5 @@
 import { Sequelize, DataTypes, Model } from 'sequelize';
-import sequelize from '../config/dbconfig.js';
+import { sequelize } from '../config/dbconfig.js';
 
 const Totem = sequelize.define('Totem', {
     id_totem: {

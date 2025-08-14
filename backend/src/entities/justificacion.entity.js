@@ -1,5 +1,5 @@
 import { Sequelize, DataTypes, Model } from 'sequelize';
-import sequelize from '../config/dbconfig.js';
+import { sequelize } from '../config/dbconfig.js';
 
 const Justificacion = sequelize.define('Justificacion', {
     id_justificacion: {
