@@ -32,8 +32,8 @@ const Cargo = sequelize.define('Cargo', {
                 msg: 'Las horas a trabajar deben ser al menos 1'
             },
             max: {
-                args: [24],
-                msg: 'Las horas a trabajar no pueden exceder 24'
+                args: [42],
+                msg: 'Las horas a trabajar no pueden exceder 42'
             },
             notNull: { msg: 'Las horas a trabajar son obligatorias' },
             notEmpty: { msg: 'Las horas a trabajar no pueden estar vacías' },
