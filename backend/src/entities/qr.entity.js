@@ -1,5 +1,5 @@
 import { Sequelize, DataTypes, Model } from 'sequelize';
-import sequelize from '../config/dbconfig.js';
+import { sequelize } from '../config/dbconfig.js';
 
 const QR = sequelize.define('QR', {
     codigo_unico: {
