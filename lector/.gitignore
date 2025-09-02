@@ -1,0 +1,14 @@
+# Entornos virtuales
+venv/
+.env/
+*.pyc
+__pycache__/
+db.sqlite3
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de configuración de IDE
+.vscode/
+.idea/
