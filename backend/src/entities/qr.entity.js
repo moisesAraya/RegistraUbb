@@ -32,7 +32,21 @@ const QR = sequelize.define('QR', {
             notNull: { msg: 'La fecha de creación es obligatoria' },
             isDate: { msg: 'La fecha de creación debe ser una fecha válida' },
         }
+    },
+    rut_usuario: {
+        type: DataTypes.STRING,
+        allowNull: false,   
+        references: {
+            model: 'Usuarios', 
+            key: 'rut_usuario',
+        },
+        validate: {
+            notNull: { msg: 'El RUT del usuario es obligatorio' },
+            notEmpty: { msg: 'El RUT del usuario no puede estar vacío' },
+            is: { msg: 'El RUT del usuario no es válido' }
+        }
     }
+
 })
 
 export default QR;

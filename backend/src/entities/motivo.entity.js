@@ -38,6 +38,19 @@ const Motivo = sequelize.define('Motivo', {
                 msg: 'Las observaciones no pueden exceder los 255 caracteres'
             }
         }
+    },
+    id_justificacion: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: 'Justificacions',
+            key: 'id_justificacion',
+        },
+        validate: {
+            isInt: { msg: 'El ID de la justificación debe ser un número entero' },  
+            notNull: { msg: 'El ID de la justificación es obligatorio' },
+            notEmpty: { msg: 'El ID de la justificación no puede estar vacío' },
+        }
     }
 })
 
