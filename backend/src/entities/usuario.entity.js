@@ -63,6 +63,23 @@ const Usuario = sequelize.define('Usuario', {
             notNull: { msg: 'Las horas a trabajar son obligatorias' },
         }
     },
+    id_rol: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: 'Rols',
+            key: 'id_rol'
+        },
+        validate: {
+            isInt: { msg: 'El ID del rol debe ser un número entero' },
+            notNull: { msg: 'El ID del rol es obligatorio' },
+            notEmpty: { msg: 'El ID del rol no puede estar vacío' },
+        }
+    }
+}, {
+    tableName: 'Usuarios',
+    timestamps: false,
+    
 })
 
 export default Usuario;

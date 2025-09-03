@@ -29,6 +29,19 @@ const Notificacion = sequelize.define('Notificacion', {
             notEmpty: { msg: 'La descripción no puede estar vacía' },
         }
     },
+    id_asist: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: 'Asistencia',
+            key: 'id_asist',
+        },
+        validate: {
+            isInt: { msg: 'El ID de la asistencia debe ser un número entero' },
+            notNull: { msg: 'El ID de la asistencia es obligatorio' },
+            notEmpty: { msg: 'El ID de la asistencia no puede estar vacío' },
+        }
+    }
 })
 
 export default Notificacion;
