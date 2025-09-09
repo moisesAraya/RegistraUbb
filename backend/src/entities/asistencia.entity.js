@@ -47,6 +47,34 @@ const Asistencia = sequelize.define('Asistencia', {
                 msg: 'Las horas diarias no pueden ser negativas'
             }
         }
+    },
+    id_marcaje: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: 'Marcajes',
+            key: 'id_marcaje',
+        },
+        validate: {
+            isInt: { msg: 'El ID del marcaje debe ser un número entero' },
+            notNull: { msg: 'El ID del marcaje es obligatorio' },
+            notEmpty: { msg: 'El ID del marcaje no puede estar vacío' },
+        }
+    },
+    id_justificacion: {
+        type: DataTypes.INTEGER,
+        allowNull: true,    
+        references: {
+            model: 'Justificacions',
+            key: 'id_justificacion',
+        },
+        validate: {
+            isInt: { msg: 'El ID de la justificación debe ser un número entero' },
+            min: {
+                args: [1],
+                msg: 'El ID de la justificación debe ser al menos 1'
+            }
+        }
     }
 })
 
