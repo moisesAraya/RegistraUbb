@@ -1,5 +1,7 @@
 import app from './app.js';
 import { sequelize } from './config/dbconfig.js';
+import { seedInitialData } from './initial.setup.js';
+
 
 import Rol from './entities/rol.entity.js';
 import Cargo from './entities/cargo.entity.js';
@@ -34,6 +36,8 @@ async function main() {
         await RegistroMarcaje.sync();
         await RegistroJust.sync();
         await Notificacion.sync();
+
+        await seedInitialData();
 
         console.log('Todas las tablas fueron sincronizadas correctamente.');
 
