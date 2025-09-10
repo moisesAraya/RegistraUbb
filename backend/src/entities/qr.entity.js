@@ -43,7 +43,6 @@ const QR = sequelize.define('QR', {
         validate: {
             notNull: { msg: 'El RUT del usuario es obligatorio' },
             notEmpty: { msg: 'El RUT del usuario no puede estar vacío' },
-            is: { msg: 'El RUT del usuario no es válido' }
         }
     }
 
