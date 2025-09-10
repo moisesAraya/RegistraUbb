@@ -1,0 +1,26 @@
+{
+  "development": {
+    "username": "maraya",
+    "password": "qdgpzkeer8",
+    "database": "registra",
+    "host": "localhost",
+    "port": 5432,
+    "dialect": "postgres"
+  },
+  "test": {
+    "username": "maraya",
+    "password": "qdgpzkeer8",
+    "database": "registra_test",
+    "host": "localhost",
+    "port": 5432,
+    "dialect": "postgres"
+  },
+  "production": {
+    "username": "maraya",
+    "password": "qdgpzkeer8",
+    "database": "registra",
+    "host": "localhost",
+    "port": 5432,
+    "dialect": "postgres"
+  }
+}

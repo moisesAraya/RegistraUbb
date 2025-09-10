@@ -1,7 +1,5 @@
 import app from './app.js';
 import { sequelize } from './config/dbconfig.js';
-import { seedInitialData } from './initial.setup.js';
-
 
 import Rol from './entities/rol.entity.js';
 import Cargo from './entities/cargo.entity.js';
@@ -13,7 +11,6 @@ import Marcaje from './entities/marcaje.entity.js';
 import Asistencia from './entities/asistencia.entity.js';
 import Justificacion from './entities/justificacion.entity.js';
 import Notificacion from './entities/notificacion.entity.js';
-import CargoUsuario from './entities/cargo_usuario.entity.js';
 import RegistroMarcaje from './entities/registro_marcaje.entity.js';
 import RegistroJust from './entities/registro_just.entity.js';
 
@@ -22,7 +19,6 @@ async function main() {
         await sequelize.authenticate();
         console.log('Conexión a la base de datos establecida correctamente.');
 
-        // Sincroniza las tablas en orden  respetar claves foráneas
         await Rol.sync();
         await Cargo.sync();
         await Usuario.sync();
@@ -32,12 +28,9 @@ async function main() {
         await Marcaje.sync();
         await Asistencia.sync();
         await Justificacion.sync();
-        await CargoUsuario.sync();
         await RegistroMarcaje.sync();
         await RegistroJust.sync();
         await Notificacion.sync();
-
-        await seedInitialData();
 
         console.log('Todas las tablas fueron sincronizadas correctamente.');
 

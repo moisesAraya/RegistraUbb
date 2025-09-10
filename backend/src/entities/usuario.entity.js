@@ -62,8 +62,8 @@ const Usuario = sequelize.define(
           msg: "Las horas a trabajar deben ser al menos 1",
         },
         max: {
-          args: [42],
-          msg: "Las horas a trabajar no pueden exceder 42",
+          args: [44],
+          msg: "Las horas a trabajar no pueden exceder 44",
         },
         notNull: { msg: "Las horas a trabajar son obligatorias" },
       },
@@ -79,6 +79,19 @@ const Usuario = sequelize.define(
         isInt: { msg: "El ID del rol debe ser un número entero" },
         notNull: { msg: "El ID del rol es obligatorio" },
         notEmpty: { msg: "El ID del rol no puede estar vacío" },
+      },
+    },
+    id_cargo: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: "Cargos",
+        key: "id_cargo",
+      },
+      validate: {
+        isInt: { msg: "El ID del cargo debe ser un número entero" },
+        notNull: { msg: "El ID del cargo es obligatorio" },
+        notEmpty: { msg: "El ID del cargo no puede estar vacío" },
       },
     },
   },
