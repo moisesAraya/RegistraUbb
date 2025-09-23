@@ -27,12 +27,10 @@ const domainEmailValidator = (value, helper) => {
 
 // 🔐 Login
 export const authValidation = Joi.object({
-  email: Joi.string()
-    .min(10)
-    .max(255)
-    .email()
-    .required()
-    .custom(domainEmailValidator),
+  rut_usuario: Joi.string()
+    .min(9)
+    .max(12)
+    .required(),
 
   password: Joi.string()
     .min(5)

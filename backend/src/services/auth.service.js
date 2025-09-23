@@ -12,17 +12,17 @@ const LOCK_TIME = 3; // en minutos
 
 export async function loginService(user) {
   try {
-    const { email, password } = user;
+    const { rut_usuario, password } = user;
 
     const createErrorMessage = (dataInfo, message) => ({
       dataInfo,
       message
     });
 
-    const userFound = await Usuario.findOne({ where: { email } });
+    const userFound = await Usuario.findOne({ where: { rut_usuario } });
 
     if (!userFound) {
-      return [null, createErrorMessage("email", "El correo electrónico es incorrecto")];
+      return [null, createErrorMessage("rut", "El RUT es incorrecto")];
     }
 
     // Preguntar si usaremos el bloqueo por intentos fallidos

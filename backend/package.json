@@ -23,6 +23,7 @@
     "passport": "^0.7.0",
     "pg": "^8.16.3",
     "pg-hstore": "^2.3.4",
+    "qrcode": "^1.5.4",
     "sequelize": "^6.37.7"
   },
   "devDependencies": {
