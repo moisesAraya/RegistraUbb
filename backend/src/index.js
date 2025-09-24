@@ -19,6 +19,7 @@ async function main() {
         await sequelize.authenticate();
         console.log('Conexión a la base de datos establecida correctamente.');
 
+        await Justificacion.sync();
         await Rol.sync();
         await Cargo.sync();
         await Usuario.sync();
@@ -27,7 +28,6 @@ async function main() {
         await Motivo.sync();
         await Marcaje.sync();
         await Asistencia.sync();
-        await Justificacion.sync();
         await RegistroMarcaje.sync();
         await RegistroJust.sync();
         await Notificacion.sync();

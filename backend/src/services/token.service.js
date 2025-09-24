@@ -3,17 +3,13 @@ import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../config/envconfig.js";
 import Usuario from "../entities/usuario.entity.js";
 
-// Lista negra de tokens (en producción usar Redis o base de datos)
 const tokenBlacklist = new Set();
 
-// Tiempo de expiración del token en segundos
 const TOKEN_EXPIRATION = 24 * 60 * 60; // 24 horas
 const REFRESH_THRESHOLD = 2 * 60 * 60; // 2 horas antes de expirar
 
 export class TokenService {
-  /**
-   * Genera un nuevo token JWT con tiempo de expiración
-   */
+
   static generateToken(payload) {
     return jwt.sign(
       payload,
@@ -22,15 +18,12 @@ export class TokenService {
     );
   }
 
-  /**
-   * Verifica si un token es válido y no está en la lista negra
-   */
   static verifyToken(token) {
     try {
       if (tokenBlacklist.has(token)) {
         throw new Error('Token invalidado');
       }
-      const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
+      const decoded = jwt.verify(token, JWT_SECRET);
       const now = Math.floor(Date.now() / 1000);
       const timeUntilExpiration = decoded.exp - now;
       return {
@@ -49,9 +42,7 @@ export class TokenService {
     }
   }
 
-  /**
-   * Invalida un token añadiéndolo a la lista negra
-   */
+
   static invalidateToken(token) {
     try {
       const decoded = jwt.decode(token);
@@ -73,9 +64,7 @@ export class TokenService {
     }
   }
 
-  /**
-   * Renueva un token si es válido y está próximo a expirar
-   */
+
   static async refreshToken(oldToken) {
     try {
       const verification = this.verifyToken(oldToken);
@@ -83,7 +72,6 @@ export class TokenService {
         return [null, 'Token inválido o expirado'];
       }
 
-      // Buscar usuario en la base de datos usando Sequelize
       const user = await Usuario.findOne({
         where: { email: verification.decoded.email }
       });
@@ -92,16 +80,14 @@ export class TokenService {
         return [null, 'Usuario no encontrado'];
       }
 
-      // Invalidar el token anterior
       this.invalidateToken(oldToken);
 
-      // Generar nuevo token
       const newTokenPayload = {
         nombreCompleto: user.nombres + " " + user.apellidos,
         email: user.email,
         rut: user.rut_usuario,
-        rol: user.rol, // Ajusta si tienes el campo rol en tu modelo
-        flag_blacklist: user.flag_blacklist // Ajusta si tienes este campo
+        rol: user.rol, 
+        flag_blacklist: user.flag_blacklist 
       };
 
       const newToken = this.generateToken(newTokenPayload);
@@ -113,9 +99,6 @@ export class TokenService {
     }
   }
 
-  /**
-   * Obtiene información sobre un token
-   */
   static getTokenInfo(token) {
     try {
       const verification = this.verifyToken(token);
@@ -142,9 +125,6 @@ export class TokenService {
     }
   }
 
-  /**
-   * Limpia tokens expirados de la lista negra (mantenimiento)
-   */
   static cleanupExpiredTokens() {
     const now = Math.floor(Date.now() / 1000);
     for (const token of tokenBlacklist) {
@@ -160,7 +140,6 @@ export class TokenService {
   }
 }
 
-// Limpieza automática cada 6 horas
 setInterval(() => {
   TokenService.cleanupExpiredTokens();
 }, 6 * 60 * 60 * 1000);
