@@ -10,9 +10,9 @@ import {
 
 const router = Router();
 router.get("/", getUsersController);
-router.get("/buscar", getUserController);
+router.get("/search", getUserController);
 router.post("/", createUserController);
-router.put("/:id_usuario", updateUserController);
-router.delete("/:id_usuario", deleteUserController);
+router.put("/:rut_usuario", updateUserController);
+router.delete("/:rut_usuario", deleteUserController);
 
 export default router;
