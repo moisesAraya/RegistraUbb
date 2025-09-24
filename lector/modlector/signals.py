@@ -1,146 +1,179 @@
+# modlector/signals.py
+import requests
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import Cargo, Rol, Totem, Usuario, Justificacion, Registro_just, Notificacion, Asistencia, Marcaje, Registro_marcaje, QR, Motivo
-from django.db import connections, transaction
-from django.utils import timezone
+from django.conf import settings
+
+BACKEND_URL = getattr(settings, "BACKEND_URL", "http://localhost:3000")
 
 @receiver(post_save, sender=Cargo)
-def create_cargo_in_postgres(sender, instance, created, **kwargs):
-    if created:
-        with connections['default'].cursor() as cursor:
-            now = timezone.now()
-            cursor.execute("""
-                INSERT INTO "Cargos" (id_cargo, nombre_cargo, horas_trabajar, createdat, updatedat)
-                VALUES (%s, %s, %s, %s, %s)
-            """, [instance.id_cargo, instance.nombre_cargo, instance.horas_trabajar, now, now])
-        print(f'Cargo {instance.nombre_cargo} creado en la base de datos PostgreSQL.')
+def sync_cargo_with_backend(sender, instance, created, **kwargs):
+    """
+    Cuando se crea o actualiza un Cargo en Django,
+    se envía la info al backend Node.js vía API.
+    """
+    data = {
+        "id_cargo": instance.id_cargo,
+        "nombre_cargo": instance.nombre_cargo,
+        "horas_trabajar": instance.horas_trabajar,
+    }
 
-
+    try:
+        if created:
+            # Crear en backend
+            requests.post(f"{BACKEND_URL}/api/cargos", json=data, timeout=5)
+            print(f'[SYNC] Cargo {instance.nombre_cargo} creado en backend.')
+        else:
+            # Actualizar en backend
+            requests.put(f"{BACKEND_URL}/api/cargos/{instance.id_cargo}", json=data, timeout=5)
+            print(f'[SYNC] Cargo {instance.nombre_cargo} actualizado en backend.')
+    except requests.RequestException as e:
+        print(f"[ERROR] No se pudo sincronizar Cargo con backend: {e}")
 
 @receiver(post_save, sender=Rol)
-def sync_rol_to_postgres(sender, instance, **kwargs):
-    now = timezone.now()
-    with connections['default'].cursor() as cursor:
-        cursor.execute("""
-            INSERT INTO "Rols" (id_rol, nombre_rol, createdat, updatedat)
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (id_rol)
-            DO UPDATE SET 
-                nombre_rol = EXCLUDED.nombre_rol,
-                updatedat = EXCLUDED.updatedat
-        """, [instance.id_rol, instance.nombre_rol, now, now])
-    print(f'[SYNC] Rol {instance.id_rol} sincronizado en PostgreSQL.')
+def sync_rol_with_backend(sender, instance, created, **kwargs):
+    """
+    Cuando se crea o actualiza un Rol en Django,
+    se envía la info al backend Node.js vía API.
+    """
+    data = {
+        "id_rol": instance.id_rol,
+        "nombre_rol": instance.nombre_rol,
+    }
 
-
+    try:
+        if created:
+            # Crear en backend
+            requests.post(f"{BACKEND_URL}/api/roles", json=data, timeout=5)
+            print(f'[SYNC] Rol {instance.nombre_rol} creado en backend.')
+        else:
+            # Actualizar en backend
+            requests.put(f"{BACKEND_URL}/api/roles/{instance.id_rol}", json=data, timeout=5)
+            print(f'[SYNC] Rol {instance.nombre_rol} actualizado en backend.')
+    except requests.RequestException as e:
+        print(f"[ERROR] No se pudo sincronizar Rol con backend: {e}")
 
 @receiver(post_save, sender=Totem)
-def create_totem_in_postgres(sender, instance, created, **kwargs):
-    if created:
-        with connections['default'].cursor() as cursor:
-            now = timezone.now()
-            cursor.execute("""
-                INSERT INTO "Totems" (id_totem, ubicacion, descripcion, createdat, updatedat)
-                VALUES (%s, %s, %s, %s, %s)
-            """, [instance.id_totem, instance.ubicacion, instance.descripcion, now, now])
-        print(f'Totem {instance.ubicacion} creado en la base de datos PostgreSQL.')
+def sync_totem_with_backend(sender, instance, created, **kwargs):
+    """
+    Cuando se crea o actualiza un Totem en Django,
+    se envía la info al backend Node.js vía API.
+    """
+    data = {
+        "id_totem": instance.id_totem,
+        "ubicacion": instance.ubicacion,
+        "descripcion": instance.descripcion,
+    }
+
+    try:
+        if created:
+            # Crear en backend
+            requests.post(f"{BACKEND_URL}/api/totems", json=data, timeout=5)
+            print(f'[SYNC] Totem {instance.ubicacion} creado en backend.')
+        else:
+            # Actualizar en backend
+            requests.put(f"{BACKEND_URL}/api/totems/{instance.id_totem}", json=data, timeout=5)
+            print(f'[SYNC] Totem {instance.ubicacion} actualizado en backend.')
+    except requests.RequestException as e:
+        print(f"[ERROR] No se pudo sincronizar Totem con backend: {e}")
 
 @receiver(post_save, sender=Usuario)
-def create_usuario_in_postgres(sender, instance, created, **kwargs):
-    if created:
-        with connections['default'].cursor() as cursor:
-            cursor.execute("""
-                INSERT INTO "Usuarios" (rut_usuario, nombres, apellidos, email, password, horas_atrabajar, id_rol, id_cargo)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """, [instance.rut_usuario, instance.nombres, instance.apellidos, instance.email, instance.password, instance.horas_atrabajar, instance.id_rol, instance.id_cargo])
-        print(f'Usuario {instance.nombres} {instance.apellidos} creado en la base de datos PostgreSQL.')
+def sync_usuario_with_backend(sender, instance, created, **kwargs):
+    """
+    Cuando se crea o actualiza un Usuario en Django,
+    se envía la info al backend Node.js vía API.
+    """
+    data = {
+        "rut_usuario": instance.rut_usuario,
+        "nombres": instance.nombres,
+        "apellidos": instance.apellidos,
+        "email": instance.email,
+        "password": instance.password,
+        "horas_atrabajar": instance.horas_atrabajar,
+        "id_rol": instance.id_rol.id_rol,
+        "id_cargo": instance.id_cargo.id_cargo,
+    }
+
+    try:
+        if created:
+            # Crear en backend
+            requests.post(f"{BACKEND_URL}/api/users", json=data, timeout=5)
+            print(f'[SYNC] Usuario {instance.nombres} {instance.apellidos} creado en backend.')
+        else:
+            # Actualizar en backend
+            requests.put(f"{BACKEND_URL}/api/users/{instance.rut_usuario}", json=data, timeout=5)
+            print(f'[SYNC] Usuario {instance.nombres} {instance.apellidos} actualizado en backend.')
+    except requests.RequestException as e:
+        print(f"[ERROR] No se pudo sincronizar Usuario con backend: {e}")
 
 @receiver(post_save, sender=Justificacion)
-def create_justificacion_in_postgres(sender, instance, created, **kwargs):
-    if created:
-        with connections['default'].cursor() as cursor:
-            now = timezone.now()
-            cursor.execute("""
-                INSERT INTO "Justificacions" (id_justificacion, descripcion, estado, createdat, updatedat)
-                VALUES (%s, %s, %s, %s, %s)
-            """, [instance.id_justificacion, instance.descripcion, instance.estado, now, now])
-        print(f'Justificacion {instance.id_justificacion} creada en la base de datos PostgreSQL.')
+def sync_justificacion_with_backend(sender, instance, created, **kwargs):
+    """
+    Cuando se crea o actualiza una Justificacion en Django,
+    se envía la info al backend Node.js vía API.
+    """
+    data = {
+        "id_justificacion": instance.id_justificacion,
+        "descripcion": instance.descripcion,
+        "estado": instance.estado,
+    }
 
-@receiver(post_save, sender=Registro_just)
-def create_registro_just_in_postgres(sender, instance, created, **kwargs):
-    if created:
-        with connections['default'].cursor() as cursor:
-            cursor.execute("""
-                INSERT INTO "RegistroJust" (id_justificacion, rut_usuario, fecha_registro)
-                VALUES (%s, %s, %s)
-            """, [instance.id_justificacion, instance.rut_usuario, instance.fecha_registro])
-        print(f'Registro_just {instance.id_justificacion} creado en la base de datos PostgreSQL.')
-
-@receiver(post_save, sender=Notificacion)
-def create_notificacion_in_postgres(sender, instance, created, **kwargs):
-    if created:
-        with connections['default'].cursor() as cursor:
-            now = timezone.now()
-            cursor.execute("""
-                INSERT INTO "Notificacions" (id_alerta, aviso, descripcion, id_asist, createdat, updatedat)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """, [instance.id_alerta, instance.aviso, instance.descripcion, instance.id_asist, now, now])
-        print(f'Notificacion {instance.id_alerta} creada en la base de datos PostgreSQL.')
-
-@receiver(post_save, sender=Asistencia)
-def create_asistencia_in_postgres(sender, instance, created, **kwargs):
-    if created:
-        with connections['default'].cursor() as cursor:
-            now = timezone.now()
-            cursor.execute("""
-                INSERT INTO "Asistencias" (id_asist, colacion, observacion, id_marcaje, id_justificacion, createdat, updatedat)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, [instance.id_asist, instance.colacion, instance.observacion, instance.id_marcaje, instance.id_justificacion, now, now])
-        print(f'Asistencia {instance.id_asist} creada en la base de datos PostgreSQL.')
+    try:
+        if created:
+            # Crear en backend
+            requests.post(f"{BACKEND_URL}/api/justificaciones", json=data, timeout=5)
+            print(f'[SYNC] Justificacion {instance.id_justificacion} creada en backend.')
+        else:
+            # Actualizar en backend
+            requests.put(f"{BACKEND_URL}/api/justificaciones/{instance.id_justificacion}", json=data, timeout=5)
+            print(f'[SYNC] Justificacion {instance.id_justificacion} actualizada en backend.')
+    except requests.RequestException as e:
+        print(f"[ERROR] No se pudo sincronizar Justificacion con backend: {e}")
 
 @receiver(post_save, sender=Marcaje)
-def create_marcaje_in_postgres(sender, instance, created, **kwargs):
-    if created:
-        with connections['default'].cursor() as cursor:
-            now = timezone.now()
-            cursor.execute("""
-                INSERT INTO "Marcajes" (id_marcaje, hora_ingreso, hora_salida, fecha, observacion, createdat, updatedat)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, [instance.id_marcaje, instance.hora_ingreso, instance.hora_salida, instance.fecha, instance.observacion, now, now])
-        print(f'Marcaje {instance.id_marcaje} creado en la base de datos PostgreSQL.')
-# Motivo
-@receiver(post_save, sender=Motivo)  # Cambia Notificacion por Motivo si tienes el modelo
-def create_motivo_in_postgres(sender, instance, created, **kwargs):
-    if created:
-        now = timezone.now()
-        with connections['default'].cursor() as cursor:
-            cursor.execute("""
-                INSERT INTO "Motivos" (id_motivo, descripcion, periodo, observaciones, id_justificacion, createdat, updatedat)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, [instance.id_motivo, instance.descripcion, instance.periodo, instance.observaciones, instance.id_justificacion, now, now])
-        print(f'Motivo {instance.id_motivo} creado en la base de datos PostgreSQL.')
+def sync_marcaje_with_backend(sender, instance, created, **kwargs):
+    """
+    Cuando se crea o actualiza un Marcaje en Django,
+    se envía la info al backend Node.js vía API.
+    """
+    data = {
+        "id_marcaje": instance.id_marcaje,
+        "hora_ingreso": instance.hora_ingreso.isoformat() if instance.hora_ingreso else None,
+        "hora_salida": instance.hora_salida.isoformat() if instance.hora_salida else None,
+        "fecha": instance.fecha.isoformat() if instance.fecha else None,
+        "observacion": instance.observacion,
+    }
 
-# QR
-@receiver(post_save, sender=QR)  # Cambia Notificacion por QR si tienes el modelo
-def create_qr_in_postgres(sender, instance, created, **kwargs):
-    if created:
-        now = timezone.now()
-        with connections['default'].cursor() as cursor:
-            cursor.execute("""
-                INSERT INTO "QRs" (id_qr, codigo, estado, createdat, updatedat)
-                VALUES (%s, %s, %s, %s, %s)
-            """, [instance.id_qr, instance.codigo, instance.estado, now, now])
-        print(f'QR {instance.id_qr} creado en la base de datos PostgreSQL.')
+    try:
+        if created:
+            # Crear en backend
+            requests.post(f"{BACKEND_URL}/api/marcajes", json=data, timeout=5)
+            print(f'[SYNC] Marcaje {instance.id_marcaje} creado en backend.')
+        else:
+            # Actualizar en backend
+            requests.put(f"{BACKEND_URL}/api/marcajes/{instance.id_marcaje}", json=data, timeout=5)
+            print(f'[SYNC] Marcaje {instance.id_marcaje} actualizado en backend.')
+    except requests.RequestException as e:
+        print(f"[ERROR] No se pudo sincronizar Marcaje con backend: {e}")
 
-@receiver(post_save, sender=Registro_marcaje)
-def create_registro_marcaje_in_postgres(sender, instance, created, **kwargs):
-    if created:
-        with connections['default'].cursor() as cursor:
-            cursor.execute("""
-                INSERT INTO "RegistroMarcaje" (rut_usuario, id_marcaje, id_totem, fecha_registro)
-                VALUES (%s, %s, %s, %s)
-            """, [instance.rut_usuario, instance.id_marcaje, instance.id_totem, instance.fecha_registro])
-        print(f'Registro_marcaje {instance.rut_usuario} creado en la base de datos PostgreSQL.')
+@receiver(post_save, sender=QR)
+def sync_qr_with_backend(sender, instance, created, **kwargs):
+    data = {
+        "codigo_unico": instance.codigo_unico,
+        "estado_qr": instance.estado_qr,
+        "fecha_creacion": instance.fecha_creacion.isoformat() if instance.fecha_creacion else None,
+        "rut_usuario": instance.rut_usuario.rut_usuario if instance.rut_usuario else None,
+    }
 
-
-
-
+    try:
+        if created:
+            # Crear en backend
+            requests.post(f"{BACKEND_URL}/api/qrs", json=data, timeout=5)
+            print(f'[SYNC] QR {instance.codigo_unico} creado en backend.')
+        else:
+            # Actualizar en backend
+            requests.put(f"{BACKEND_URL}/api/qrs/{instance.codigo_unico}", json=data, timeout=5)
+            print(f'[SYNC] QR {instance.codigo_unico} actualizado en backend.')
+    except requests.RequestException as e:
+        print(f"[ERROR] No se pudo sincronizar QR con backend: {e}")

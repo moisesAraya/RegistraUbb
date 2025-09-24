@@ -18,11 +18,11 @@ app.use(express.urlencoded({ extended: true }));
 // Rutas de la API
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
-app.use('/qr', qrRoutes);
-app.use('/asistencia', attendanceRoutes);
+app.use('/api/qr', qrRoutes);
+app.use('/api/asistencia', attendanceRoutes);
 
 // Ruta estática para servir archivos QR (si decides usarla en el futuro)
-app.use('/qrs', express.static(path.join(__dirname, '../public/qrs')));
+app.use('/api/qrs', express.static(path.join(__dirname, '../public/qrs')));
 
 // Ruta principal para verificar que la API está funcionando
 app.get("/", (req, res) => {

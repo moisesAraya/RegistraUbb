@@ -21,4 +21,5 @@ from modlector import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('hello/', views.index),
+    path('api/usuarios/', views.listar_usuarios, name='listar_usuarios'),
 ]
