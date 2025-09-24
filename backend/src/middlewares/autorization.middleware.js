@@ -1,4 +1,5 @@
-import User from "../entities/usuario.entity.js";
+import Usuario from "../entities/usuario.entity.js";
+import Rol from "../entities/rol.entity.js";
 import {
 handleErrorClient,
 handleErrorServer,
@@ -6,9 +7,13 @@ handleErrorServer,
 
 export async function isAdmin(req, res, next) {
 try {
-    const userRepository = AppDataSource.getRepository(User);
-
-    const userFound = await userRepository.findOneBy({ email: req.user.email });
+    const userFound = await Usuario.findOne({ 
+        where: { rut_usuario: req.user.rut_usuario },
+        include: [{
+            model: Rol,
+            attributes: ['nombre_rol']
+        }]
+    });
 
     if (!userFound) {
     return handleErrorClient(
@@ -18,9 +23,11 @@ try {
     );
     }
 
-    const rolUser = userFound.rol;
+    // Verificar si es administrador (id_rol = 4 o nombre_rol = 'administrador')
+    const isUserAdmin = userFound.id_rol === 4 || 
+                       (userFound.Rol && userFound.Rol.nombre_rol.toLowerCase() === 'administrador');
 
-    if (rolUser !== "administrador") {
+    if (!isUserAdmin) {
         return handleErrorClient(
             res,
             403,
@@ -42,17 +49,14 @@ try {
 export function authorizeRoles(allowedRoles) {
   return async (req, res, next) => {
     try {
-      const userRepository = AppDataSource.getRepository(User);
-      // Permitir que el token tenga id_usuario o id
-      const userId = req.user.id_usuario || req.user.id;
-      if (!userId) {
-        return handleErrorClient(
-          res,
-          401,
-          "Token JWT sin id_usuario ni id"
-        );
-      }
-      const userFound = await userRepository.findOneBy({ id_usuario: userId });
+      const userFound = await Usuario.findOne({ 
+        where: { rut_usuario: req.user.rut_usuario },
+        include: [{
+            model: Rol,
+            attributes: ['nombre_rol']
+        }]
+      });
+      
       if (!userFound) {
         return handleErrorClient(
           res,
@@ -60,7 +64,11 @@ export function authorizeRoles(allowedRoles) {
           "Usuario no encontrado en la base de datos"
         );
       }
-      if (!allowedRoles.includes(userFound.rol)) {
+      
+      const userRole = userFound.Rol ? userFound.Rol.nombre_rol.toLowerCase() : '';
+      const hasPermission = allowedRoles.some(role => role.toLowerCase() === userRole);
+      
+      if (!hasPermission) {
         return handleErrorClient(
           res,
           403,
@@ -68,7 +76,8 @@ export function authorizeRoles(allowedRoles) {
           `Se requiere uno de los siguientes roles: ${allowedRoles.join(", ")}`
         );
       }
-      req.user.rol = userFound.rol;
+      
+      req.user.rol = userRole;
       next();
     } catch (error) {
       handleErrorServer(res, 500, error.message);

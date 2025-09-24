@@ -14,3 +14,7 @@ fs.readdirSync(entitiesDir)
     await import(fileUrl);
     console.log(`Entidad cargada: ${file}`);
   });
+
+// Importar relaciones después de cargar las entidades
+import './relations.js';
+console.log('Relaciones cargadas');

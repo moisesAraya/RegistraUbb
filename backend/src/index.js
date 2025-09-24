@@ -1,5 +1,6 @@
 import app from './app.js';
 import { sequelize } from './config/dbconfig.js';
+import { setupRelations } from './entities/relations.js'; 
 
 import Rol from './entities/rol.entity.js';
 import Cargo from './entities/cargo.entity.js';
@@ -19,6 +20,10 @@ async function main() {
         await sequelize.authenticate();
         console.log('Conexión a la base de datos establecida correctamente.');
 
+        // ⭐ CRÍTICO: Ejecutar ANTES de sync()
+        setupRelations();
+
+        // Luego sincronizar las tablas
         await Rol.sync();
         await Cargo.sync();
         await Usuario.sync();

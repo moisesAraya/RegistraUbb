@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { Shield, CheckCircle, XCircle, Clock, FileText, User, Calendar } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Shield, CheckCircle, XCircle, Clock, FileText, Calendar, RefreshCw, AlertCircle } from 'lucide-react';
+import axios from 'axios';
+
 
 interface PendingApproval {
   id: string;
@@ -18,46 +20,133 @@ interface PendingApproval {
   };
 }
 
-const ApprovalManager: React.FC = () => {
-  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([
-    {
-      id: '1',
-      type: 'justification',
-      userId: '2',
-      userName: 'Dr. Carlos Mendoza',
-      date: new Date(2024, 0, 22),
-      submittedAt: new Date(2024, 0, 22, 9, 45),
-      reason: 'Llegada tardía por problema de transporte público'
-    },
-    {
-      id: '2',
-      type: 'manual_attendance',
-      userId: '1',
-      userName: 'Prof. Ana López',
-      date: new Date(2024, 0, 23),
-      submittedAt: new Date(2024, 0, 23, 10, 30),
-      reason: 'Falla en el lector de código QR del edificio',
-      details: {
-        checkInTime: '08:30',
-        checkOutTime: '17:45',
-        activityType: 'teaching',
-        location: 'Sala 101',
-        notes: 'Clase de Programación Avanzada'
-      }
-    },
-    {
-      id: '3',
-      type: 'justification',
-      userId: '3',
-      userName: 'Dra. María González',
-      date: new Date(2024, 0, 21),
-      submittedAt: new Date(2024, 0, 21, 14, 15),
-      reason: 'Ausencia por cita médica de emergencia'
-    }
-  ]);
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+const ApprovalManager: React.FC = () => {
+  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [selectedApproval, setSelectedApproval] = useState<PendingApproval | null>(null);
   const [reviewNotes, setReviewNotes] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Obtener token del localStorage
+  const getAuthToken = () => {
+    return localStorage.getItem('authToken') || localStorage.getItem('token');
+  };
+
+  // Configurar axios con interceptores para manejo de autenticación
+  const apiClient = axios.create({
+    baseURL: API_BASE_URL,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  // Interceptor para agregar token a las requests
+  apiClient.interceptors.request.use((config) => {
+    const token = getAuthToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  });
+
+  // Obtener aprobaciones pendientes
+  const fetchPendingApprovals = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await apiClient.get('/api/approvals/pending');
+      
+      if (response.data.success) {
+        // Convertir strings de fecha a objetos Date si es necesario
+        const approvalsWithDates = response.data.data.map((approval: any) => ({
+          ...approval,
+          date: new Date(approval.date),
+          submittedAt: new Date(approval.submittedAt)
+        }));
+        
+        setPendingApprovals(approvalsWithDates);
+      } else {
+        setError(response.data.message || 'Error al cargar las aprobaciones');
+      }
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'Error de conexión';
+      setError(errorMessage);
+      console.error('Error fetching pending approvals:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Aprobar solicitud
+  const approveRequest = async (approvalId: string, reviewNotes: string = '') => {
+    setActionLoading(true);
+    try {
+      const response = await apiClient.post(`/api/approvals/${approvalId}/approve`, {
+        reviewNotes
+      });
+
+      if (response.data.success) {
+        // Remover la aprobación de la lista local
+        setPendingApprovals(prev => 
+          prev.filter(approval => approval.id !== approvalId)
+        );
+        return { success: true, message: response.data.message };
+      } else {
+        setError(response.data.message || 'Error al aprobar la solicitud');
+        return { success: false, message: response.data.message };
+      }
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'Error de conexión';
+      setError(errorMessage);
+      return { success: false, message: errorMessage };
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Rechazar solicitud
+  const rejectRequest = async (approvalId: string, reviewNotes: string) => {
+    if (!reviewNotes.trim()) {
+      setError('Las observaciones son obligatorias para rechazar una solicitud');
+      return { success: false, message: 'Las observaciones son obligatorias' };
+    }
+
+    setActionLoading(true);
+    try {
+      const response = await apiClient.post(`/api/approvals/${approvalId}/reject`, {
+        reviewNotes
+      });
+
+      if (response.data.success) {
+        // Remover la aprobación de la lista local
+        setPendingApprovals(prev => 
+          prev.filter(approval => approval.id !== approvalId)
+        );
+        return { success: true, message: response.data.message };
+      } else {
+        setError(response.data.message || 'Error al rechazar la solicitud');
+        return { success: false, message: response.data.message };
+      }
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'Error de conexión';
+      setError(errorMessage);
+      return { success: false, message: errorMessage };
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Función para refrescar datos
+  const refetch = fetchPendingApprovals;
+
+  // Cargar datos al montar el componente
+  useEffect(() => {
+    fetchPendingApprovals();
+  }, []);
 
   const getTypeLabel = (type: string) => {
     switch (type) {
@@ -95,35 +184,78 @@ const ApprovalManager: React.FC = () => {
     }).format(date);
   };
 
-  const handleApprove = (approvalId: string) => {
-    console.log('Aprobando:', approvalId, 'Notas:', reviewNotes);
-    setPendingApprovals(prev => prev.filter(approval => approval.id !== approvalId));
-    setSelectedApproval(null);
-    setReviewNotes('');
+  const handleApprove = async (approvalId: string) => {
+    setActionLoading(true);
+    try {
+      const result = await approveRequest(approvalId, reviewNotes);
+      if (result.success) {
+        setSelectedApproval(null);
+        setReviewNotes('');
+        // Mostrar mensaje de éxito
+        alert('Solicitud aprobada exitosamente');
+      } else {
+        alert(`Error: ${result.message}`);
+      }
+    } catch (err) {
+      alert('Error al procesar la solicitud');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleReject = (approvalId: string) => {
+  const handleReject = async (approvalId: string) => {
     if (!reviewNotes.trim()) {
       alert('Debe proporcionar una razón para el rechazo');
       return;
     }
     
-    console.log('Rechazando:', approvalId, 'Notas:', reviewNotes);
-    setPendingApprovals(prev => prev.filter(approval => approval.id !== approvalId));
-    setSelectedApproval(null);
-    setReviewNotes('');
+    setActionLoading(true);
+    try {
+      const result = await rejectRequest(approvalId, reviewNotes);
+      if (result.success) {
+        setSelectedApproval(null);
+        setReviewNotes('');
+        // Mostrar mensaje de éxito
+        alert('Solicitud rechazada exitosamente');
+      } else {
+        alert(`Error: ${result.message}`);
+      }
+    } catch (err) {
+      alert('Error al procesar la solicitud');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center space-x-2 mb-4">
-          <Shield className="w-5 h-5 text-blue-600" />
-          <h3 className="text-lg font-semibold text-gray-900">
-            Aprobaciones Pendientes
-          </h3>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-2">
+            <Shield className="w-5 h-5 text-blue-600" />
+            <h3 className="text-lg font-semibold text-gray-900">
+              Aprobaciones Pendientes
+            </h3>
+          </div>
+          <button
+            onClick={refetch}
+            disabled={loading}
+            className="flex items-center space-x-2 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span>Actualizar</span>
+          </button>
         </div>
+        
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="w-4 h-4 text-red-600" />
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          </div>
+        )}
         
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <p className="text-sm text-yellow-800">
@@ -150,7 +282,7 @@ const ApprovalManager: React.FC = () => {
             <div>
               <p className="text-sm text-blue-600 font-medium">Justificaciones</p>
               <p className="text-2xl font-bold text-blue-900">
-                {pendingApprovals.filter(a => a.type === 'justification').length}
+                {pendingApprovals.filter((a: PendingApproval) => a.type === 'justification').length}
               </p>
             </div>
             <FileText className="w-8 h-8 text-blue-600" />
@@ -162,7 +294,7 @@ const ApprovalManager: React.FC = () => {
             <div>
               <p className="text-sm text-purple-600 font-medium">Registros Manuales</p>
               <p className="text-2xl font-bold text-purple-900">
-                {pendingApprovals.filter(a => a.type === 'manual_attendance').length}
+                {pendingApprovals.filter((a: PendingApproval) => a.type === 'manual_attendance').length}
               </p>
             </div>
             <Calendar className="w-8 h-8 text-purple-600" />
@@ -186,7 +318,7 @@ const ApprovalManager: React.FC = () => {
               <p className="text-sm">¡Excelente trabajo manteniendo todo al día!</p>
             </div>
           ) : (
-            pendingApprovals.map((approval) => (
+            pendingApprovals.map((approval: PendingApproval) => (
               <div key={approval.id} className="px-6 py-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -235,7 +367,8 @@ const ApprovalManager: React.FC = () => {
                   <div className="flex items-center space-x-2 ml-4">
                     <button
                       onClick={() => setSelectedApproval(approval)}
-                      className="bg-blue-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-blue-700 transition-colors"
+                      disabled={loading || actionLoading}
+                      className="bg-blue-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-blue-700 transition-colors disabled:opacity-50"
                     >
                       Revisar
                     </button>
@@ -323,17 +456,19 @@ const ApprovalManager: React.FC = () => {
               </button>
               <button
                 onClick={() => handleReject(selectedApproval.id)}
-                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
+                disabled={actionLoading}
+                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
               >
                 <XCircle className="w-4 h-4" />
-                <span>Rechazar</span>
+                <span>{actionLoading ? 'Procesando...' : 'Rechazar'}</span>
               </button>
               <button
                 onClick={() => handleApprove(selectedApproval.id)}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+                disabled={actionLoading}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
               >
                 <CheckCircle className="w-4 h-4" />
-                <span>Aprobar</span>
+                <span>{actionLoading ? 'Procesando...' : 'Aprobar'}</span>
               </button>
             </div>
           </div>

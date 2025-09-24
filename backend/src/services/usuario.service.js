@@ -1,5 +1,7 @@
 "use strict";
 import Usuario from "../entities/usuario.entity.js";
+import Rol from "../entities/rol.entity.js";
+import Cargo from "../entities/cargo.entity.js";
 import { comparePassword, encryptPassword } from "../helpers/bcrypt.helper.js";
 import { Op } from "sequelize";
 
@@ -12,16 +14,28 @@ export async function getUserService(query) {
       where: {
         [Op.or]: [
           rut ? { rut_usuario: rut } : {},
-          id ? { id_usuario: id } : {},
+          id ? { rut_usuario: id } : {},
           email ? { email: email } : {},
         ],
       },
+      include: [
+        {
+          model: Rol,
+          as: 'rol',
+          attributes: ['id_rol', 'nombre_rol']
+        },
+        {
+          model: Cargo,
+          as: 'cargo',
+          attributes: ['id_cargo', 'nombre_cargo']
+        }
+      ],
+      attributes: { exclude: ['password'] }
     });
 
     if (!userFound) return [null, "Usuario no encontrado"];
 
-    const { password, ...userData } = userFound.get({ plain: true });
-
+    const userData = userFound.get({ plain: true });
     return [userData, null];
   } catch (error) {
     console.error("Error obtener el usuario:", error);
@@ -32,18 +46,38 @@ export async function getUserService(query) {
 // Obtener todos los usuarios
 export async function getUsersService() {
   try {
-    const users = await Usuario.findAll();
-
-    if (!users || users.length === 0) return [null, "No hay usuarios"];
-
-    const usersData = users.map(user => {
-      const { password, ...userData } = user.get({ plain: true });
-      return userData;
+    console.log('🔍 Ejecutando getUsersService...');
+    
+    const users = await Usuario.findAll({
+      include: [
+        {
+          model: Rol,
+          as: 'rol',
+          attributes: ['id_rol', 'nombre_rol']
+        },
+        {
+          model: Cargo,
+          as: 'cargo',
+          attributes: ['id_cargo', 'nombre_cargo']
+        }
+      ],
+      attributes: { exclude: ['password'] }
     });
 
+    console.log('📊 Usuarios encontrados en DB:', users?.length || 0);
+
+    if (!users || users.length === 0) {
+      console.log('⚠️ No hay usuarios en la base de datos');
+      return [[], null];
+    }
+
+    const usersData = users.map(user => user.get({ plain: true }));
+    
+    console.log('✅ Usuarios procesados:', usersData.length);
+    
     return [usersData, null];
   } catch (error) {
-    console.error("Error al obtener a los usuarios:", error);
+    console.error("💥 Error al obtener usuarios:", error);
     return [null, "Error interno del servidor"];
   }
 }
@@ -51,7 +85,9 @@ export async function getUsersService() {
 // Crear usuario
 export async function createUserService(userData) {
   try {
-    // Verificar si ya existe un usuario con el mismo rut o email
+    console.log('🆕 Creando usuario:', userData);
+
+    // Verificar si ya existe un usuario con ese RUT o email
     const existingUser = await Usuario.findOne({
       where: {
         [Op.or]: [
@@ -62,220 +98,186 @@ export async function createUserService(userData) {
     });
 
     if (existingUser) {
-      return [null, "Ya existe un usuario con el mismo rut o email"];
+      return [null, "Ya existe un usuario con ese RUT o email"];
     }
 
-    // Encriptar la contraseña si se proporciona
-    let encryptedPassword = null;
-    if (userData.password && userData.password.trim() !== "") {
-      encryptedPassword = await encryptPassword(userData.password);
-    }
-
-    // Preparar los datos del usuario
-    const newUserData = {
-      rut_usuario: userData.rut_usuario,
-      nombres: userData.nombres,
-      apellidos: userData.apellidos,
-      email: userData.email,
-      password: encryptedPassword,
-      horas_atrabajar: userData.horas_atrabajar,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    // Encriptar la contraseña
+    const hashedPassword = await encryptPassword(userData.password);
 
     // Crear el usuario
-    const newUser = await Usuario.create(newUserData);
+    const newUser = await Usuario.create({
+      ...userData,
+      password: hashedPassword
+    });
 
-    // Retornar sin la contraseña
-    const { password, ...userCreated } = newUser.get({ plain: true });
-    return [userCreated, null];
+    // Obtener el usuario creado with relaciones
+    const createdUser = await Usuario.findOne({
+      where: { rut_usuario: newUser.rut_usuario },
+      include: [
+        {
+          model: Rol,
+          as: 'rol',
+          attributes: ['id_rol', 'nombre_rol']
+        },
+        {
+          model: Cargo,
+          as: 'cargo',
+          attributes: ['id_cargo', 'nombre_cargo']
+        }
+      ],
+      attributes: { exclude: ['password'] }
+    });
+
+    const userDataResponse = createdUser.get({ plain: true });
+    
+    console.log('✅ Usuario creado exitosamente');
+    return [userDataResponse, null];
   } catch (error) {
-    console.error("Error al crear un usuario:", error);
+    console.error("💥 Error al crear usuario:", error);
     return [null, "Error interno del servidor"];
   }
 }
 
 // Actualizar usuario
-export async function updateUserService(query, body) {
+export async function updateUserService(rut_usuario, userData) {
   try {
-    const { id, rut, email } = query;
+    console.log('🔍 Actualizando usuario:', rut_usuario, userData);
+    
+    const user = await Usuario.findOne({ 
+      where: { rut_usuario: rut_usuario }
+    });
+    
+    if (!user) {
+      console.log('❌ Usuario no encontrado:', rut_usuario);
+      return [null, "Usuario no encontrado"];
+    }
 
-    // Buscar usuario usando id_usuario, rut_usuario o email
-    const userFound = await Usuario.findOne({
-      where: {
-        [Op.or]: [
-          id ? { id_usuario: id } : {},
-          rut ? { rut_usuario: rut } : {},
-          email ? { email: email } : {},
-        ],
-      },
+    // Si hay password, encriptarla
+    if (userData.password) {
+      userData.password = await encryptPassword(userData.password);
+    }
+
+    // Actualizar el usuario
+    await user.update(userData);
+    
+    // Obtener el usuario actualizado with relaciones
+    const updatedUser = await Usuario.findOne({
+      where: { rut_usuario: rut_usuario },
+      include: [
+        {
+          model: Rol,
+          as: 'rol',
+          attributes: ['id_rol', 'nombre_rol']
+        },
+        {
+          model: Cargo,
+          as: 'cargo',
+          attributes: ['id_cargo', 'nombre_cargo']
+        }
+      ],
+      attributes: { exclude: ['password'] }
     });
 
-    if (!userFound) return [null, "Usuario no encontrado"];
-
-    // Verificar si ya existe otro usuario con el mismo rut o email
-    if (body.rut_usuario || body.email) {
-      const existingUser = await Usuario.findOne({
-        where: {
-          [Op.or]: [
-            body.rut_usuario ? { rut_usuario: body.rut_usuario } : {},
-            body.email ? { email: body.email } : {},
-          ],
-          id_usuario: { [Op.ne]: userFound.id_usuario }
-        }
-      });
-
-      if (existingUser) {
-        return [null, "Ya existe un usuario con el mismo rut o email"];
-      }
-    }
-
-    // Verificar contraseña actual si se envía
-    if (body.password) {
-      const matchPassword = await comparePassword(
-        body.password,
-        userFound.password,
-      );
-      if (!matchPassword) return [null, "La contraseña no coincide"];
-    }
-
-    // Actualizar campos
-    const dataUserUpdate = {
-      nombres: body.nombres,
-      apellidos: body.apellidos,
-      rut_usuario: body.rut_usuario,
-      email: body.email,
-      horas_atrabajar: body.horas_atrabajar,
-      updatedAt: new Date(),
-    };
-
-    if (body.newPassword && body.newPassword.trim() !== "") {
-      dataUserUpdate.password = await encryptPassword(body.newPassword);
-    }
-
-    await userFound.update(dataUserUpdate);
-
-    const { password, ...userUpdated } = userFound.get({ plain: true });
-
-    return [userUpdated, null];
+    const userDataResponse = updatedUser.get({ plain: true });
+    
+    console.log('✅ Usuario actualizado exitosamente');
+    return [userDataResponse, null];
   } catch (error) {
-    console.error("Error al modificar un usuario:", error);
+    console.error("💥 Error al actualizar usuario:", error);
     return [null, "Error interno del servidor"];
   }
 }
 
 // Eliminar usuario
-export async function deleteUserService(query) {
+export async function deleteUserService(rut_usuario) {
   try {
-    const { id, rut, email } = query;
-
-    const userFound = await Usuario.findOne({
-      where: {
-        [Op.or]: [
-          id ? { id_usuario: id } : {},
-          rut ? { rut_usuario: rut } : {},
-          email ? { email: email } : {},
-        ],
-      },
+    console.log('🗑️ Eliminando usuario:', rut_usuario);
+    
+    const user = await Usuario.findOne({ 
+      where: { rut_usuario: rut_usuario }
     });
+    
+    if (!user) {
+      console.log('❌ Usuario no encontrado:', rut_usuario);
+      return "Usuario no encontrado";
+    }
 
-    if (!userFound) return [null, "Usuario no encontrado"];
-
-    // Si tienes un campo rol, puedes validar aquí
-    // if (userFound.rol === "Administrador") {
-    //   return [null, "No se puede eliminar un usuario con rol de administrador"];
-    // }
-
-    await userFound.destroy();
-
-    const { password, ...dataUser } = userFound.get({ plain: true });
-
-    return [dataUser, null];
+    await user.destroy();
+    
+    console.log('✅ Usuario eliminado exitosamente');
+    return null;
   } catch (error) {
-    console.error("Error al eliminar un usuario:", error);
-    return [null, "Error interno del servidor"];
+    console.error("💥 Error al eliminar usuario:", error);
+    return "Error interno del servidor";
   }
 }
 
 // Obtener perfil de usuario
-export async function getProfileService(userId) {
+export async function getProfileService(rut_usuario) {
   try {
-    if (!userId) return [null, "ID de usuario no proporcionado"];
-
-    const userFound = await Usuario.findOne({
-      where: { id_usuario: userId },
+    const user = await Usuario.findOne({
+      where: { rut_usuario: rut_usuario },
+      include: [
+        {
+          model: Rol,
+          as: 'rol',
+          attributes: ['id_rol', 'nombre_rol']
+        },
+        {
+          model: Cargo,
+          as: 'cargo',
+          attributes: ['id_cargo', 'nombre_cargo']
+        }
+      ],
+      attributes: { exclude: ['password'] }
     });
 
-    if (!userFound) return [null, "Usuario no encontrado"];
+    if (!user) return [null, "Usuario no encontrado"];
 
-    const { password, ...userData } = userFound.get({ plain: true });
-
+    const userData = user.get({ plain: true });
     return [userData, null];
   } catch (error) {
-    console.error("Error al obtener el perfil del usuario:", error);
+    console.error("Error al obtener perfil:", error);
     return [null, "Error interno del servidor"];
   }
 }
 
 // Actualizar perfil de usuario
-export async function updateProfileService(userId, body) {
+export async function updateProfileService(rut_usuario, userData) {
   try {
-    if (!userId) return [null, "ID de usuario no proporcionado"];
+    const user = await Usuario.findOne({ 
+      where: { rut_usuario: rut_usuario }
+    });
+    
+    if (!user) return [null, "Usuario no encontrado"];
 
-    // Busca el usuario por su ID
-    const userFound = await Usuario.findOne({
-      where: { id_usuario: userId },
+    if (userData.password) {
+      userData.password = await encryptPassword(userData.password);
+    }
+
+    await user.update(userData);
+    
+    const updatedUser = await Usuario.findOne({
+      where: { rut_usuario: rut_usuario },
+      include: [
+        {
+          model: Rol,
+          as: 'rol',
+          attributes: ['id_rol', 'nombre_rol']
+        },
+        {
+          model: Cargo,
+          as: 'cargo',
+          attributes: ['id_cargo', 'nombre_cargo']
+        }
+      ],
+      attributes: { exclude: ['password'] }
     });
 
-    if (!userFound) return [null, "Usuario no encontrado"];
-
-    // Verifica si ya existe otro usuario con el mismo rut o email
-    if (body.rut_usuario || body.email) {
-      const existingUser = await Usuario.findOne({
-        where: {
-          [Op.or]: [
-            body.rut_usuario ? { rut_usuario: body.rut_usuario } : {},
-            body.email ? { email: body.email } : {},
-          ],
-          id_usuario: { [Op.ne]: userFound.id_usuario }
-        }
-      });
-
-      if (existingUser) {
-        return [null, "Ya existe un usuario con el mismo rut o email"];
-      }
-    }
-
-    // Verificar contraseña actual si se envía
-    if (body.password) {
-      const matchPassword = await comparePassword(
-        body.password,
-        userFound.password,
-      );
-      if (!matchPassword) return [null, "La contraseña no coincide"];
-    }
-
-    // Solo actualizar los campos que se están enviando
-    const dataUserUpdate = {
-      updatedAt: new Date(),
-    };
-
-    if (body.nombres !== undefined) dataUserUpdate.nombres = body.nombres;
-    if (body.apellidos !== undefined) dataUserUpdate.apellidos = body.apellidos;
-    if (body.email !== undefined) dataUserUpdate.email = body.email;
-    if (body.rut_usuario !== undefined) dataUserUpdate.rut_usuario = body.rut_usuario;
-    if (body.horas_atrabajar !== undefined) dataUserUpdate.horas_atrabajar = body.horas_atrabajar;
-
-    if (body.newPassword && body.newPassword.trim() !== "") {
-      dataUserUpdate.password = await encryptPassword(body.newPassword);
-    }
-
-    await userFound.update(dataUserUpdate);
-
-    const { password, ...userUpdated } = userFound.get({ plain: true });
-    return [userUpdated, null];
+    const userDataResponse = updatedUser.get({ plain: true });
+    return [userDataResponse, null];
   } catch (error) {
-    console.error("Error al modificar el perfil del usuario:", error);
+    console.error("Error al actualizar perfil:", error);
     return [null, "Error interno del servidor"];
   }
 }
