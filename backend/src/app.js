@@ -6,6 +6,7 @@ import qrRoutes from './routes/qr.routes.js';
 import attendanceRoutes from './routes/asistencia.routes.js';
 import approvalRoutes from './routes/approval.routes.js';
 import path from 'path';
+
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -15,7 +16,7 @@ const app = express();
 
 // Configuración de CORS
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3001', 'http://localhost:3000'], // Permitir el frontend
+  origin: ['http://localhost:5173', 'http://localhost:3001', 'http://localhost:3000','http://146.83.194.142:1772'], // Permitir el frontend
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
