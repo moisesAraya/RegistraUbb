@@ -10,74 +10,190 @@ import {
 } from "../services/usuario.service.js";
 import {
     userBodyValidation,
+    userUpdateValidation,
 } from "../validations/usuario.validations.js";
-import {
-    handleErrorClient,
-    handleErrorServer,
-    handleSuccess,
-} from "../handlers/responseHandlers.js";
 
 export async function getUserController(req, res) {
   const { id_usuario, rut, email } = req.query;
-    const query = { id: id_usuario, rut, email };
-    try {
-        const [user, error] = await getUserService(query);
-        if (error) return handleErrorClient(res, 404, error);
-        return handleSuccess(res, 200, "Usuario encontrado", user);
-    } catch (error) {
-        console.error("Error en getUserController:", error);
-        return handleErrorServer(res, 500, "Error interno del servidor");
+  const query = { id: id_usuario, rut, email };
+  
+  try {
+    const [user, error] = await getUserService(query);
+    if (error) {
+      return res.status(404).json({
+        success: false,
+        message: error,
+        data: null
+      });
     }
+    
+    return res.status(200).json({
+      success: true,
+      message: "Usuario encontrado",
+      data: user
+    });
+  } catch (error) {
+    console.error("Error en getUserController:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error interno del servidor",
+      data: null
+    });
+  }
 }
+
 export async function getUsersController(req, res) {
-    try {
-        const [users, error] = await getUsersService();
-        if (error) return handleErrorClient(res, 404, error);
-        return handleSuccess(res, 200, "Usuarios encontrados", users);
-    } catch (error) {
-        console.error("Error en getUsersController:", error);
-        return handleErrorServer(res, 500, "Error interno del servidor");
+  try {
+    console.log('🔍 getUsersController ejecutándose...');
+    
+    const [users, error] = await getUsersService();
+    
+    if (error) {
+      console.log('❌ Error del servicio:', error);
+      return res.status(404).json({
+        success: false,
+        message: error,
+        data: null
+      });
     }
+
+    console.log('✅ Usuarios encontrados:', users?.length || 0);
+    
+    return res.status(200).json({
+      success: true,
+      message: "Usuarios encontrados",
+      data: users || []
+    });
+  } catch (error) {
+    console.error("💥 Error en getUsersController:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error interno del servidor",
+      data: null
+    });
+  }
 }
 
 export async function createUserController(req, res) {
-    const userData = req.body;
-    try {
-        const [newUser, error] = await createUserService(userData);
-        if (error) return handleErrorClient(res, 400, error);
-        return handleSuccess(res, 201, "Usuario creado exitosamente", newUser);
-    } catch (error) {
-        console.error("Error al crear usuario:", error);
-        return handleErrorServer(res, 500, "Error interno del servidor");
-    }   
+  const userData = req.body;
+  
+  try {
+    console.log('🆕 Creando usuario:', userData);
+    
+    const { error: validationError } = userBodyValidation.validate(userData);
+    if (validationError) {
+      console.log('❌ Error de validación:', validationError.details[0].message);
+      return res.status(400).json({
+        success: false,
+        message: validationError.details[0].message,
+        data: null
+      });
+    }
+    
+    const [newUser, error] = await createUserService(userData);
+    if (error) {
+      console.log('❌ Error del servicio:', error);
+      return res.status(400).json({
+        success: false,
+        message: error,
+        data: null
+      });
+    }
+    
+    console.log('✅ Usuario creado exitosamente');
+    return res.status(201).json({
+      success: true,
+      message: "Usuario creado exitosamente",
+      data: newUser
+    });
+  } catch (error) {
+    console.error("💥 Error al crear usuario:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error interno del servidor",
+      data: null
+    });
+  }   
 }
 
 export async function updateUserController(req, res) {
-    const { id_usuario } = req.params;
-    const userData = req.body;  
-    try {
-        const { error: validationError } = userBodyValidation.validate(userData);
-        if (validationError) {
-            return handleErrorClient(res, 400, validationError.details[0].message);
-        }
-        const [updatedUser, error] = await updateUserService(id_usuario, userData);
-        if (error) return handleErrorClient(res, 400, error);
-        return handleSuccess(res, 200, "Usuario actualizado exitosamente", updatedUser);
+  const { rut_usuario } = req.params;
+  let userData = req.body;  
+  
+  try {
+    console.log('🔄 Actualizando usuario:', { rut_usuario, userData });
+    
+    // ⭐ FILTRAR rut_usuario del body si viene
+    const { rut_usuario: _, createdAt, updatedAt, rol, cargo, ...cleanUserData } = userData;
+    
+    console.log('📝 Datos limpios para actualizar:', cleanUserData);
+    
+    // Validar solo los datos que se pueden actualizar
+    const { error: validationError } = userUpdateValidation.validate(cleanUserData);
+    if (validationError) {
+      console.log('❌ Error de validación:', validationError.details[0].message);
+      return res.status(400).json({
+        success: false,
+        message: validationError.details[0].message,
+        data: null
+      });
     }
-    catch (error) {
-        console.error("Error al actualizar usuario:", error);
-        return handleErrorServer(res, 500, "Error interno del servidor");
+    
+    const [updatedUser, error] = await updateUserService(rut_usuario, cleanUserData);
+    if (error) {
+      console.log('❌ Error del servicio:', error);
+      return res.status(400).json({
+        success: false,
+        message: error,
+        data: null
+      });
     }
+    
+    console.log('✅ Usuario actualizado exitosamente');
+    return res.status(200).json({
+      success: true,
+      message: "Usuario actualizado exitosamente",
+      data: updatedUser
+    });
+  }
+  catch (error) {
+    console.error("💥 Error al actualizar usuario:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error interno del servidor",
+      data: null
+    });
+  }
 }
 
 export async function deleteUserController(req, res) {
-    const { id_usuario } = req.params;
-    try {
-        const error = await deleteUserService(id_usuario);
-        if (error) return handleErrorClient(res, 400, error);
-        return handleSuccess(res, 200, "Usuario eliminado exitosamente");
-    } catch (error) {
-        console.error("Error al eliminar usuario:", error);
-        return handleErrorServer(res, 500, "Error interno del servidor");
+  const { rut_usuario } = req.params;
+  
+  try {
+    console.log('🗑️ Eliminando usuario:', rut_usuario);
+    
+    const error = await deleteUserService(rut_usuario);
+    if (error) {
+      console.log('❌ Error del servicio:', error);
+      return res.status(400).json({
+        success: false,
+        message: error,
+        data: null
+      });
     }
+    
+    console.log('✅ Usuario eliminado exitosamente');
+    return res.status(200).json({
+      success: true,
+      message: "Usuario eliminado exitosamente",
+      data: null
+    });
+  } catch (error) {
+    console.error("💥 Error al eliminar usuario:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error interno del servidor",
+      data: null
+    });
+  }
 }
