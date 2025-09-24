@@ -11,6 +11,8 @@ class Cargo(models.Model):
     id_cargo = models.AutoField(primary_key=True)
     nombre_cargo = models.CharField(max_length=50)
     horas_trabajar = models.FloatField()
+    createdat = models.DateTimeField(auto_now_add=True)
+    updatedat = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'Cargos'
@@ -22,6 +24,11 @@ class Cargo(models.Model):
 class Rol(models.Model):
     id_rol = models.AutoField(primary_key=True)
     nombre_rol = models.CharField(max_length=100)
+    createdat = models.DateTimeField(auto_now_add=True)
+    updatedat = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'Rols'
 
     def __str__(self):
         return self.nombre_rol
@@ -31,6 +38,11 @@ class Totem(models.Model):
     id_totem = models.AutoField(primary_key=True)
     ubicacion = models.CharField(max_length=100)
     descripcion = models.TextField(blank=True, null=True)
+    createdat = models.DateTimeField(auto_now_add=True)
+    updatedat = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'Totems'
 
     def __str__(self):
         return self.ubicacion
@@ -49,15 +61,14 @@ class Usuario(models.Model):
     password = models.CharField(max_length=128)
     horas_atrabajar = models.FloatField()
     id_rol = models.ForeignKey('Rol', on_delete=models.CASCADE)
+    id_cargo = models.ForeignKey('Cargo', on_delete=models.CASCADE)
+
+    class Meta:
+        db_table = 'Usuarios'
+
 
     def __str__(self):
         return f"{self.nombres} {self.apellidos}"
-
-
-class Cargo_usuario(models.Model):
-    id_cargo = models.ForeignKey('Cargo', on_delete=models.CASCADE)
-    id_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE)
-
 
 
 class QR(models.Model):
@@ -65,7 +76,11 @@ class QR(models.Model):
     estado_qr = models.BooleanField(default=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE)
+    createdat = models.DateTimeField(auto_now_add=True)
+    updatedat = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        db_table = 'Qrs'
 
 
 class Marcaje(models.Model):
@@ -74,7 +89,11 @@ class Marcaje(models.Model):
     hora_salida = models.DateTimeField(blank=True, null=True)
     fecha = models.DateField()
     observacion = models.TextField(blank=True, null=True)
-    id_totem = models.ForeignKey('Totem', on_delete=models.CASCADE)
+    createdat = models.DateTimeField(auto_now_add=True)
+    updatedat = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'Marcajes'
 
 
 class Registro_marcaje(models.Model):
@@ -83,11 +102,19 @@ class Registro_marcaje(models.Model):
     id_totem = models.ForeignKey('Totem', on_delete=models.CASCADE)
     fecha_registro = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        db_table = 'RegistroMarcaje'
+
 
 class Justificacion(models.Model):
-    id_just = models.AutoField(primary_key=True)
+    id_justificacion = models.AutoField(primary_key=True)
     descripcion = models.TextField()
-    estado_just = models.BooleanField(default=False)
+    estado = models.CharField(max_length=255)
+    createdat = models.DateTimeField(auto_now_add=True)
+    updatedat = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'Justificacions'
 
 
 class Asistencia(models.Model):
@@ -95,18 +122,44 @@ class Asistencia(models.Model):
     colacion = models.BooleanField(default=False)
     observacion = models.TextField(blank=True, null=True)
     id_marcaje = models.ForeignKey('Marcaje', on_delete=models.CASCADE)
-    id_just = models.ForeignKey('Justificacion', on_delete=models.CASCADE, blank=True, null=True)
+    id_justificacion = models.ForeignKey('Justificacion', on_delete=models.CASCADE, blank=True, null=True)
+    createdat = models.DateTimeField(auto_now_add=True)
+    updatedat = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'Asistencia'
 
 
 class Notificacion(models.Model):
     id_alerta = models.AutoField(primary_key=True)
     aviso = models.TextField()
     descripcion = models.TextField(blank=True, null=True)
-    fecha_registro = models.DateTimeField(auto_now_add=True)
+    #fecha_registro = models.DateTimeField(auto_now_add=True)
     id_asist = models.ForeignKey('Asistencia', on_delete=models.CASCADE)
+    createdat = models.DateTimeField(auto_now_add=True)
+    updatedat = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'Notificacions'
 
 
 class Registro_just(models.Model):
-    id_just = models.ForeignKey('Justificacion', on_delete=models.CASCADE)
+    id_justificacion = models.ForeignKey('Justificacion', on_delete=models.CASCADE)
     rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE)
     fecha_registro = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'RegistroJust'
+
+
+class Motivo(models.Model):
+    id_motivo = models.AutoField(primary_key=True)
+    descripcion = models.TextField()
+    periodo = models.TimeField()
+    observaciones = models.TextField(blank=True, null=True)
+    id_justificacion = models.ForeignKey('Justificacion', on_delete=models.CASCADE)
+    createdat = models.DateTimeField(auto_now_add=True)
+    updatedat = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'Motivos'
