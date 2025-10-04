@@ -90,3 +90,16 @@ export const registerValidation = Joi.object({
 
   flag_blacklist: Joi.boolean().optional()
 }).unknown(false);
+
+// Nueva validación para el login
+export const loginValidation = Joi.object({
+  email: Joi.string()
+    .email()
+    .required()
+    .custom(domainEmailValidator), // Si tienes validación de dominio
+
+  password: Joi.string()
+    .min(1)
+    .max(26)
+    .required()
+}).unknown(false);

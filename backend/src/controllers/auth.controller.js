@@ -6,10 +6,9 @@ import {
   verifyEmailService
 } from "../services/auth.service.js";
 
-import { authValidation, registerValidation } from "../validations/auth.validation.js";
+import { loginValidation, registerValidation } from "../validations/auth.validation.js";
 
 import TokenService from "../services/token.service.js";
-
 
 import {
   handleErrorClient,
@@ -19,30 +18,44 @@ import {
 
 export async function login(req, res) {
   try {
-    const { body } = req;
-    const { error } = authValidation.validate(body);
+    console.log("=== BACKEND LOGIN DEBUG ===");
+    console.log("Body recibido:", JSON.stringify(req.body, null, 2));
+    
+    const { email, password } = req.body;
+    
+    console.log("Email:", `"${email}"`);
+    console.log("Password:", `"${password}"`);
+    
+    // Validación básica
+    if (!email || !password) {
+      console.log("❌ Campos faltantes");
+      return handleErrorClient(res, 400, "Email y contraseña son requeridos");
+    }
 
+    // Validación con Joi
+    console.log("🔍 Validando con Joi...");
+    const { error } = loginValidation.validate({ email, password });
+    
     if (error) {
-      return handleErrorClient(res, 400, "Error de validación", error.message);
+      console.log("❌ Error de validación:", error.details[0].message);
+      return handleErrorClient(res, 400, "Error de validación", error.details[0].message);
     }
 
-    const [loginResult, errorToken] = await loginService(body);
-
-    if (errorToken) {
-      return handleErrorClient(res, 400, "Error iniciando sesión", errorToken.message || errorToken);
+    console.log("✅ Validación exitosa, llamando al servicio...");
+    
+    // Usar el servicio de login
+    const [result, loginError] = await loginService({ email, password });
+    
+    if (loginError) {
+      console.log("❌ Error del servicio:", loginError);
+      return handleErrorClient(res, 401, "Error de autenticación", loginError);
     }
 
-    const { token, user } = loginResult;
+    console.log("✅ Login exitoso para:", email);
+    handleSuccess(res, 200, "Login exitoso", result);
 
-    res.cookie("jwt", token, {
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000,
-      sameSite: "lax",
-      secure: false,
-    });
-
-    handleSuccess(res, 200, "Inicio de sesión exitoso", { token, user });
   } catch (error) {
+    console.error("💥 Error inesperado en login:", error);
     handleErrorServer(res, 500, error.message);
   }
 }

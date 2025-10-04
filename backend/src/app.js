@@ -32,6 +32,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/approvals", approvalRoutes);
 app.use('/api/qr', qrRoutes);
 app.use('/api/asistencia', attendanceRoutes);
+app.use("api/roles", userRoutes);
+app.use("api/cargos", userRoutes);
 
 // Ruta estática para servir archivos QR (si decides usarla en el futuro)
 app.use('/qrs', express.static(path.join(__dirname, '../public/qrs')));

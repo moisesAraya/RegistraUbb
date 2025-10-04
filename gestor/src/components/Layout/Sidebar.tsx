@@ -1,130 +1,224 @@
 import React from 'react';
-import { 
-  Home, 
-  Clock, 
-  BarChart3, 
-  Users, 
-  Settings, 
-  FileText,
+import { useAuth } from '../Context/AuthContext';
+import {
+  Home,
+  Users,
   Calendar,
-  Shield,
+  Clock,
+  FileText,
+  Settings,
+  LogOut,
+  User,
+  Building2,
   QrCode,
-  User as UserIcon
+  CheckCircle
 } from 'lucide-react';
-import type { User } from '../../types';
+
+interface MenuItem {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+}
 
 interface SidebarProps {
-  user: User;
+  user: any;
   activeTab: string;
   onTabChange: (tab: string) => void;
   isOpen: boolean;
   onClose: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ user, activeTab, onTabChange, isOpen, onClose }) => {
-  const getMenuItems = () => {
-    const commonItems = [
-      { id: 'dashboard', label: 'Dashboard', icon: Home },
-      { id: 'attendance', label: 'Asistencia', icon: Clock },
-      { id: 'qr-codes', label: 'Códigos QR', icon: QrCode },
-    ];
+const Sidebar: React.FC<SidebarProps> = ({ 
+  user, 
+  activeTab, 
+  onTabChange, 
+  isOpen, 
+  onClose 
+}) => {
+  const { logout } = useAuth();
 
-    const roleSpecificItems = {
-      academic: [
-        { id: 'my-reports', label: 'Mis Reportes', icon: FileText },
-        { id: 'justifications', label: 'Justificaciones', icon: Calendar },
-      ],
-      secretary: [
-        { id: 'reports', label: 'Reportes', icon: BarChart3 },
-        { id: 'staff-attendance', label: 'Asistencia Personal', icon: Users },
-      ],
-      department_head: [
-        { id: 'reports', label: 'Reportes', icon: BarChart3 },
-        { id: 'staff-attendance', label: 'Asistencia Personal', icon: Users },
-        { id: 'approvals', label: 'Aprobaciones', icon: Shield },
-      ],
-      administrator: [
-        { id: 'reports', label: 'Reportes', icon: BarChart3 },
-        { id: 'users', label: 'Usuarios', icon: Users },
-        { id: 'settings', label: 'Configuración', icon: Settings },
-      ]
+  // ✅ Mapeo de id_rol a nombre de rol usando el usuario del AuthContext
+  const { user: authUser } = useAuth();
+  
+  const getRoleName = (id_rol: number): string => {
+    const roles: { [key: number]: string } = {
+      1: 'admin',
+      2: 'academic', // Cambié 'profesor' por 'academic' para coincidir con tu lógica
+      3: 'usuario'
     };
-
-    return [...commonItems, ...roleSpecificItems[user.role]];
+    return roles[id_rol] || 'usuario';
   };
 
-  const handleItemClick = (itemId: string) => {
-    onTabChange(itemId);
-    onClose(); // Close sidebar on mobile after selection
+  // Menú base para todos los usuarios
+  const baseMenuItems: MenuItem[] = [
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: <Home className="h-5 w-5" />
+    }
+  ];
+
+  // Menús específicos por rol usando el sistema actual de tu app
+  const roleSpecificItems: { [key: string]: MenuItem[] } = {
+    admin: [
+      {
+        id: 'staff-attendance',
+        label: 'Asistencia Personal',
+        icon: <Users className="h-5 w-5" />
+      },
+      {
+        id: 'users',
+        label: 'Gestión Usuarios',
+        icon: <User className="h-5 w-5" />
+      },
+      {
+        id: 'qr-codes',
+        label: 'Códigos QR',
+        icon: <QrCode className="h-5 w-5" />
+      },
+      {
+        id: 'reports',
+        label: 'Reportes',
+        icon: <FileText className="h-5 w-5" />
+      },
+      {
+        id: 'justifications',
+        label: 'Justificaciones',
+        icon: <FileText className="h-5 w-5" />
+      },
+      {
+        id: 'approvals',
+        label: 'Aprobaciones',
+        icon: <CheckCircle className="h-5 w-5" />
+      },
+      {
+        id: 'settings',
+        label: 'Configuración',
+        icon: <Settings className="h-5 w-5" />
+      }
+    ],
+    academic: [
+      {
+        id: 'attendance',
+        label: 'Mi Asistencia',
+        icon: <Clock className="h-5 w-5" />
+      },
+      {
+        id: 'my-reports',
+        label: 'Mis Reportes',
+        icon: <FileText className="h-5 w-5" />
+      },
+      {
+        id: 'justifications',
+        label: 'Justificaciones',
+        icon: <FileText className="h-5 w-5" />
+      }
+    ],
+    usuario: [
+      {
+        id: 'attendance',
+        label: 'Mi Asistencia',
+        icon: <Clock className="h-5 w-5" />
+      }
+    ]
   };
+
+  const getMenuItems = (): MenuItem[] => {
+    if (!authUser) return baseMenuItems;
+
+    // ✅ Obtener el nombre del rol basado en id_rol del AuthContext
+    const userRole = getRoleName(authUser.id_rol);
+    console.log('ID Rol del usuario:', authUser.id_rol);
+    console.log('Nombre del rol mapeado:', userRole);
+    
+    // ✅ Validar que existe el rol y que tiene items
+    const roleItems = roleSpecificItems[userRole] || [];
+    
+    return [...baseMenuItems, ...roleItems];
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+    }
+  };
+
+  const handleTabClick = (tabId: string) => {
+    onTabChange(tabId);
+    onClose(); // Cerrar sidebar en móviles después de seleccionar
+  };
+
+  const menuItems = getMenuItems();
 
   return (
     <>
-      {/* Mobile overlay */}
+      {/* Overlay para móviles */}
       {isOpen && (
         <div 
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={onClose}
         />
       )}
       
       {/* Sidebar */}
-      <nav className={`
-        fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white shadow-lg lg:shadow-sm 
-        border-r border-gray-200 transform transition-transform duration-300 ease-in-out
-        ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      <aside className={`
+        fixed top-0 left-0 z-50 h-full w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out
+        lg:translate-x-0 lg:static lg:z-auto
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        {/* Mobile header */}
-        <div className="lg:hidden flex items-center justify-between p-4 border-b border-gray-200">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <UserIcon className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">SisAsistencia</h2>
-            </div>
-          </div>
-        </div>
-
-        {/* User info on mobile */}
-        <div className="lg:hidden p-4 border-b border-gray-200 bg-gray-50">
+        {/* Header del sidebar */}
+        <div className="p-6 border-b border-gray-200 mt-16 lg:mt-0">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-              <UserIcon className="w-5 h-5 text-blue-600" />
+            <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+              <User className="h-6 w-6 text-white" />
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-900">{user.name}</p>
-              <p className="text-xs text-gray-500">
-                {user.role === 'academic' ? 'Académico' :
-                 user.role === 'secretary' ? 'Secretaría' :
-                 user.role === 'department_head' ? 'Jefe de Departamento' :
-                 'Administrador'}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {authUser?.nombres} {authUser?.apellidos}
+              </p>
+              <p className="text-xs text-gray-500 truncate">
+                {authUser?.email}
+              </p>
+              <p className="text-xs text-blue-600 font-medium">
+                {getRoleName(authUser?.id_rol || 3).toUpperCase()}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Navigation menu */}
-        <div className="p-4 space-y-2 overflow-y-auto h-full pb-20 lg:pb-4">
-          {getMenuItems().map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleItemClick(item.id)}
-                className={`w-full flex items-center space-x-3 px-3 py-3 lg:py-2 rounded-lg text-left transition-colors ${
-                  activeTab === item.id
-                    ? 'bg-blue-50 text-blue-600 border-r-2 border-blue-600'
-                    : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                <span className="font-medium">{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+        {/* Navigation */}
+        <nav className="flex-1 px-4 py-6 space-y-2 h-full overflow-y-auto">
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => handleTabClick(item.id)}
+              className={`
+                flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors w-full text-left
+                ${activeTab === item.id
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }
+              `}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </button>
+          ))}
+          
+          {/* Logout button */}
+          <div className="pt-4 mt-4 border-t border-gray-200">
+            <button
+              onClick={handleLogout}
+              className="flex items-center space-x-3 px-3 py-2 w-full rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+            >
+              <LogOut className="h-5 w-5" />
+              <span>Cerrar Sesión</span>
+            </button>
+          </div>
+        </nav>
+      </aside>
     </>
   );
 };

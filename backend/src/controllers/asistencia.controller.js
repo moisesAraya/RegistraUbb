@@ -1,4 +1,3 @@
-// filepath: c:\Users\holak\OneDrive\Escritorio\Proyectos\registraubb\RegistraUbb\backend\src\controllers\asistencia.controller.js
 "use strict";
 
 import qrService from '../services/qr.service.js';

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from './hooks/useAuth';
-import { useAttendance } from './hooks/useAttendance';
+import { AuthProvider, useAuth } from './components/Context/AuthContext';
 import LoginForm from './components/Auth/LoginForm';
 import Header from './components/Layout/Header';
 import Sidebar from './components/Layout/Sidebar';
@@ -14,11 +13,21 @@ import JustificationManager from './components/Justifications/JustificationManag
 import UserManagement from './components/Admin/UserManagement';
 import ApprovalManager from './components/Admin/ApprovalManager';
 
-function App() {
-  const { user, loading: authLoading, login, logout } = useAuth();
-  const { attendanceRecords, dashboardStats, loading: attendanceLoading, checkIn } = useAttendance();
+// Componente principal con la lógica de la aplicación
+const AppContent: React.FC = () => {
+  const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Estados para simulación de datos
+  const [attendanceRecords] = useState([]);
+  const [dashboardStats] = useState({
+    totalDays: 0,
+    presentDays: 0,
+    absentDays: 0,
+    pendingJustifications: 0
+  });
+  const [attendanceLoading] = useState(false);
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
@@ -39,19 +48,30 @@ function App() {
     );
   }
 
-  if (!user) {
-    return <LoginForm onLogin={login} />;
+  if (!isAuthenticated || !user) {
+    return <LoginForm />;
   }
+
+  // Convertir usuario del contexto al formato esperado por tus componentes
+  const userForComponents = {
+    id: user.rut_usuario,
+    name: `${user.nombres} ${user.apellidos}`,
+    email: user.email,
+    role: user.id_rol === 1 ? 'admin' : 'academic',
+    department: 'Ingeniería',
+    rut: user.rut_usuario,
+    horas_atrabajar: user.horas_atrabajar
+  };
 
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard user={user} stats={dashboardStats} />;
+        return <Dashboard user={userForComponents} stats={dashboardStats} />;
       
       case 'attendance':
         return (
           <div className="space-y-6">
-            {user.role === 'academic' && (
+            {userForComponents.role === 'academic' && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="font-medium text-blue-900 mb-2">Registro Manual de Asistencia</h4>
                 <p className="text-sm text-blue-800 mb-3">
@@ -91,9 +111,7 @@ function App() {
         );
       
       case 'users':
-        return (
-          <UserManagement />
-        );
+        return <UserManagement />;
       
       case 'settings':
         return (
@@ -108,31 +126,27 @@ function App() {
         );
       
       case 'justifications':
-        return (
-          <JustificationManager />
-        );
+        return <JustificationManager />;
       
       case 'approvals':
-        return (
-          <ApprovalManager />
-        );
+        return <ApprovalManager />;
       
       default:
-        return <Dashboard user={user} stats={dashboardStats} />;
+        return <Dashboard user={userForComponents} stats={dashboardStats} />;
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header 
-        user={user} 
+        user={userForComponents} 
         onLogout={logout} 
         isSidebarOpen={isSidebarOpen}
         onToggleSidebar={toggleSidebar}
       />
       <div className="flex">
         <Sidebar 
-          user={user} 
+          user={userForComponents} 
           activeTab={activeTab} 
           onTabChange={setActiveTab}
           isOpen={isSidebarOpen}
@@ -149,6 +163,15 @@ function App() {
         </main>
       </div>
     </div>
+  );
+};
+
+// Componente wrapper con el AuthProvider
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
