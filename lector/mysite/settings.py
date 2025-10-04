@@ -73,14 +73,17 @@ WSGI_APPLICATION = 'mysite.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+BACKEND_URL = "http://146.83.194.142:1772/api/"
+
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'RegistraUbb',
+        'NAME': 'postgres',
         'USER': 'postgres',
-        'PASSWORD': 'holiwis',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'PASSWORD': 'andrea2025',
+        'HOST': '146.83.194.142',
+        'PORT': '1774',
     }
 }
 
