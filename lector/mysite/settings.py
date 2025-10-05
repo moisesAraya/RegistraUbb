@@ -128,3 +128,54 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# URL del backend para sincronización
+BACKEND_URL = "http://146.83.194.142:1772"
+
+# ==========================================
+# CONFIGURACIONES DE SEGURIDAD PARA PRODUCCIÓN
+# ==========================================
+
+import os
+
+# Solo aplicar configuraciones de seguridad en producción
+if not DEBUG:  # Cuando DEBUG=False (producción)
+    
+    # Configuraciones HTTPS
+    SECURE_SSL_REDIRECT = True  # Redirigir HTTP a HTTPS
+    SECURE_HSTS_SECONDS = 31536000  # 1 año de HSTS
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    
+    # Cookies seguras
+    SESSION_COOKIE_SECURE = True  # Cookies de sesión solo por HTTPS
+    CSRF_COOKIE_SECURE = True    # Cookies CSRF solo por HTTPS
+    
+    # Hosts permitidos (reemplaza con tu dominio real)
+    ALLOWED_HOSTS = [
+        'tu-dominio.com',
+        'www.tu-dominio.com', 
+        '146.83.194.142',  # Tu IP del servidor
+    ]
+    
+else:  # Desarrollo (DEBUG=True)
+    
+    # En desarrollo, permitir localhost
+    ALLOWED_HOSTS = [
+        'localhost',
+        '127.0.0.1',
+        '0.0.0.0',
+    ]
+
+# ==========================================
+# SECRET_KEY MEJORADA
+# ==========================================
+
+# Para producción, usa una SECRET_KEY generada específicamente
+# Puedes generar una nueva en: https://djecrety.ir/
+# O usar: python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
+
+# En desarrollo mantienes la actual, en producción debes cambiarla
+if not DEBUG:
+    # ⚠️ CAMBIAR ESTA SECRET_KEY EN PRODUCCIÓN ⚠️
+    SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'tu-secret-key-super-segura-de-al-menos-50-caracteres-aqui')

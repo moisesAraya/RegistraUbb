@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  django-app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=mysite.production_settings
+      - DB_NAME=postgres
+      - DB_USER=postgres
+      - DB_PASSWORD=andrea2025
+      - DB_HOST=146.83.194.142
+      - DB_PORT=1774
+    depends_on:
+      - db
+    volumes:
+      - ./staticfiles:/app/staticfiles
+      - ./logs:/var/log/django
+
+  db:
+    image: postgres:14
+    environment:
+      - POSTGRES_DB=RegistraUbb
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=holiwis
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "1774:5432"
+
+volumes:
+  postgres_data:
