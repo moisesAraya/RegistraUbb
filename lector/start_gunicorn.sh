@@ -1,0 +1,9 @@
+#!/bin/bash
+cd /root/RegistraUbb/lector
+source venv/bin/activate
+exec gunicorn mysite.wsgi:application \
+  --bind 0.0.0.0:1778 \
+  --workers 3 \
+  --env DJANGO_SETTINGS_MODULE=mysite.production_settings \
+  --access-logfile - \
+  --error-logfile -
