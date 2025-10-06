@@ -16,10 +16,22 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from django.conf import settings
+from django.conf.urls.static import static
+from django.http import HttpResponse
 from modlector import views
+
+def favicon_view(request):
+    """Vista simple para manejar favicon.ico"""
+    return HttpResponse(status=204)  # No Content
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('hello/', views.index),
     path('api/usuarios/', views.listar_usuarios, name='listar_usuarios'),
+    path('favicon.ico', favicon_view),  # Manejar favicon
 ]
+
+# Servir archivos estáticos en desarrollo
+if settings.DEBUG:
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
