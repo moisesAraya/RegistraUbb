@@ -19,11 +19,25 @@ from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.cache import never_cache
 from modlector import views
 
+@csrf_exempt
+@never_cache
 def favicon_view(request):
-    """Vista simple para manejar favicon.ico"""
-    return HttpResponse(status=204)  # No Content
+    """Vista simple para manejar favicon.ico sin autenticación"""
+    # Crear un favicon transparente de 1x1 pixel
+    favicon_data = (
+        b'\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00(\x00\x00\x00'
+        b'\x16\x00\x00\x00(\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x01\x00'
+        b'\x01\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+        b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff'
+        b'\xff\x00\x00\x00\x00\x00'
+    )
+    response = HttpResponse(favicon_data, content_type='image/x-icon')
+    response['Cache-Control'] = 'max-age=86400'  # Cache por 1 día
+    return response
 
 urlpatterns = [
     path('admin/', admin.site.urls),
