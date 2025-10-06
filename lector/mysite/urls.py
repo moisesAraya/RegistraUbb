@@ -21,29 +21,25 @@ from django.conf.urls.static import static
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_http_methods
 from modlector import views
 
 @csrf_exempt
 @never_cache
+@require_http_methods(["GET", "HEAD"])
 def favicon_view(request):
-    """Vista simple para manejar favicon.ico sin autenticación"""
-    # Crear un favicon transparente de 1x1 pixel
-    favicon_data = (
-        b'\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00(\x00\x00\x00'
-        b'\x16\x00\x00\x00(\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x01\x00'
-        b'\x01\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-        b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff'
-        b'\xff\x00\x00\x00\x00\x00'
+    """Vista para manejar favicon.ico sin autenticación"""
+    # Retornar un favicon transparente simple
+    return HttpResponse(
+        b'\x00\x00\x01\x00\x01\x00\x10\x10\x00\x00\x01\x00\x08\x00h\x05\x00\x00\x16\x00\x00\x00(\x00\x00\x00\x10\x00\x00\x00 \x00\x00\x00\x01\x00\x08\x00\x00\x00\x00\x00@\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00',
+        content_type='image/vnd.microsoft.icon'
     )
-    response = HttpResponse(favicon_data, content_type='image/x-icon')
-    response['Cache-Control'] = 'max-age=86400'  # Cache por 1 día
-    return response
 
 urlpatterns = [
+    path('favicon.ico', favicon_view),  # Mover al principio para que tenga prioridad
     path('admin/', admin.site.urls),
     path('hello/', views.index),
     path('api/usuarios/', views.listar_usuarios, name='listar_usuarios'),
-    path('favicon.ico', favicon_view),  # Manejar favicon
 ]
 
 # Servir archivos estáticos en desarrollo

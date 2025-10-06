@@ -12,22 +12,25 @@ services:
       - DB_PASSWORD=andrea2025
       - DB_HOST=146.83.194.142
       - DB_PORT=1774
-    depends_on:
-      - db
+    # Remover depends_on ya que usas BD externa
+    # depends_on:
+    #   - db
     volumes:
       - ./staticfiles:/app/staticfiles
       - ./logs:/var/log/django
 
-  db:
-    image: postgres:14
-    environment:
-      - POSTGRES_DB=RegistraUbb
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=holiwis
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "1774:5432"
+# Comentar el servicio db ya que usas BD externa
+# Si quieres usar BD local, descomenta esto y cambia DB_HOST=db en django-app
+#  db:
+#    image: postgres:14
+#    environment:
+#      - POSTGRES_DB=postgres
+#      - POSTGRES_USER=postgres
+#      - POSTGRES_PASSWORD=andrea2025
+#    volumes:
+#      - postgres_data:/var/lib/postgresql/data
+#    ports:
+#      - "1774:5432"
 
 volumes:
   postgres_data:
