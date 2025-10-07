@@ -23,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-g-xo9*6zdqi0+39a!!*(kb$=$+d*bmt@grp1n4*b_h)#6z9c1q'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = []
 
@@ -41,8 +41,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'modlector.middleware.FaviconMiddleware',  # Agregar al inicio
+    'modlector.middleware.FaviconMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -131,6 +132,17 @@ STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+]
+
+# Usar storage estándar en desarrollo, comprimido en producción
+if DEBUG:
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+else:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -159,11 +171,13 @@ if not DEBUG:  # Cuando DEBUG=False (producción)
     CSRF_COOKIE_SECURE = True    # Cookies CSRF solo por HTTPS
     
     # Hosts permitidos (reemplaza con tu dominio real)
-    ALLOWED_HOSTS = [
-        'tu-dominio.com',
-        'www.tu-dominio.com', 
-        '146.83.194.142',  # Tu IP del servidor
+    ALLOWED_HOSTS = [ 
+        '146.83.194.142',
     ]
+    
+    # Configuración mejorada de WhiteNoise para producción
+    WHITENOISE_USE_FINDERS = False  # Desactivar en producción
+    WHITENOISE_AUTOREFRESH = False  # Desactivar en producción
     
 else:  # Desarrollo (DEBUG=True)
     
@@ -173,6 +187,10 @@ else:  # Desarrollo (DEBUG=True)
         '127.0.0.1',
         '0.0.0.0',
     ]
+    
+    # Configuración de WhiteNoise para desarrollo
+    WHITENOISE_USE_FINDERS = True
+    WHITENOISE_AUTOREFRESH = True
 
 # ==========================================
 # SECRET_KEY MEJORADA
@@ -180,7 +198,7 @@ else:  # Desarrollo (DEBUG=True)
 
 # Para producción, usa una SECRET_KEY generada específicamente
 # Puedes generar una nueva en: https://djecrety.ir/
-# O usar: python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
+# O usar: python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_secret_key())'
 
 # En desarrollo mantienes la actual, en producción debes cambiarla
 if not DEBUG:
