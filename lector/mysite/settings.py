@@ -161,14 +161,14 @@ import os
 if not DEBUG:  # Cuando DEBUG=False (producción)
     
     # Configuraciones HTTPS
-    SECURE_SSL_REDIRECT = True  # Redirigir HTTP a HTTPS
-    SECURE_HSTS_SECONDS = 31536000  # 1 año de HSTS
+    SECURE_SSL_REDIRECT = False  # Redirigir HTTP a HTTPS
+    SECURE_HSTS_SECONDS = 0  # 1 año de HSTS
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     
     # Cookies seguras
-    SESSION_COOKIE_SECURE = True  # Cookies de sesión solo por HTTPS
-    CSRF_COOKIE_SECURE = True    # Cookies CSRF solo por HTTPS
+    SESSION_COOKIE_SECURE = False  # Cookies de sesión solo por HTTPS
+    CSRF_COOKIE_SECURE = False    # Cookies CSRF solo por HTTPS
     
     # Hosts permitidos (reemplaza con tu dominio real)
     ALLOWED_HOSTS = [ 

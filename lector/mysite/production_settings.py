@@ -33,6 +33,18 @@ DATABASES = {
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATIC_URL = '/static/'
 
+# DESACTIVAR todas las configuraciones HTTPS/SSL
+SECURE_SSL_REDIRECT = False  # No redirigir a HTTPS
+SECURE_HSTS_SECONDS = 0      # Desactivar HSTS
+SESSION_COOKIE_SECURE = False  # Cookies por HTTP
+CSRF_COOKIE_SECURE = False    # CSRF por HTTP
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# Permitir HTTP
+ALLOWED_HOSTS = ['146.83.194.142', 'localhost', '127.0.0.1']
+
+
 # Logging para producción
 LOGGING = {
     'version': 1,
