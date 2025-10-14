@@ -10,70 +10,63 @@ import TokenService from "./token.service.js";
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 3; // en minutos
 
-export async function loginService(user) {
+export async function loginService({ rut_usuario, password }) {
   try {
-    const { email, password } = user;
-
-    const createErrorMessage = (dataInfo, message) => ({
-      dataInfo,
-      message
-    });
-
-    // ✅ Usando los alias correctos: 'rol' y 'cargo'
-    const userFound = await Usuario.findOne({ 
-      where: { email: email.trim().toLowerCase() },
+    // Buscar usuario por RUT en lugar de email
+    const user = await Usuario.findOne({
+      where: { rut_usuario },
       include: [
         {
           model: Rol,
-          as: 'rol', // 👈 Alias correcto
+          as: 'rol',
           attributes: ['id_rol', 'nombre_rol']
         },
         {
           model: Cargo,
-          as: 'cargo', // 👈 Alias correcto
+          as: 'cargo',
           attributes: ['id_cargo', 'nombre_cargo']
         }
       ]
     });
 
-    if (!userFound) {
-      return [null, createErrorMessage("email", "El email es incorrecto")];
+    if (!user) {
+      return [null, "Usuario no encontrado"];
     }
 
-    const isMatch = await comparePassword(password, userFound.password);
-
-    if (!isMatch) {
-      return [null, createErrorMessage("password", "La contraseña es incorrecta")];
+    // Verificar contraseña
+    const isPasswordValid = await comparePassword(password, user.password);
+    
+    if (!isPasswordValid) {
+      return [null, "Contraseña incorrecta"];
     }
 
-    const payload = {
-      rut_usuario: userFound.rut_usuario,
-      nombres: userFound.nombres,
-      apellidos: userFound.apellidos,
-      email: userFound.email,
-      id_rol: userFound.id_rol,
-      id_cargo: userFound.id_cargo,
-    };
+    // Generar token JWT
+    const token = TokenService.generateToken({
+      rut_usuario: user.rut_usuario,
+      nombres: user.nombres,
+      apellidos: user.apellidos,
+      email: user.email,
+      id_rol: user.id_rol,
+      id_cargo: user.id_cargo
+    });
 
-    const accessToken = TokenService.generateToken(payload);
+    return [{
+      user: {
+        rut_usuario: user.rut_usuario,
+        nombres: user.nombres,
+        apellidos: user.apellidos,
+        email: user.email,
+        horas_atrabajar: user.horas_atrabajar,
+        id_rol: user.id_rol,
+        id_cargo: user.id_cargo,
+        rol: user.rol,
+        cargo: user.cargo
+      },
+      token
+    }, null];
 
-    // ✅ userData con las relaciones usando los alias correctos
-    const userData = {
-      rut_usuario: userFound.rut_usuario,
-      nombres: userFound.nombres,
-      apellidos: userFound.apellidos,
-      email: userFound.email,
-      horas_atrabajar: userFound.horas_atrabajar,
-      id_rol: userFound.id_rol,
-      id_cargo: userFound.id_cargo,
-      rol: userFound.rol,     // 👈 Alias 'rol' (minúscula)
-      cargo: userFound.cargo  // 👈 Alias 'cargo' (minúscula)
-    };
-
-    return [{ token: accessToken, user: userData }, null];
   } catch (error) {
-    console.error("Error al iniciar sesión:", error);
-    return [null, "Error interno del servidor"];
+    return [null, error.message];
   }
 }
 

@@ -5,6 +5,7 @@ import authRoutes from './routes/auth.routes.js';
 import qrRoutes from './routes/qr.routes.js';
 import attendanceRoutes from './routes/asistencia.routes.js';
 import approvalRoutes from './routes/approval.routes.js';
+import qrAuthRoutes from './routes/qr-auth.routes.js';
 import path from 'path';
 
 import { fileURLToPath } from 'url';
@@ -32,9 +33,9 @@ app.use("/api/auth", authRoutes);
 app.use("/api/approvals", approvalRoutes);
 app.use('/api/qr', qrRoutes);
 app.use('/api/asistencia', attendanceRoutes);
-app.use("api/roles", userRoutes);
-app.use("api/cargos", userRoutes);
-
+app.use("/api/roles", userRoutes);
+app.use("/api/cargos", userRoutes);
+app.use("/api/qr-auth", qrAuthRoutes);
 // Ruta estática para servir archivos QR (si decides usarla en el futuro)
 app.use('/qrs', express.static(path.join(__dirname, '../public/qrs')));
 

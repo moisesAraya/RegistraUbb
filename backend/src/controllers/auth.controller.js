@@ -1,4 +1,5 @@
 "use strict";
+// filepath: c:\Users\holak\OneDrive\Escritorio\Proyectos\registraubb\RegistraUbb\backend\src\controllers\auth.controller.js
 import {
   loginService,
   registerService,
@@ -9,6 +10,8 @@ import {
 import { loginValidation, registerValidation } from "../validations/auth.validation.js";
 
 import TokenService from "../services/token.service.js";
+
+import { unlockAccountService } from "../services/qr-auth.service.js";
 
 import {
   handleErrorClient,
@@ -21,20 +24,20 @@ export async function login(req, res) {
     console.log("=== BACKEND LOGIN DEBUG ===");
     console.log("Body recibido:", JSON.stringify(req.body, null, 2));
     
-    const { email, password } = req.body;
+    const { rut_usuario, password } = req.body;
     
-    console.log("Email:", `"${email}"`);
+    console.log("RUT:", `"${rut_usuario}"`);
     console.log("Password:", `"${password}"`);
     
     // Validación básica
-    if (!email || !password) {
+    if (!rut_usuario || !password) {
       console.log("❌ Campos faltantes");
-      return handleErrorClient(res, 400, "Email y contraseña son requeridos");
+      return handleErrorClient(res, 400, "RUT y contraseña son requeridos");
     }
 
-    // Validación con Joi
+    // Validación con Joi (actualizar para RUT)
     console.log("🔍 Validando con Joi...");
-    const { error } = loginValidation.validate({ email, password });
+    const { error } = loginValidation.validate({ rut_usuario, password });
     
     if (error) {
       console.log("❌ Error de validación:", error.details[0].message);
@@ -43,15 +46,24 @@ export async function login(req, res) {
 
     console.log("✅ Validación exitosa, llamando al servicio...");
     
-    // Usar el servicio de login
-    const [result, loginError] = await loginService({ email, password });
+    // Usar el servicio de login con RUT
+    const [result, loginError] = await loginService({ rut_usuario, password });
     
     if (loginError) {
       console.log("❌ Error del servicio:", loginError);
       return handleErrorClient(res, 401, "Error de autenticación", loginError);
     }
 
-    console.log("✅ Login exitoso para:", email);
+    console.log("✅ Login exitoso para RUT:", rut_usuario);
+    
+    // Desbloquear la cuenta automáticamente tras login exitoso
+    try {
+      await unlockAccountService(rut_usuario);
+      console.log("✅ Cuenta desbloqueada automáticamente tras login exitoso");
+    } catch (unlockError) {
+      console.log("⚠️ Error desbloqueando cuenta (no crítico):", unlockError);
+    }
+    
     handleSuccess(res, 200, "Login exitoso", result);
 
   } catch (error) {

@@ -256,3 +256,98 @@ export async function getCargosController(req, res) {
     });
   }
 }
+
+// Actualizar usuario (incluyendo PIN)
+export async function updateUser(req, res) {
+  try {
+    const { rut } = req.params;
+    const updateData = req.body;
+
+    console.log('=== UPDATE USER BACKEND ===');
+    console.log('RUT:', rut);
+    console.log('Data recibida:', JSON.stringify(updateData, null, 2));
+
+    const user = await Usuario.findOne({ where: { rut_usuario: rut } });
+    
+    if (!user) {
+      return handleErrorClient(res, 404, "Usuario no encontrado");
+    }
+
+    // Si se está actualizando la contraseña, encriptarla
+    if (updateData.password && updateData.password.trim() !== '') {
+      updateData.password = await encryptPassword(updateData.password);
+    } else {
+      delete updateData.password;
+    }
+
+    // Validar PIN si se está actualizando
+    if (updateData.pin !== undefined) {
+      const pinInt = parseInt(updateData.pin);
+      if (!pinInt || pinInt.toString().length !== 4 || !/^\d{4}$/.test(pinInt.toString())) {
+        return handleErrorClient(res, 400, "El PIN debe ser de 4 dígitos numéricos");
+      }
+      updateData.pin = pinInt;
+    }
+
+    // Validar campos requeridos
+    const { nombres, apellidos, email, horas_atrabajar, id_rol, id_cargo } = updateData;
+    
+    if (!nombres || !apellidos || !email || !horas_atrabajar || !id_rol || !id_cargo) {
+      return handleErrorClient(res, 400, "Todos los campos son requeridos");
+    }
+
+    // Validar email único
+    const existingEmailUser = await Usuario.findOne({ 
+      where: { 
+        email: email,
+        rut_usuario: { [Usuario.sequelize.Sequelize.Op.ne]: rut }
+      } 
+    });
+    
+    if (existingEmailUser) {
+      return handleErrorClient(res, 400, "El email ya está en uso por otro usuario");
+    }
+
+    // Validar PIN único si se está actualizando
+    if (updateData.pin) {
+      const existingPinUser = await Usuario.findOne({
+        where: {
+          pin: updateData.pin,
+          rut_usuario: { [Usuario.sequelize.Sequelize.Op.ne]: rut }
+        }
+      });
+
+      if (existingPinUser) {
+        return handleErrorClient(res, 400, "El PIN ya está en uso por otro usuario");
+      }
+    }
+
+    // Actualizar usuario
+    await user.update(updateData);
+
+    // Obtener usuario actualizado con relaciones
+    const updatedUser = await Usuario.findOne({
+      where: { rut_usuario: rut },
+      include: [
+        {
+          model: Rol,
+          as: 'rol',
+          attributes: ['id_rol', 'nombre_rol']
+        },
+        {
+          model: Cargo,
+          as: 'cargo',
+          attributes: ['id_cargo', 'nombre_cargo']
+        }
+      ],
+      attributes: { exclude: ['password'] } // Excluir password pero incluir pin para admin
+    });
+
+    console.log('✅ Usuario actualizado exitosamente');
+    handleSuccess(res, 200, "Usuario actualizado exitosamente", updatedUser);
+
+  } catch (error) {
+    console.error('💥 Error actualizando usuario:', error);
+    handleErrorServer(res, 500, error.message);
+  }
+}
