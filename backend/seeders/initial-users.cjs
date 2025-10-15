@@ -12,6 +12,7 @@ module.exports = {
         apellidos: "Gutierrez Bunster",
         email: "tgutierr@ubiobio.cl",
         password: await bcrypt.hash("82581", 10),
+        pin: 8258,
         horas_atrabajar: 44,
         id_rol: 2,
         id_cargo: 1,
@@ -22,18 +23,18 @@ module.exports = {
         apellidos: "Araya Guzman",
         email: "saraya@ubiobio.cl",
         password: await bcrypt.hash("99952", 10),
+        pin: 9995,
         horas_atrabajar: 44,
         id_rol: 1,
         id_cargo: 2,
       },
-      /* Profe Alejandro puede ser 14.371.917-0	o 
-      12.264.363-8 , preguntar*/
       {
         rut_usuario: "14273436-2",
         nombres: "Alejanda Andrea",
         apellidos: "Segura Navarrete",
         email: "asegura@ubiobio.cl",
         password: await bcrypt.hash("34362", 10),
+        pin: 3436,
         horas_atrabajar: 44,
         id_rol: 2,
         id_cargo: 1,
@@ -44,6 +45,7 @@ module.exports = {
         apellidos: "Rubio Manzano",
         email: "clrubio@ubiobio.cl",
         password: await bcrypt.hash("56559", 10),
+        pin: 5655,
         horas_atrabajar: 44,
         id_rol: 2,
         id_cargo: 1,
@@ -54,6 +56,7 @@ module.exports = {
         apellidos: "Vidal Castro",
         email: "cvidal@ubiobio.cl",
         password: await bcrypt.hash("99061", 10),
+        pin: 9906,
         horas_atrabajar: 44,
         id_rol: 2,
         id_cargo: 1,
@@ -64,6 +67,7 @@ module.exports = {
         apellidos: "Caniupán Marileo",
         email: "mcaniupan@ubiobio.cl",
         password: await bcrypt.hash("29691", 10),
+        pin: 2969,
         horas_atrabajar: 44,
         id_rol: 2,
         id_cargo: 1,
@@ -74,6 +78,7 @@ module.exports = {
         apellidos: "Rojas Contreras",
         email: "krojas@ubiobio.cl",
         password: await bcrypt.hash("89748", 10),
+        pin: 8974,
         horas_atrabajar: 44,
         id_rol: 2,
         id_cargo: 1,
@@ -84,6 +89,7 @@ module.exports = {
         apellidos: "Cabrera Crot",
         email: "lcabrera@ubiobio.cl",
         password: await bcrypt.hash("39334", 10),
+        pin: 3933,
         horas_atrabajar: 44,
         id_rol: 2,
         id_cargo: 1,
@@ -94,6 +100,7 @@ module.exports = {
         apellidos: "Torres Avilés",
         email: "rtorres@ubiobio.cl",
         password: await bcrypt.hash("24318", 10),
+        pin: 2431,
         horas_atrabajar: 44,
         id_rol: 2,
         id_cargo: 1,
@@ -104,28 +111,26 @@ module.exports = {
         apellidos: "Parra Márquez",
         email: "jefecarrconce-icinf@ubiobio.cl",
         password: await bcrypt.hash("19985", 10),
+        pin: 1998,
         horas_atrabajar: 44,
         id_rol: 2,
         id_cargo: 1,
       },
-
-
-      /*{
-        rut_usuario: "",
-        nombres: "",
-        apellidos: "",
-        email: "",
-        password: await bcrypt.hash("", 10),
-        horas_atrabajar: 44,
-        id_rol: 2,
-        id_cargo: 1,
-      },*/
-      
     ];
 
-    return queryInterface.bulkInsert("Usuarios", usuarios, {
-      ignoreDuplicates: true,
-    });
+    for (const usuario of usuarios) {
+      try {
+        await queryInterface.bulkInsert("Usuarios", [usuario], {
+          ignoreDuplicates: true,
+        });
+        console.log(`✅ Usuario insertado/actualizado: ${usuario.rut_usuario}`);
+      } catch (error) {
+        console.log(
+          `⚠️ Error con usuario ${usuario.rut_usuario}:`,
+          error.message
+        );
+      }
+    }
   },
 
   down: async (queryInterface, Sequelize) => {

@@ -1,130 +1,385 @@
-import React from 'react';
-import { 
-  Home, 
-  Clock, 
-  BarChart3, 
-  Users, 
-  Settings, 
-  FileText,
+import React, { useState } from 'react';
+import { useAuth } from '../Context/AuthContext';
+import {
+  Home,
+  Users,
   Calendar,
-  Shield,
+  Clock,
+  FileText,
+  Settings,
+  LogOut,
+  User,
+  Building2,
   QrCode,
-  User as UserIcon
+  CheckCircle,
+  ChevronRight,
+  Award,
+  BarChart3,
+  Shield,
+  Sparkles,
+  Activity,
+  CreditCard
 } from 'lucide-react';
-import type { User } from '../../types';
+import { useNavigate, useLocation } from 'react-router-dom';
+
+interface MenuItem {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  badge?: string;
+  color?: string;
+}
 
 interface SidebarProps {
-  user: User;
   activeTab: string;
   onTabChange: (tab: string) => void;
   isOpen: boolean;
   onClose: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ user, activeTab, onTabChange, isOpen, onClose }) => {
-  const getMenuItems = () => {
-    const commonItems = [
-      { id: 'dashboard', label: 'Dashboard', icon: Home },
-      { id: 'attendance', label: 'Asistencia', icon: Clock },
-      { id: 'qr-codes', label: 'Códigos QR', icon: QrCode },
-    ];
+const Sidebar: React.FC<SidebarProps> = ({ 
+  activeTab, 
+  onTabChange, 
+  isOpen, 
+  onClose 
+}) => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
-    const roleSpecificItems = {
-      academic: [
-        { id: 'my-reports', label: 'Mis Reportes', icon: FileText },
-        { id: 'justifications', label: 'Justificaciones', icon: Calendar },
-      ],
-      secretary: [
-        { id: 'reports', label: 'Reportes', icon: BarChart3 },
-        { id: 'staff-attendance', label: 'Asistencia Personal', icon: Users },
-      ],
-      department_head: [
-        { id: 'reports', label: 'Reportes', icon: BarChart3 },
-        { id: 'staff-attendance', label: 'Asistencia Personal', icon: Users },
-        { id: 'approvals', label: 'Aprobaciones', icon: Shield },
-      ],
-      administrator: [
-        { id: 'reports', label: 'Reportes', icon: BarChart3 },
-        { id: 'users', label: 'Usuarios', icon: Users },
-        { id: 'settings', label: 'Configuración', icon: Settings },
-      ]
+  const getRoleName = (id_rol: number): string => {
+    const roles: { [key: number]: string } = {
+      1: 'admin',
+      2: 'academic',
+      3: 'usuario'
     };
-
-    return [...commonItems, ...roleSpecificItems[user.role]];
+    return roles[id_rol] || 'usuario';
   };
 
-  const handleItemClick = (itemId: string) => {
-    onTabChange(itemId);
-    onClose(); // Close sidebar on mobile after selection
+  const getRoleInfo = (id_rol: number) => {
+    const roleInfo: { [key: number]: { name: string; color: string; bgColor: string; icon: React.ReactNode } } = {
+      1: { 
+        name: 'Administrador', 
+        color: 'from-red-500 to-red-600',
+        bgColor: 'bg-red-50 border-red-200 text-red-700',
+        icon: <Shield className="h-4 w-4" />
+      },
+      2: { 
+        name: 'Académico', 
+        color: 'from-blue-500 to-blue-600',
+        bgColor: 'bg-blue-50 border-blue-200 text-blue-700',
+        icon: <Award className="h-4 w-4" />
+      },
+      3: { 
+        name: 'Usuario', 
+        color: 'from-green-500 to-green-600',
+        bgColor: 'bg-green-50 border-green-200 text-green-700',
+        icon: <User className="h-4 w-4" />
+      }
+    };
+    return roleInfo[id_rol] || roleInfo[3];
   };
+
+  // Menú base para todos los usuarios
+  const baseMenuItems: MenuItem[] = [
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: <Home className="h-5 w-5" />,
+    },
+    {
+      id: 'my-qr-code',
+      label: 'Mi Código QR',
+      icon: <QrCode className="h-5 w-5" />,
+    },
+    {
+      id: 'id-card',
+      label: 'Mi Tarjeta ID',
+      icon: <CreditCard className="h-5 w-5" />,
+    }
+  ];
+
+  // Menús específicos por rol
+  const roleSpecificItems: { [key: string]: MenuItem[] } = {
+    admin: [
+      {
+        id: 'staff-attendance',
+        label: 'Asistencia Personal',
+        icon: <Users className="h-5 w-5" />,
+      },
+      {
+        id: 'users',
+        label: 'Gestión Usuarios',
+        icon: <User className="h-5 w-5" />,
+      },
+      {
+        id: 'qr-management',
+        label: 'Gestión QR Global',
+        icon: <QrCode className="h-5 w-5" />,
+        badge: 'Admin',
+      },
+      {
+        id: 'reports',
+        label: 'Reportes',
+        icon: <BarChart3 className="h-5 w-5" />,
+      },
+      {
+        id: 'justifications',
+        label: 'Justificaciones',
+        icon: <FileText className="h-5 w-5" />,
+        badge: '3',
+      },
+      {
+        id: 'approvals',
+        label: 'Aprobaciones',
+        icon: <CheckCircle className="h-5 w-5" />,
+      },
+      {
+        id: 'settings',
+        label: 'Configuración',
+        icon: <Settings className="h-5 w-5" />,
+      }
+    ],
+    academic: [
+      {
+        id: 'attendance',
+        label: 'Mi Asistencia',
+        icon: <Clock className="h-5 w-5" />,
+      },
+      {
+        id: 'my-reports',
+        label: 'Mis Reportes',
+        icon: <BarChart3 className="h-5 w-5" />,
+      },
+      {
+        id: 'justifications',
+        label: 'Justificaciones',
+        icon: <FileText className="h-5 w-5" />,
+      }
+    ],
+    usuario: [
+      {
+        id: 'attendance',
+        label: 'Mi Asistencia',
+        icon: <Clock className="h-5 w-5" />,
+      }
+    ]
+  };
+
+  const getMenuItems = (): MenuItem[] => {
+    if (!user) return baseMenuItems;
+
+    const userRole = getRoleName(user.id_rol);
+    const roleItems = roleSpecificItems[userRole] || [];
+    
+    return [...baseMenuItems, ...roleItems];
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+    }
+  };
+
+  // ✅ Actualizar tab activo basado en la ruta
+  React.useEffect(() => {
+    const path = location.pathname;
+    if (path === '/dashboard') onTabChange('dashboard');
+    else if (path === '/qr') onTabChange('my-qr-code');
+    else if (path === '/attendance') onTabChange('attendance');
+    else if (path === '/reports') onTabChange('reports');
+    else if (path === '/users') onTabChange('users');
+    else if (path === '/justifications') onTabChange('justifications');
+    else if (path === '/approvals') onTabChange('approvals');
+    else if (path === '/settings') onTabChange('settings');
+    else if (path === '/id-card') onTabChange('id-card');
+  }, [location.pathname, onTabChange]);
+
+  // ✅ Función para manejar navegación
+  const handleTabClick = (tabId: string) => {
+    onTabChange(tabId);
+    onClose();
+    
+    // Navegar a la ruta correspondiente
+    switch (tabId) {
+      case 'dashboard':
+        navigate('/dashboard');
+        break;
+      case 'my-qr-code':
+        navigate('/qr');
+        break;
+      case 'attendance':
+        navigate('/attendance');
+        break;
+      case 'reports':
+      case 'my-reports':
+        navigate('/reports');
+        break;
+      case 'users':
+        navigate('/users');
+        break;
+      case 'justifications':
+        navigate('/justifications');
+        break;
+      case 'approvals':
+        navigate('/approvals');
+        break;
+      case 'settings':
+        navigate('/settings');
+        break;
+      case 'id-card':
+        navigate('/id-card');
+        break;
+      default:
+        navigate('/dashboard');
+    }
+  };
+
+  const menuItems = getMenuItems();
+  const roleInfo = user ? getRoleInfo(user.id_rol) : getRoleInfo(3);
+  const nombreCompleto = user ? `${user.nombres || ''} ${user.apellidos || ''}`.trim() : '';
+  const initials = user ? `${user.nombres?.charAt(0) || ''}${user.apellidos?.charAt(0) || ''}`.toUpperCase() : 'U';
+
+  if (!user) return null;
 
   return (
     <>
-      {/* Mobile overlay */}
+      {/* Overlay para móviles */}
       {isOpen && (
         <div 
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden backdrop-blur-sm"
           onClick={onClose}
         />
       )}
       
       {/* Sidebar */}
-      <nav className={`
-        fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white shadow-lg lg:shadow-sm 
-        border-r border-gray-200 transform transition-transform duration-300 ease-in-out
-        ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      <aside className={`
+        fixed top-0 left-0 z-50 h-full w-80 bg-white border-r border-slate-200 shadow-xl transform transition-all duration-300 ease-in-out
+        lg:translate-x-0 lg:static lg:z-auto
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        {/* Mobile header */}
-        <div className="lg:hidden flex items-center justify-between p-4 border-b border-gray-200">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <UserIcon className="w-5 h-5 text-white" />
+        
+        {/* Header del sidebar - Solo info del usuario */}
+        <div className="bg-gradient-to-br from-slate-50 to-slate-100 border-b border-slate-200 p-6 mt-16 lg:mt-0">
+          {/* User info */}
+          <div className="flex items-center space-x-4">
+            <div className={`w-14 h-14 bg-gradient-to-r ${roleInfo.color} rounded-xl flex items-center justify-center text-white shadow-lg`}>
+              <div className="text-xl font-bold">
+                {initials}
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">SisAsistencia</h2>
-            </div>
-          </div>
-        </div>
-
-        {/* User info on mobile */}
-        <div className="lg:hidden p-4 border-b border-gray-200 bg-gray-50">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-              <UserIcon className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-900">{user.name}</p>
-              <p className="text-xs text-gray-500">
-                {user.role === 'academic' ? 'Académico' :
-                 user.role === 'secretary' ? 'Secretaría' :
-                 user.role === 'department_head' ? 'Jefe de Departamento' :
-                 'Administrador'}
+            <div className="flex-1 min-w-0">
+              <p className="text-lg font-bold text-slate-900 truncate">
+                {nombreCompleto}
               </p>
+              <p className="text-slate-600 text-sm truncate mb-2">
+                {user.rut_usuario}
+              </p>
+              <div className="flex items-center space-x-2">
+                <span className={`
+                  inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border
+                  ${roleInfo.bgColor}
+                `}>
+                  {roleInfo.icon}
+                  <span className="ml-1.5">{roleInfo.name}</span>
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Navigation menu */}
-        <div className="p-4 space-y-2 overflow-y-auto h-full pb-20 lg:pb-4">
-          {getMenuItems().map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleItemClick(item.id)}
-                className={`w-full flex items-center space-x-3 px-3 py-3 lg:py-2 rounded-lg text-left transition-colors ${
-                  activeTab === item.id
-                    ? 'bg-blue-50 text-blue-600 border-r-2 border-blue-600'
-                    : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <Icon className="w-5 h-5 flex-shrink-0" />
+        {/* Navigation */}
+        <nav className="flex-1 px-4 py-6 space-y-1 h-full overflow-y-auto">
+          <div className="mb-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3">
+              Navegación
+            </p>
+          </div>
+          
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => handleTabClick(item.id)}
+              onMouseEnter={() => setHoveredItem(item.id)}
+              onMouseLeave={() => setHoveredItem(null)}
+              className={`
+                group flex items-center justify-between w-full px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200
+                ${activeTab === item.id
+                  ? 'bg-slate-900 text-white shadow-lg'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }
+              `}
+            >
+              <div className="flex items-center space-x-3">
+                <div className={`
+                  transition-all duration-200
+                  ${activeTab === item.id ? 'text-white' : 'group-hover:scale-110'}
+                `}>
+                  {item.icon}
+                </div>
                 <span className="font-medium">{item.label}</span>
-              </button>
-            );
-          })}
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                {item.badge && (
+                  <span className={`
+                    px-2 py-1 text-xs font-bold rounded-full
+                    ${activeTab === item.id 
+                      ? 'bg-white/20 text-white' 
+                      : 'bg-blue-100 text-blue-600'
+                    }
+                  `}>
+                    {item.badge}
+                  </span>
+                )}
+                
+                <ChevronRight className={`
+                  h-4 w-4 transition-all duration-200
+                  ${activeTab === item.id ? 'text-white rotate-90' : 'text-slate-400 group-hover:text-slate-600'}
+                  ${hoveredItem === item.id ? 'translate-x-1' : ''}
+                `} />
+              </div>
+            </button>
+          ))}
+          
+          {/* Logout button */}
+          <div className="pt-6 mt-6 border-t border-slate-200">
+            <button
+              onClick={handleLogout}
+              className="group flex items-center justify-between w-full px-4 py-3 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition-all duration-200"
+            >
+              <div className="flex items-center space-x-3">
+                <LogOut className="h-5 w-5 group-hover:scale-110 transition-transform" />
+                <span className="font-medium">Cerrar Sesión</span>
+              </div>
+              <ChevronRight className="h-4 w-4 text-red-400 group-hover:text-red-600 group-hover:translate-x-1 transition-all duration-200" />
+            </button>
+          </div>
+        </nav>
+
+        {/* Footer con stats */}
+        <div className="px-4 py-4 border-t border-slate-200 bg-slate-50">
+          <div className="grid grid-cols-2 gap-3 text-center">
+            <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-200">
+              <div className="text-lg font-bold text-blue-600">94%</div>
+              <div className="text-xs text-slate-500">Asistencia</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-200">
+              <div className="text-lg font-bold text-green-600">38h</div>
+              <div className="text-xs text-slate-500">Esta semana</div>
+            </div>
+          </div>
+          
+          {/* Status indicator */}
+          <div className="flex items-center justify-center mt-3 space-x-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-xs text-slate-500">Sistema activo</span>
+          </div>
         </div>
-      </nav>
+      </aside>
     </>
   );
 };

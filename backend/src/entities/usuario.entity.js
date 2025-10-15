@@ -68,6 +68,16 @@ const Usuario = sequelize.define(
         notNull: { msg: "Las horas a trabajar son obligatorias" },
       },
     },
+    pin: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      unique: true,
+      validate: {
+        isInt: { msg: "El PIN debe ser un número entero" },
+        notNull: { msg: "El PIN es obligatorio" },
+        notEmpty: { msg: "El PIN no puede estar vacío" },
+      },
+    },
     id_rol: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -93,6 +103,15 @@ const Usuario = sequelize.define(
         notNull: { msg: "El ID del cargo es obligatorio" },
         notEmpty: { msg: "El ID del cargo no puede estar vacío" },
       },
+    },
+    intentos_pin: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      allowNull: false,
+    },
+    bloqueado_hasta: {
+      type: DataTypes.DATE,
+      allowNull: true,
     },
   },
   {

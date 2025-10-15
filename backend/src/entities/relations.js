@@ -1,3 +1,5 @@
+"use strict";
+// filepath: backend/src/entities/relations.js
 import Usuario from './usuario.entity.js';
 import Rol from './rol.entity.js';
 import Cargo from './cargo.entity.js';
@@ -5,6 +7,7 @@ import Justificacion from './justificacion.entity.js';
 import RegistroJust from './registro_just.entity.js';
 import Marcaje from './marcaje.entity.js';
 import RegistroMarcaje from './registro_marcaje.entity.js';
+import QR from './qr.entity.js';
 
 export function setupRelations() {
   console.log('🔧 Configurando relaciones...');
@@ -75,6 +78,17 @@ export function setupRelations() {
     as: 'marcaje'
   });
 
+  // Relaciones Usuario - QR
+  Usuario.hasMany(QR, {
+    foreignKey: 'rut_usuario',
+    as: 'qr_codes'
+  });
+  
+  QR.belongsTo(Usuario, {
+    foreignKey: 'rut_usuario',
+    as: 'usuario'
+  });
+
   console.log('✅ Todas las relaciones configuradas correctamente');
 }
 
@@ -85,5 +99,6 @@ export {
   Justificacion,
   RegistroJust,
   Marcaje,
-  RegistroMarcaje
+  RegistroMarcaje,
+  QR
 };

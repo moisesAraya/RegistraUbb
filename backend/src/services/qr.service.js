@@ -1,27 +1,249 @@
 "use strict";
-import bcrypt from "bcryptjs";
-import Qr from "../entities/qr.entity.js";
+// filepath: backend/src/services/qr.service.js
+import crypto from 'crypto';
+import Usuario from '../entities/usuario.entity.js';
+import QR from '../entities/qr.entity.js';
+import Rol from '../entities/rol.entity.js';
+import Cargo from '../entities/cargo.entity.js';
+import { processRut } from '../utils/rut.utils.js';
 
-async function generateQRCode(rut_usuario, password) {
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'defaultEncryptionKey123456789012345';
+const ALGORITHM = 'aes-256-cbc';
+const IV_LENGTH = 16;
 
-  const codigo_unico = await bcrypt.hash(rut_usuario + password, 10);
-
-  await Qr.update({ estado_qr: "false" }, { where: { rut_usuario } });
-
-  const qr = await Qr.create({
-    rut_usuario,
-    codigo_unico,
-    estado_qr: "true",
-  });
-
-  return { qr, codigo_unico };
+// ✅ Función de encriptación moderna (sin deprecation)
+function encryptData(text) {
+  try {
+    const iv = crypto.randomBytes(IV_LENGTH);
+    const cipher = crypto.createCipher(ALGORITHM, ENCRYPTION_KEY);
+    
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    
+    // Retornar IV + datos encriptados (más corto que antes)
+    return iv.toString('hex') + ':' + encrypted;
+  } catch (error) {
+    console.error('Error encriptando datos:', error);
+    throw new Error('Error en la encriptación');
+  }
 }
 
-async function validateQr(codigo_unico) {
-  return Qr.findOne({ where: { codigo_unico, estado_qr: "true" } });
+// ✅ Función de desencriptación moderna
+function decryptData(encryptedData) {
+  try {
+    const [ivHex, encrypted] = encryptedData.split(':');
+    
+    if (!ivHex || !encrypted) {
+      throw new Error('Formato de datos encriptados inválido');
+    }
+    
+    const decipher = crypto.createDecipher(ALGORITHM, ENCRYPTION_KEY);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    
+    return decrypted;
+  } catch (error) {
+    console.error('Error desencriptando datos:', error);
+    throw new Error('Error en la desencriptación');
+  }
 }
 
-export default {
-  generateQRCode,
-  validateQr,
-};
+export async function generateEncryptedRutService(rut_usuario) {
+  try {
+    console.log('=== GENERATE ENCRYPTED RUT SERVICE ===');
+    
+    const { normalized: rutNormalizado, isValid } = processRut(rut_usuario);
+    
+    if (!isValid) {
+      return [null, "Formato de RUT inválido"];
+    }
+    
+    console.log('Buscando usuario:', rutNormalizado);
+
+    const user = await Usuario.findOne({
+      where: { rut_usuario: rutNormalizado },
+      include: [
+        {
+          model: Rol,
+          as: 'rol',
+          attributes: ['id_rol', 'nombre_rol']
+        },
+        {
+          model: Cargo,
+          as: 'cargo',
+          attributes: ['id_cargo', 'nombre_cargo']
+        }
+      ]
+    });
+
+    if (!user) {
+      return [null, `Usuario con RUT ${rutNormalizado} no encontrado`];
+    }
+
+    console.log('✅ Usuario encontrado:', user.nombres, user.apellidos);
+
+    // Invalidar QR codes anteriores del usuario
+    await QR.update(
+      { estado_qr: false },
+      { 
+        where: { 
+          rut_usuario: rutNormalizado,
+          estado_qr: true 
+        } 
+      }
+    );
+
+    console.log('✅ QR codes anteriores invalidados');
+
+    // ✅ Crear datos más compactos para encriptar
+    const dataToEncrypt = JSON.stringify({
+      rut: rutNormalizado,
+      action: 'qr_auth',
+      created: Date.now(),
+      user: {
+        nombres: user.nombres,
+        apellidos: user.apellidos,
+        id_rol: user.id_rol,
+        id_cargo: user.id_cargo
+      }
+    });
+
+    console.log('Datos a encriptar (longitud):', dataToEncrypt.length);
+
+    // ✅ Usar la función de encriptación moderna
+    const encryptedHash = encryptData(dataToEncrypt);
+    
+    console.log('Hash generado (longitud):', encryptedHash.length);
+
+    // Verificar que el hash no sea demasiado largo
+    if (encryptedHash.length > 500) {
+      console.warn('⚠️  Hash muy largo:', encryptedHash.length, 'caracteres');
+    }
+
+    // Guardar QR code en tu tabla QR existente
+    const newQR = await QR.create({
+      codigo_unico: encryptedHash,
+      estado_qr: true,
+      fecha_creacion: new Date(),
+      rut_usuario: rutNormalizado
+    });
+
+    console.log('✅ QR Code guardado en tabla QR');
+
+    return [{
+      codigo_unico: newQR.codigo_unico,
+      rut_usuario: user.rut_usuario,
+      nombres: user.nombres,
+      apellidos: user.apellidos,
+      email: user.email,
+      encryptedHash: newQR.codigo_unico,
+      permanent: true,
+      activo: newQR.estado_qr,
+      fecha_creacion: newQR.fecha_creacion,
+      message: "Código QR generado y guardado. Válido hasta que lo dé de baja manualmente."
+    }, null];
+
+  } catch (error) {
+    console.error('Error en generateEncryptedRutService:', error);
+    
+    // Manejo específico de errores de Sequelize
+    if (error.name === 'SequelizeDatabaseError') {
+      if (error.original?.code === '22001') {
+        return [null, "Error: El código QR generado es demasiado largo. Contacte al administrador."];
+      }
+      return [null, "Error de base de datos al guardar el QR"];
+    }
+    
+    if (error.name === 'SequelizeValidationError') {
+      const messages = error.errors.map(err => err.message).join(', ');
+      return [null, `Error de validación: ${messages}`];
+    }
+    
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return [null, "Ya existe un código QR con ese hash. Intente nuevamente."];
+    }
+    
+    return [null, "Error interno generando el código QR"];
+  }
+}
+
+export async function invalidateUserQRService(rut_usuario) {
+  try {
+    console.log('=== INVALIDATE USER QR SERVICE ===');
+    
+    const { normalized: rutNormalizado, isValid } = processRut(rut_usuario);
+    
+    if (!isValid) {
+      return [null, "Formato de RUT inválido"];
+    }
+
+    const user = await Usuario.findOne({
+      where: { rut_usuario: rutNormalizado }
+    });
+
+    if (!user) {
+      return [null, `Usuario con RUT ${rutNormalizado} no encontrado`];
+    }
+
+    // Invalidar todos los QR codes activos del usuario
+    const [updatedCount] = await QR.update(
+      { estado_qr: false },
+      { 
+        where: { 
+          rut_usuario: rutNormalizado,
+          estado_qr: true 
+        } 
+      }
+    );
+
+    console.log(`✅ ${updatedCount} QR code(s) invalidado(s) para:`, user.nombres, user.apellidos);
+    
+    return [{
+      rut_usuario: user.rut_usuario,
+      nombres: user.nombres,
+      apellidos: user.apellidos,
+      invalidated_count: updatedCount,
+      message: `${updatedCount} código(s) QR invalidado(s). Deberás generar uno nuevo para volver a usarlo.`
+    }, null];
+
+  } catch (error) {
+    console.error('Error en invalidateUserQRService:', error);
+    return [null, "Error interno invalidando el código QR"];
+  }
+}
+
+export async function getUserQRCodesService(rut_usuario) {
+  try {
+    console.log('=== GET USER QR CODES SERVICE ===');
+    
+    const { normalized: rutNormalizado, isValid } = processRut(rut_usuario);
+    
+    if (!isValid) {
+      return [null, "Formato de RUT inválido"];
+    }
+
+    const qrCodes = await QR.findAll({
+      where: { rut_usuario: rutNormalizado },
+      order: [['fecha_creacion', 'DESC']],
+      limit: 10
+    });
+
+    console.log(`✅ Encontrados ${qrCodes.length} QR codes para:`, rutNormalizado);
+
+    return [qrCodes.map(qr => ({
+      codigo_unico: qr.codigo_unico,
+      hash_encriptado: qr.codigo_unico,
+      activo: qr.estado_qr,
+      permanente: true,
+      fecha_creacion: qr.fecha_creacion,
+      rut_usuario: qr.rut_usuario
+    })), null];
+
+  } catch (error) {
+    console.error('Error en getUserQRCodesService:', error);
+    return [null, "Error interno obteniendo códigos QR"];
+  }
+}
+
+// ✅ Exportar funciones de encriptación para usar en qr-auth.service.js
+export { encryptData, decryptData };
