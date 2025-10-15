@@ -23,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-g-xo9*6zdqi0+39a!!*(kb$=$+d*bmt@grp1n4*b_h)#6z9c1q'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = []
 
@@ -41,7 +41,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'modlector.middleware.FaviconMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -122,9 +124,83 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Directorios adicionales de archivos estáticos
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
+
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+]
+
+# Usar storage estándar en desarrollo, comprimido en producción
+if DEBUG:
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+else:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# URL del backend para sincronización
+BACKEND_URL = "http://146.83.194.142:1772"
+
+# ==========================================
+# CONFIGURACIONES DE SEGURIDAD PARA PRODUCCIÓN
+# ==========================================
+
+import os
+
+# Solo aplicar configuraciones de seguridad en producción
+if not DEBUG:  # Cuando DEBUG=False (producción)
+    
+    # Configuraciones HTTPS
+    SECURE_SSL_REDIRECT = False  # Redirigir HTTP a HTTPS
+    SECURE_HSTS_SECONDS = 0  # 1 año de HSTS
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    
+    # Cookies seguras
+    SESSION_COOKIE_SECURE = False  # Cookies de sesión solo por HTTPS
+    CSRF_COOKIE_SECURE = False    # Cookies CSRF solo por HTTPS
+    
+    # Hosts permitidos (reemplaza con tu dominio real)
+    ALLOWED_HOSTS = [ 
+        '146.83.194.142',
+    ]
+    
+    # Configuración mejorada de WhiteNoise para producción
+    WHITENOISE_USE_FINDERS = False  # Desactivar en producción
+    WHITENOISE_AUTOREFRESH = False  # Desactivar en producción
+    
+else:  # Desarrollo (DEBUG=True)
+    
+    # En desarrollo, permitir localhost
+    ALLOWED_HOSTS = [
+        'localhost',
+        '127.0.0.1',
+        '0.0.0.0',
+    ]
+    
+    # Configuración de WhiteNoise para desarrollo
+    WHITENOISE_USE_FINDERS = True
+    WHITENOISE_AUTOREFRESH = True
+
+# ==========================================
+# SECRET_KEY MEJORADA
+# ==========================================
+
+# Para producción, usa una SECRET_KEY generada específicamente
+# Puedes generar una nueva en: https://djecrety.ir/
+# O usar: python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_secret_key())'
+
+# En desarrollo mantienes la actual, en producción debes cambiarla
+if not DEBUG:
+    # ⚠️ CAMBIAR ESTA SECRET_KEY EN PRODUCCIÓN ⚠️
+    SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'tu-secret-key-super-segura-de-al-menos-50-caracteres-aqui')
