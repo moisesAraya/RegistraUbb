@@ -17,7 +17,8 @@ import {
   BarChart3,
   Shield,
   Sparkles,
-  Activity
+  Activity,
+  CreditCard
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -91,6 +92,11 @@ const Sidebar: React.FC<SidebarProps> = ({
       id: 'my-qr-code',
       label: 'Mi Código QR',
       icon: <QrCode className="h-5 w-5" />,
+    },
+    {
+      id: 'id-card',
+      label: 'Mi Tarjeta ID',
+      icon: <CreditCard className="h-5 w-5" />,
     }
   ];
 
@@ -189,6 +195,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     else if (path === '/justifications') onTabChange('justifications');
     else if (path === '/approvals') onTabChange('approvals');
     else if (path === '/settings') onTabChange('settings');
+    else if (path === '/id-card') onTabChange('id-card');
   }, [location.pathname, onTabChange]);
 
   // ✅ Función para manejar navegación
@@ -222,6 +229,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         break;
       case 'settings':
         navigate('/settings');
+        break;
+      case 'id-card':
+        navigate('/id-card');
         break;
       default:
         navigate('/dashboard');
