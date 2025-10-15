@@ -1,12 +1,16 @@
 "use strict";
 
-import qrService from '../services/qr.service.js';
+import { 
+  generateEncryptedRutService, 
+  invalidateUserQRService,
+  getUserQRCodesService 
+} from '../services/qr.service.js';
 
 async function marcar(req, res) {
   try {
     const { codigo_unico } = req.body;
 
-    const qr = await qrService.validateQr(codigo_unico);
+    const qr = await validateQr(codigo_unico);
     if (!qr) return res.status(401).json({ ok: false, message: 'QR inválido o inactivo' });
 
     // Aquí insertas en tabla Asistencia usando qr.rut_usuario

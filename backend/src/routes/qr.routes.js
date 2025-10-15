@@ -2,25 +2,46 @@
 // filepath: backend/src/routes/qr.routes.js
 import { Router } from "express";
 import { 
-  generar, 
   generateMyQR, 
-  generateQRForUser,
   invalidateMyQR,
-  invalidateQRForUser
+  getMyQRCodes 
 } from "../controllers/qr.controller.js";
 import { authenticateJwtWithTokenService } from "../middlewares/authentication.middleware.js";
 
+console.log('🔧 Inicializando rutas QR...');
+
 const router = Router();
 
-// Rutas para generar QR
-router.get("/generate-my-qr", authenticateJwtWithTokenService, generateMyQR);
-router.get("/generate-for-user/:rut_usuario", authenticateJwtWithTokenService, generateQRForUser);
+// ✅ RUTA DE PRUEBA SIN AUTENTICACIÓN
+router.get("/test", (req, res) => {
+  console.log('🧪 Ruta de prueba QR llamada');
+  res.json({
+    success: true,
+    message: "Rutas QR funcionando",
+    timestamp: new Date().toISOString()
+  });
+});
 
-// Rutas para invalidar QR (por ahora solo log)
-router.delete("/invalidate-my-qr", authenticateJwtWithTokenService, invalidateMyQR);
-router.delete("/invalidate-qr/:rut_usuario", authenticateJwtWithTokenService, invalidateQRForUser);
+// ✅ RUTAS PRINCIPALES CON LOGS
+router.get("/generate-my-qr", (req, res, next) => {
+  console.log('📡 → GET /api/qr/generate-my-qr');
+  next();
+}, authenticateJwtWithTokenService, generateMyQR);
 
-// Ruta original
-router.post("/generar", generar);
+router.delete("/invalidate-my-qr", (req, res, next) => {
+  console.log('📡 → DELETE /api/qr/invalidate-my-qr');
+  next();
+}, authenticateJwtWithTokenService, invalidateMyQR);
+
+router.get("/my-qr-codes", (req, res, next) => {
+  console.log('📡 → GET /api/qr/my-qr-codes');
+  next();
+}, authenticateJwtWithTokenService, getMyQRCodes);
+
+console.log('✅ Rutas QR configuradas:');
+console.log('   📍 GET /test');
+console.log('   📍 GET /generate-my-qr');
+console.log('   📍 DELETE /invalidate-my-qr');
+console.log('   📍 GET /my-qr-codes');
 
 export default router;

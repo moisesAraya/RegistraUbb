@@ -1,3 +1,5 @@
+"use strict";
+// filepath: backend/src/app.js
 import express from 'express';
 import cors from 'cors';
 import userRoutes from './routes/usuario.routes.js';
@@ -27,21 +29,39 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+console.log('🔧 Registrando rutas QR...');
+
+// ✅ REGISTRAR LAS RUTAS QR
+app.use('/api/qr', qrRoutes);
+app.use('/api/qr-auth', qrAuthRoutes);
+
+console.log('✅ Rutas QR registradas: /api/qr y /api/qr-auth');
+
 // Rutas de la API
 app.use("/api/usuario", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/approvals", approvalRoutes);
-app.use('/api/qr', qrRoutes);
 app.use('/api/asistencia', attendanceRoutes);
 app.use("/api/roles", userRoutes);
 app.use("/api/cargos", userRoutes);
-app.use("/api/qr-auth", qrAuthRoutes);
+
 // Ruta estática para servir archivos QR (si decides usarla en el futuro)
 app.use('/qrs', express.static(path.join(__dirname, '../public/qrs')));
 
 // Ruta principal para verificar que la API está funcionando
 app.get("/", (req, res) => {
   res.send("API RegistraUBB funcionando");
+});
+
+// ✅ AGREGAR RUTA DE PRUEBA DIRECTA EN APP.JS
+app.get('/api/test', (req, res) => {
+  console.log('🧪 Ruta de prueba /api/test llamada');
+  res.json({
+    success: true,
+    message: 'API funcionando correctamente',
+    routes: ['GET /api/qr/test', 'GET /api/qr/my-qr-codes', 'GET /api/qr/generate-my-qr'],
+    timestamp: new Date().toISOString()
+  });
 });
 
 export default app;

@@ -1,97 +1,124 @@
 "use strict";
-// filepath: c:\Users\holak\OneDrive\Escritorio\Proyectos\registraubb\RegistraUbb\backend\src\controllers\qr-auth.controller.js
-import {
-  validateEncryptedRutService,
-  validateUserPINService,
-  unlockAccountService
+// filepath: backend/src/controllers/qr-auth.controller.js
+import { 
+  validateQRCodeService, 
+  validateUserPINService 
 } from "../services/qr-auth.service.js";
-import { handleErrorClient, handleErrorServer, handleSuccess } from "../handlers/responseHandlers.js";
+import { 
+  handleSuccess, 
+  handleErrorClient, 
+  handleErrorServer 
+} from "../handlers/responseHandlers.js";
 
-// Validar hash encriptado del RUT (tótem escanea QR)
+/**
+ * Valida un código QR encriptado (hash)
+ * POST /api/qr-auth/validate-qr
+ */
 export async function validateEncryptedRut(req, res) {
   try {
+    console.log('=== VALIDATE ENCRYPTED RUT CONTROLLER ===');
+    
     const { encryptedHash } = req.body;
-
-    console.log('=== VALIDATE ENCRYPTED RUT ===');
-    console.log('Hash recibido desde QR:', encryptedHash);
-
-    const [result, error] = await validateEncryptedRutService(encryptedHash);
-
+    
+    if (!encryptedHash) {
+      return handleErrorClient(res, 400, "Hash encriptado requerido");
+    }
+    
+    console.log('Validando QR hash:', encryptedHash.substring(0, 20) + '...');
+    
+    const [result, error] = await validateQRCodeService(encryptedHash);
+    
     if (error) {
-      if (error.includes('bloqueada')) {
-        return handleErrorClient(res, 423, error);
-      }
-      if (error.includes('no registrado') || error.includes('no encontrado')) {
-        return handleErrorClient(res, 404, error);
-      }
+      console.log('❌ Error validando QR:', error);
       return handleErrorClient(res, 400, error);
     }
-
-    console.log('Usuario encontrado:', result.user.nombres, result.user.apellidos);
-    handleSuccess(res, 200, "Usuario encontrado. Ingrese su PIN de 4 dígitos", result);
-
+    
+    console.log('✅ QR válido para usuario:', result.user.rut_usuario);
+    
+    return handleSuccess(res, 200, result.message, {
+      user: result.user,
+      qr_info: result.qr_info,
+      tempToken: result.tempToken,
+      step: 'pin_required'
+    });
+    
   } catch (error) {
-    console.error('Error validando hash encriptado:', error);
-    handleErrorServer(res, 500, "Error interno del servidor");
+    console.error('Error en validateEncryptedRut controller:', error);
+    return handleErrorServer(res, 500, "Error interno del servidor");
   }
 }
 
-// Validar PIN del usuario (tótem valida PIN)
+/**
+ * Valida el PIN del usuario y completa el registro
+ * POST /api/qr-auth/validate-pin
+ */
 export async function validateUserPIN(req, res) {
   try {
+    console.log('=== VALIDATE USER PIN CONTROLLER ===');
+    
     const { tempToken, pin } = req.body;
-
-    console.log('=== VALIDATE PIN ===');
-    console.log('PIN recibido:', pin);
-
+    
+    if (!tempToken || !pin) {
+      return handleErrorClient(res, 400, "Token temporal y PIN requeridos");
+    }
+    
+    console.log('Validando PIN para token temporal...');
+    
     const [result, error] = await validateUserPINService(tempToken, pin);
-
+    
     if (error) {
-      if (error.includes('bloqueada') || error.includes('bloqueado')) {
-        return handleErrorClient(res, 423, error);
-      }
-      if (error.includes('incorrecto')) {
-        return handleErrorClient(res, 401, error);
-      }
-      if (error.includes('expirada')) {
-        return handleErrorClient(res, 401, error);
-      }
+      console.log('❌ Error validando PIN:', error);
       return handleErrorClient(res, 400, error);
     }
-
-    console.log('PIN correcto. Registro exitoso para:', result.user.rut_usuario);
-    handleSuccess(res, 200, "Registro de asistencia exitoso", result);
-
+    
+    console.log('✅ PIN válido, registro completado para:', result.user.rut_usuario);
+    console.log('✅ Tipo de registro:', result.attendance.tipo_marcaje);
+    
+    return handleSuccess(res, 200, result.message, {
+      user: result.user,
+      attendance: result.attendance,
+      qr_info: result.qr_info
+    });
+    
   } catch (error) {
-    console.error('Error validando PIN:', error);
-    handleErrorServer(res, 500, "Error interno del servidor");
+    console.error('Error en validateUserPIN controller:', error);
+    return handleErrorServer(res, 500, "Error interno del servidor");
   }
 }
 
-// Desbloquear cuenta propia desde la aplicación
-export async function unlockMyAccount(req, res) {
+/**
+ * Obtiene información del usuario desde un QR sin validar PIN
+ * POST /api/qr-auth/preview-qr
+ */
+export async function previewQRUser(req, res) {
   try {
-    // El usuario desbloquea su propia cuenta
-    const rut_usuario = req.user?.rut_usuario;
-
-    console.log('=== UNLOCK MY ACCOUNT ===');
-    console.log('RUT a desbloquear:', rut_usuario);
-
-    if (!rut_usuario) {
-      return handleErrorClient(res, 401, "Usuario no autenticado");
+    console.log('=== PREVIEW QR USER CONTROLLER ===');
+    
+    const { encryptedHash } = req.body;
+    
+    if (!encryptedHash) {
+      return handleErrorClient(res, 400, "Hash encriptado requerido");
     }
-
-    const [result, error] = await unlockAccountService(rut_usuario);
-
+    
+    const [result, error] = await validateQRCodeService(encryptedHash);
+    
     if (error) {
-      return handleErrorClient(res, 404, error);
+      return handleErrorClient(res, 400, error);
     }
-
-    console.log('Cuenta desbloqueada desde la aplicación:', rut_usuario);
-    handleSuccess(res, 200, "Tu cuenta ha sido desbloqueada exitosamente", result);
-
+    
+    // Solo retornar información básica del usuario, sin tempToken
+    return handleSuccess(res, 200, "Usuario encontrado", {
+      user: {
+        rut_usuario: result.user.rut_usuario,
+        nombres: result.user.nombres,
+        apellidos: result.user.apellidos,
+        id_rol: result.user.id_rol,
+        id_cargo: result.user.id_cargo
+      }
+    });
+    
   } catch (error) {
-    console.error('Error desbloqueando cuenta propia:', error);
-    handleErrorServer(res, 500, "Error interno del servidor");
+    console.error('Error en previewQRUser controller:', error);
+    return handleErrorServer(res, 500, "Error interno del servidor");
   }
 }

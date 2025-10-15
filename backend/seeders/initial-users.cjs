@@ -118,7 +118,6 @@ module.exports = {
       },
     ];
 
-    // Insertar uno por uno para manejar duplicados individualmente
     for (const usuario of usuarios) {
       try {
         await queryInterface.bulkInsert("Usuarios", [usuario], {

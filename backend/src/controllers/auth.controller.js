@@ -1,5 +1,4 @@
 "use strict";
-// filepath: c:\Users\holak\OneDrive\Escritorio\Proyectos\registraubb\RegistraUbb\backend\src\controllers\auth.controller.js
 import {
   loginService,
   registerService,
@@ -8,6 +7,7 @@ import {
 } from "../services/auth.service.js";
 
 import { loginValidation, registerValidation } from "../validations/auth.validation.js";
+import { processRut } from "../utils/rut.utils.js";
 
 import TokenService from "../services/token.service.js";
 
@@ -21,75 +21,68 @@ import {
 
 export async function login(req, res) {
   try {
-    console.log("=== BACKEND LOGIN DEBUG ===");
-    console.log("Body recibido:", JSON.stringify(req.body, null, 2));
-    
-    const { rut_usuario, password } = req.body;
-    
-    console.log("RUT:", `"${rut_usuario}"`);
-    console.log("Password:", `"${password}"`);
-    
-    // Validación básica
-    if (!rut_usuario || !password) {
-      console.log("❌ Campos faltantes");
-      return handleErrorClient(res, 400, "RUT y contraseña son requeridos");
-    }
+    console.log('=== LOGIN CONTROLLER ===');
+    console.log('Body original:', req.body);
 
-    // Validación con Joi (actualizar para RUT)
-    console.log("🔍 Validando con Joi...");
-    const { error } = loginValidation.validate({ rut_usuario, password });
+    // Validar con Joi (esto ya normaliza el RUT automáticamente)
+    const { error, value } = loginValidation.validate(req.body);
     
     if (error) {
-      console.log("❌ Error de validación:", error.details[0].message);
-      return handleErrorClient(res, 400, "Error de validación", error.details[0].message);
+      console.log('Error de validación:', error.details[0].message);
+      return handleErrorClient(res, 400, error.details[0].message);
     }
 
-    console.log("✅ Validación exitosa, llamando al servicio...");
+    const { rut_usuario, password } = value; // rut_usuario ya está normalizado por Joi
     
-    // Usar el servicio de login con RUT
-    const [result, loginError] = await loginService({ rut_usuario, password });
-    
+    console.log('RUT normalizado:', rut_usuario);
+    console.log('Password recibido:', password ? '***' : 'vacío');
+
+    // Buscar usuario con el RUT normalizado
+    const [user, loginError] = await loginService({ rut_usuario, password });
+
     if (loginError) {
-      console.log("❌ Error del servicio:", loginError);
-      return handleErrorClient(res, 401, "Error de autenticación", loginError);
+      console.log('Error del servicio de login:', loginError);
+      return handleErrorClient(res, 401, loginError);
     }
 
-    console.log("✅ Login exitoso para RUT:", rut_usuario);
+    console.log('Usuario encontrado:', user.rut_usuario, user.nombres);
+    handleSuccess(res, 200, "Login exitoso", user);
     
-    // Desbloquear la cuenta automáticamente tras login exitoso
-    try {
-      await unlockAccountService(rut_usuario);
-      console.log("✅ Cuenta desbloqueada automáticamente tras login exitoso");
-    } catch (unlockError) {
-      console.log("⚠️ Error desbloqueando cuenta (no crítico):", unlockError);
-    }
-    
-    handleSuccess(res, 200, "Login exitoso", result);
-
   } catch (error) {
-    console.error("💥 Error inesperado en login:", error);
-    handleErrorServer(res, 500, error.message);
+    console.error('Error en login controller:', error);
+    handleErrorServer(res, 500, "Error interno del servidor");
   }
 }
 
 export async function register(req, res) {
   try {
-    const { body } = req;
-    const { error } = registerValidation.validate(body);
+    console.log('=== REGISTER CONTROLLER ===');
+    console.log('Body original:', req.body);
+
+    // Validar con Joi (esto normaliza el RUT automáticamente)
+    const { error, value } = registerValidation.validate(req.body);
 
     if (error) {
-      return handleErrorClient(res, 400, "Error de validación", error.message);
+      console.log('Error de validación:', error.details[0].message);
+      return handleErrorClient(res, 400, error.details[0].message);
     }
 
-    const [result, errorRegister] = await registerService(body);
+    console.log('Datos validados y normalizados:', value);
 
-    if (errorRegister) {
-      return handleErrorClient(res, 400, "Error registrando al usuario", errorRegister.message || errorRegister);
+    // Registrar usuario con datos normalizados
+    const [newUser, registerError] = await registerService(value);
+
+    if (registerError) {
+      console.log('Error del servicio de registro:', registerError);
+      return handleErrorClient(res, 400, registerError);
     }
 
-    handleSuccess(res, 201, "Usuario registrado con éxito", result);
+    console.log('Usuario registrado:', newUser.rut_usuario);
+    handleSuccess(res, 201, "Usuario registrado exitosamente", newUser);
+
   } catch (error) {
-    handleErrorServer(res, 500, error.message);
+    console.error('Error en register controller:', error);
+    handleErrorServer(res, 500, "Error interno del servidor");
   }
 }
 

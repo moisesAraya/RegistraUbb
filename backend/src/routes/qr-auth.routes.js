@@ -1,20 +1,16 @@
 "use strict";
-// filepath: backend/src/routes/qr-auth.routes.js
 import { Router } from "express";
 import {
   validateEncryptedRut,
   validateUserPIN,
-  unlockMyAccount
+  previewQRUser
 } from "../controllers/qr-auth.controller.js";
-import { authenticateJwtWithTokenService } from "../middlewares/authentication.middleware.js";
 
 const router = Router();
 
-// Rutas públicas (para tótem - sin autenticación)
-router.post("/validate-qr", validateEncryptedRut);    // POST /api/qr-auth/validate-qr
-router.post("/validate-pin", validateUserPIN);        // POST /api/qr-auth/validate-pin
+// Rutas para el tótem/kiosco de registro
+router.post("/validate-qr", validateEncryptedRut);     // Validar QR y obtener tempToken
+router.post("/validate-pin", validateUserPIN);         // Validar PIN y completar registro
+router.post("/preview-qr", previewQRUser);            // Vista previa del usuario (opcional)
 
-// Rutas protegidas (requieren autenticación)
-router.post("/unlock-account", authenticateJwtWithTokenService, unlockMyAccount); // POST /api/qr-auth/unlock-account
-
-export default router; // ← Asegúrate de que esté esta línea
+export default router;

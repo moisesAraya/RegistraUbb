@@ -1,177 +1,74 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './components/Context/AuthContext';
 import LoginForm from './components/Auth/LoginForm';
-import Header from './components/Layout/Header';
-import Sidebar from './components/Layout/Sidebar';
-import Dashboard from './components/Dashboard/Dashboard';
-import AttendanceForm from './components/Attendance/AttendanceForm';
-import AttendanceList from './components/Attendance/AttendanceList';
-import ManualAttendanceForm from './components/Attendance/ManualAttendanceForm';
-import ReportsSection from './components/Reports/ReportsSection';
-import QRCodeManager from './components/QRCode/QRCodeManager';
-import JustificationManager from './components/Justifications/JustificationManager';
-import UserManagement from './components/Admin/UserManagement';
-import ApprovalManager from './components/Admin/ApprovalManager';
+import AppContent from './components/Layout/AppContent'; // Crear este componente
 
-// Componente principal con la lógica de la aplicación
-const AppContent: React.FC = () => {
-  const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+// ✅ Componente para manejar rutas protegidas
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
 
-  // Estados para simulación de datos
-  const [attendanceRecords] = useState([]);
-  const [dashboardStats] = useState({
-    totalDays: 0,
-    presentDays: 0,
-    absentDays: 0,
-    pendingJustifications: 0
-  });
-  const [attendanceLoading] = useState(false);
-
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
-
-  const closeSidebar = () => {
-    setIsSidebarOpen(false);
-  };
-
-  if (authLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Cargando...</p>
         </div>
       </div>
     );
   }
 
-  if (!isAuthenticated || !user) {
-    return <LoginForm />;
-  }
-
-  // Convertir usuario del contexto al formato esperado por tus componentes
-  const userForComponents = {
-    id: user.rut_usuario,
-    name: `${user.nombres} ${user.apellidos}`,
-    email: user.email,
-    role: user.id_rol === 1 ? 'admin' : 'academic',
-    department: 'Ingeniería',
-    rut: user.rut_usuario,
-    horas_atrabajar: user.horas_atrabajar
-  };
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return <Dashboard user={userForComponents} stats={dashboardStats} />;
-      
-      case 'attendance':
-        return (
-          <div className="space-y-6">
-            {userForComponents.role === 'academic' && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="font-medium text-blue-900 mb-2">Registro Manual de Asistencia</h4>
-                <p className="text-sm text-blue-800 mb-3">
-                  Use esta opción solo cuando no pueda registrar su asistencia con el código QR.
-                  Requiere justificación y aprobación del director.
-                </p>
-                <ManualAttendanceForm onSubmit={async (data) => {
-                  console.log('Registro manual:', data);
-                  return { success: true };
-                }} />
-              </div>
-            )}
-            <AttendanceList records={attendanceRecords} />
-          </div>
-        );
-      
-      case 'reports':
-      case 'my-reports':
-        return <ReportsSection />;
-      
-      case 'qr-codes':
-        return <QRCodeManager />;
-      
-      case 'staff-attendance':
-        return (
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Asistencia del Personal
-              </h3>
-              <p className="text-gray-600 mb-4">
-                Vista consolidada de la asistencia de todos los académicos del departamento.
-              </p>
-            </div>
-            <AttendanceList records={attendanceRecords} showUserName={true} />
-          </div>
-        );
-      
-      case 'users':
-        return <UserManagement />;
-      
-      case 'settings':
-        return (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Configuración del Sistema
-            </h3>
-            <p className="text-gray-600">
-              Configuración de horarios, permisos y parámetros del sistema.
-            </p>
-          </div>
-        );
-      
-      case 'justifications':
-        return <JustificationManager />;
-      
-      case 'approvals':
-        return <ApprovalManager />;
-      
-      default:
-        return <Dashboard user={userForComponents} stats={dashboardStats} />;
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Header 
-        user={userForComponents} 
-        onLogout={logout} 
-        isSidebarOpen={isSidebarOpen}
-        onToggleSidebar={toggleSidebar}
-      />
-      <div className="flex">
-        <Sidebar 
-          user={userForComponents} 
-          activeTab={activeTab} 
-          onTabChange={setActiveTab}
-          isOpen={isSidebarOpen}
-          onClose={closeSidebar}
-        />
-        <main className="flex-1 p-4 lg:p-6 lg:ml-0">
-          {attendanceLoading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-          ) : (
-            renderContent()
-          )}
-        </main>
-      </div>
-    </div>
-  );
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 };
 
-// Componente wrapper con el AuthProvider
+// ✅ Componente para rutas públicas
+const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <>{children}</>;
+};
+
 function App() {
+  console.log('🚀 App iniciando...');
+  
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        <Routes>
+          {/* ✅ Ruta pública - Login */}
+          <Route 
+            path="/login" 
+            element={
+              <PublicRoute>
+                <LoginForm />
+              </PublicRoute>
+            } 
+          />
+
+          {/* ✅ Todas las rutas protegidas usan AppContent */}
+          <Route 
+            path="/*" 
+            element={
+              <ProtectedRoute>
+                <AppContent />
+              </ProtectedRoute>
+            } 
+          />
+        </Routes>
+      </AuthProvider>
+    </Router>
   );
 }
 

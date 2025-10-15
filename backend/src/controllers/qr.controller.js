@@ -1,152 +1,112 @@
 "use strict";
 // filepath: backend/src/controllers/qr.controller.js
-import qrService from "../services/qr.service.js";
-import { generateEncryptedRutService } from "../services/qr-auth.service.js";
-import { handleErrorClient, handleErrorServer, handleSuccess } from "../handlers/responseHandlers.js";
+import { 
+  generateEncryptedRutService, 
+  invalidateUserQRService,
+  getUserQRCodesService 
+} from "../services/qr.service.js";
+import { 
+  handleSuccess, 
+  handleErrorClient, 
+  handleErrorServer 
+} from "../handlers/responseHandlers.js"; // ← Usar tus handlers existentes
 
-// Generar QR propio (cualquier usuario autenticado)
-async function generateMyQR(req, res) {
+export async function generateMyQR(req, res) {
   try {
-    const rut_usuario = req.user?.rut_usuario;
-
-    if (!rut_usuario) {
-      return handleErrorClient(res, 401, "Usuario no autenticado");
-    }
-
-    console.log('=== GENERATE MY QR ===');
-    console.log('RUT del usuario autenticado:', rut_usuario);
-
-    const [result, error] = await generateEncryptedRutService(rut_usuario);
-
+    console.log('=== GENERATE MY QR CONTROLLER ===');
+    
+    // El RUT viene del token JWT decodificado por el middleware
+    const { rut_usuario } = req.user;
+    
+    console.log('Generando QR para usuario:', rut_usuario);
+    console.log('Usuario completo del token:', req.user);
+    
+    const [qrData, error] = await generateEncryptedRutService(rut_usuario);
+    
     if (error) {
-      return handleErrorClient(res, 404, error);
+      console.log('Error generando QR:', error);
+      return handleErrorClient(res, 400, error);
     }
+    
+    console.log('✅ QR generado exitosamente para:', rut_usuario);
+    
+    return handleSuccess(res, 200, "Tu código QR ha sido generado exitosamente", {
+      user: {
+        rut_usuario: qrData.rut_usuario,
+        nombres: qrData.nombres,
+        apellidos: qrData.apellidos,
+        email: qrData.email
+      },
+      qrData: qrData.encryptedHash,
+      permanent: qrData.permanent,
+      activo: qrData.activo,
+      fecha_creacion: qrData.fecha_creacion,
+      message: qrData.message
+    });
+    
+  } catch (error) {
+    console.error('Error en generateMyQR controller:', error);
+    return handleErrorServer(res, 500, "Error interno del servidor");
+  }
+}
 
-    handleSuccess(res, 200, "Tu código QR ha sido generado exitosamente", {
+export async function invalidateMyQR(req, res) {
+  try {
+    console.log('=== INVALIDATE MY QR CONTROLLER ===');
+    
+    const { rut_usuario } = req.user;
+    
+    console.log('Invalidando QR para usuario:', rut_usuario);
+    
+    const [result, error] = await invalidateUserQRService(rut_usuario);
+    
+    if (error) {
+      console.log('Error invalidando QR:', error);
+      return handleErrorClient(res, 400, error);
+    }
+    
+    console.log('✅ QR invalidado exitosamente para:', rut_usuario);
+    
+    return handleSuccess(res, 200, "Tu código QR ha sido invalidado exitosamente", {
       user: {
         rut_usuario: result.rut_usuario,
         nombres: result.nombres,
-        apellidos: result.apellidos,
-        email: result.email
+        apellidos: result.apellidos
       },
-      qrData: result.encryptedHash,
-      permanent: result.permanent,
+      invalidated_count: result.invalidated_count,
       message: result.message
     });
-
+    
   } catch (error) {
-    console.error('Error generando QR propio:', error);
-    handleErrorServer(res, 500, "Error interno del servidor");
+    console.error('Error en invalidateMyQR controller:', error);
+    return handleErrorServer(res, 500, "Error interno del servidor");
   }
 }
 
-// Generar QR para otro usuario (solo admins)
-async function generateQRForUser(req, res) {
+export async function getMyQRCodes(req, res) {
   try {
-    const { rut_usuario } = req.params;
-    const userRole = req.user?.id_rol;
-
-    console.log('=== GENERATE QR FOR USER ===');
-    console.log('RUT solicitado:', rut_usuario);
-    console.log('Rol del solicitante:', userRole);
-
-    if (userRole !== 1) {
-      return handleErrorClient(res, 403, "No tienes permisos para generar códigos QR de otros usuarios");
-    }
-
-    const [result, error] = await generateEncryptedRutService(rut_usuario);
-
+    console.log('=== GET MY QR CODES CONTROLLER ===');
+    
+    const { rut_usuario } = req.user;
+    
+    console.log('Obteniendo QR codes para usuario:', rut_usuario);
+    
+    const [qrCodes, error] = await getUserQRCodesService(rut_usuario);
+    
     if (error) {
-      return handleErrorClient(res, 404, error);
+      console.log('Error obteniendo QR codes:', error);
+      return handleErrorClient(res, 400, error);
     }
-
-    handleSuccess(res, 200, "Código QR generado exitosamente", {
-      user: {
-        rut_usuario: result.rut_usuario,
-        nombres: result.nombres,
-        apellidos: result.apellidos,
-        email: result.email
-      },
-      qrData: result.encryptedHash,
-      permanent: result.permanent,
-      message: result.message
+    
+    console.log(`✅ ${qrCodes.length} QR codes encontrados para:`, rut_usuario);
+    
+    return handleSuccess(res, 200, "QR codes obtenidos exitosamente", {
+      qr_codes: qrCodes,
+      total: qrCodes.length
     });
-
+    
   } catch (error) {
-    console.error('Error generando QR para usuario:', error);
-    handleErrorServer(res, 500, "Error interno del servidor");
+    console.error('Error en getMyQRCodes controller:', error);
+    return handleErrorServer(res, 500, "Error interno del servidor");
   }
 }
-
-// Invalidar QR propio (función simplificada)
-async function invalidateMyQR(req, res) {
-  try {
-    const rut_usuario = req.user?.rut_usuario;
-
-    if (!rut_usuario) {
-      return handleErrorClient(res, 401, "Usuario no autenticado");
-    }
-
-    console.log('=== INVALIDATE MY QR ===');
-    console.log('QR invalidado para RUT:', rut_usuario);
-
-    // Por ahora solo confirmación, en el futuro podrías usar BD
-    handleSuccess(res, 200, "Tu código QR ha sido invalidado exitosamente", {
-      rut_usuario: rut_usuario,
-      message: "Código QR invalidado. Genere uno nuevo cuando lo necesite."
-    });
-
-  } catch (error) {
-    console.error('Error invalidando QR propio:', error);
-    handleErrorServer(res, 500, "Error interno del servidor");
-  }
-}
-
-// Invalidar QR para otro usuario (solo admins)
-async function invalidateQRForUser(req, res) {
-  try {
-    const { rut_usuario } = req.params;
-    const userRole = req.user?.id_rol;
-
-    if (userRole !== 1) {
-      return handleErrorClient(res, 403, "No tienes permisos para invalidar códigos QR de otros usuarios");
-    }
-
-    console.log('=== INVALIDATE QR FOR USER ===');
-    console.log('QR invalidado para RUT:', rut_usuario);
-
-    handleSuccess(res, 200, "Código QR invalidado exitosamente", {
-      rut_usuario: rut_usuario,
-      message: "Código QR invalidado exitosamente"
-    });
-
-  } catch (error) {
-    console.error('Error invalidando QR para usuario:', error);
-    handleErrorServer(res, 500, "Error interno del servidor");
-  }
-}
-
-// Mantener la función original
-async function generar(req, res) {
-  try {
-    const { rut_usuario, password } = req.body;
-    const { qr, codigo_unico } = await qrService.generateQRCode(rut_usuario, password);
-
-    res.json({
-      ok: true,
-      message: "QR generado correctamente",
-      qr,
-      codigo_unico,
-    });
-  } catch (error) {
-    handleErrorServer(res, error);
-  }
-}
-
-export { 
-  generar, 
-  generateMyQR, 
-  generateQRForUser, 
-  invalidateMyQR, 
-  invalidateQRForUser 
-};

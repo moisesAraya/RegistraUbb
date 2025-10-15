@@ -1,14 +1,26 @@
 "use strict";
-// filepath: c:\Users\holak\OneDrive\Escritorio\Proyectos\registraubb\RegistraUbb\backend\src\validations\auth.validation.js
 import Joi from "joi";
+import { processRut } from "../utils/rut.utils.js";
 
-// Validación para login con RUT (con o sin puntos)
+// Validador personalizado para RUT
+const rutValidator = (value, helpers) => {
+  const { normalized, isValid } = processRut(value);
+  
+  if (!isValid) {
+    return helpers.error('rut.invalid');
+  }
+  
+  // Devolver el RUT normalizado para que se use en el resto del proceso
+  return normalized;
+};
+
+// Validación para login con RUT (acepta cualquier formato)
 export const loginValidation = Joi.object({
   rut_usuario: Joi.string()
-    .pattern(/^\d{7,8}-[\dkK]$|^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/)
     .required()
+    .custom(rutValidator, 'Validación de RUT')
     .messages({
-      "string.pattern.base": "El RUT debe tener el formato 12345678-9 o 12.345.678-9",
+      "rut.invalid": "El RUT debe tener un formato válido (ej: 12345678-9 o 12.345.678-9)",
       "any.required": "El RUT es obligatorio"
     }),
   password: Joi.string()
@@ -23,10 +35,10 @@ export const loginValidation = Joi.object({
 // Validación para registro
 export const registerValidation = Joi.object({
   rut_usuario: Joi.string()
-    .pattern(/^\d{7,8}-[\dkK]$|^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/)
     .required()
+    .custom(rutValidator, 'Validación de RUT')
     .messages({
-      "string.pattern.base": "El RUT debe tener el formato 12345678-9 o 12.345.678-9",
+      "rut.invalid": "El RUT debe tener un formato válido (ej: 12345678-9 o 12.345.678-9)",
       "any.required": "El RUT es obligatorio"
     }),
   nombres: Joi.string()

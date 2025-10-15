@@ -1,157 +1,111 @@
 "use strict";
 // filepath: backend/src/services/qr-auth.service.js
-import Usuario from "../entities/usuario.entity.js";
-import Rol from "../entities/rol.entity.js";
-import Cargo from "../entities/cargo.entity.js";
-import Marcaje from "../entities/marcaje.entity.js";
-import RegistroMarcaje from "../entities/registro_marcaje.entity.js";
-import jwt from "jsonwebtoken";
-import { JWT_SECRET } from "../config/envconfig.js";
-import crypto from "crypto";
-import { Op } from "sequelize";
+import jwt from 'jsonwebtoken';
+import Usuario from '../entities/usuario.entity.js';
+import QR from '../entities/qr.entity.js';
+import Rol from '../entities/rol.entity.js';
+import Cargo from '../entities/cargo.entity.js';
+import { decryptData } from './qr.service.js'; // ✅ Importar función de desencriptación
 
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "mi_clave_secreta_32_caracteres!!";
-const IV_LENGTH = 16;
+const JWT_SECRET = process.env.JWT_SECRET || "defaultSecretKey123";
 
-// Configuración de tiempo para determinar entrada/salida
-const TIEMPO_MINIMO_ENTRE_MARCAJES = 15 * 1000; // 15 segundos para pruebas (en prod: 4 * 60 * 60 * 1000 = 4 horas)
-
-export async function generateEncryptedRutService(rut_usuario) {
+export async function validateQRCodeService(encryptedHash) {
   try {
-    console.log('=== GENERATE ENCRYPTED RUT SERVICE ===');
-    console.log('Generando hash para RUT:', rut_usuario);
-
-    const user = await Usuario.findOne({
-      where: { rut_usuario },
-      include: [
-        {
-          model: Rol,
-          as: 'rol',
-          attributes: ['id_rol', 'nombre_rol']
-        },
-        {
-          model: Cargo,
-          as: 'cargo',
-          attributes: ['id_cargo', 'nombre_cargo']
-        }
-      ]
-    });
-
-    if (!user) {
-      return [null, `Usuario con RUT ${rut_usuario} no encontrado`];
+    console.log('=== VALIDATE QR CODE SERVICE ===');
+    
+    if (!encryptedHash) {
+      return [null, "Hash encriptado requerido"];
     }
 
-    const timestamp = Date.now();
-    const dataToEncrypt = JSON.stringify({
-      rut_usuario,
-      timestamp,
-      action: 'qr_auth'
+    // Buscar el QR code en la tabla QR
+    const qrCode = await QR.findOne({
+      where: { 
+        codigo_unico: encryptedHash,
+        estado_qr: true 
+      }
     });
 
-    const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipher('aes-256-cbc', ENCRYPTION_KEY);
-    
-    let encrypted = cipher.update(dataToEncrypt, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    
-    const encryptedHash = iv.toString('hex') + ':' + encrypted;
+    if (!qrCode) {
+      console.log('❌ QR code no encontrado o inactivo en tabla QR');
+      return [null, "Código QR inválido o expirado"];
+    }
 
-    console.log('Hash generado exitosamente');
-    
-    return [{
-      rut_usuario: user.rut_usuario,
-      nombres: user.nombres,
-      apellidos: user.apellidos,
-      email: user.email,
-      encryptedHash,
-      timestamp
-    }, null];
+    console.log('✅ QR code encontrado en tabla QR');
+    console.log('✅ Usuario del QR:', qrCode.rut_usuario);
+
+    // ✅ Desencriptar usando la función moderna
+    try {
+      const decryptedData = decryptData(encryptedHash);
+      const parsedData = JSON.parse(decryptedData);
+      
+      console.log('✅ QR desencriptado correctamente para:', parsedData.rut);
+
+      // Verificar que el RUT coincide
+      if (parsedData.rut !== qrCode.rut_usuario) {
+        console.log('❌ RUT del QR no coincide con tabla QR');
+        return [null, "Código QR corrupto"];
+      }
+
+      // Buscar usuario completo
+      const user = await Usuario.findOne({
+        where: { rut_usuario: parsedData.rut },
+        include: [
+          {
+            model: Rol,
+            as: 'rol',
+            attributes: ['id_rol', 'nombre_rol']
+          },
+          {
+            model: Cargo,
+            as: 'cargo',
+            attributes: ['id_cargo', 'nombre_cargo']
+          }
+        ]
+      });
+
+      if (!user) {
+        return [null, "Usuario no encontrado"];
+      }
+
+      console.log('✅ QR code válido, usuario encontrado');
+
+      // Generar token temporal
+      const tempToken = jwt.sign(
+        { 
+          rut_usuario: user.rut_usuario,
+          qr_codigo: qrCode.codigo_unico,
+          temp: true 
+        },
+        JWT_SECRET,
+        { expiresIn: "5m" }
+      );
+
+      return [{
+        user: {
+          rut_usuario: user.rut_usuario,
+          nombres: user.nombres,
+          apellidos: user.apellidos,
+          email: user.email,
+          id_rol: user.id_rol,
+          id_cargo: user.id_cargo
+        },
+        qr_info: {
+          codigo_unico: qrCode.codigo_unico,
+          fecha_creacion: qrCode.fecha_creacion,
+          estado_qr: qrCode.estado_qr
+        },
+        tempToken,
+        message: "Código QR válido. Ingrese su PIN para completar el registro."
+      }, null];
+
+    } catch (decryptError) {
+      console.error('❌ Error desencriptando QR:', decryptError);
+      return [null, "Código QR inválido o corrupto"];
+    }
 
   } catch (error) {
-    console.error('Error en generateEncryptedRutService:', error);
-    return [null, error.message];
-  }
-}
-
-export async function validateEncryptedRutService(encryptedHash) {
-  try {
-    console.log('=== VALIDATE ENCRYPTED RUT SERVICE ===');
-    
-    const parts = encryptedHash.split(':');
-    if (parts.length !== 2) {
-      return [null, "Hash encriptado inválido"];
-    }
-
-    const iv = Buffer.from(parts[0], 'hex');
-    const encrypted = parts[1];
-
-    const decipher = crypto.createDecipher('aes-256-cbc', ENCRYPTION_KEY);
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-
-    const data = JSON.parse(decrypted);
-    console.log('Datos desencriptados:', data);
-
-    const { rut_usuario, timestamp } = data;
-
-    // Validar tiempo de expiración (15 minutos)
-    const now = Date.now();
-    const maxAge = 15 * 60 * 1000; // 15 minutos
-    
-    if (now - timestamp > maxAge) {
-      return [null, "El código QR ha expirado. Genere uno nuevo."];
-    }
-
-    const user = await Usuario.findOne({
-      where: { rut_usuario },
-      include: [
-        {
-          model: Rol,
-          as: 'rol',
-          attributes: ['id_rol', 'nombre_rol']
-        },
-        {
-          model: Cargo,
-          as: 'cargo',
-          attributes: ['id_cargo', 'nombre_cargo']
-        }
-      ]
-    });
-
-    if (!user) {
-      return [null, `Usuario con RUT ${rut_usuario} no registrado en el sistema`];
-    }
-
-    // Verificar si la cuenta está bloqueada
-    if (user.bloqueado_hasta && new Date() < new Date(user.bloqueado_hasta)) {
-      const tiempoRestante = Math.ceil((new Date(user.bloqueado_hasta) - new Date()) / 1000 / 60);
-      return [null, `Cuenta bloqueada por intentos fallidos de PIN. Tiempo restante: ${tiempoRestante} minutos`];
-    }
-
-    // Generar token temporal para validar PIN
-    const tempToken = jwt.sign(
-      { rut_usuario, step: 'pin_validation' },
-      JWT_SECRET,
-      { expiresIn: '5m' }
-    );
-
-    const attemptsRemaining = 3 - (user.intentos_pin || 0);
-
-    return [{
-      user: {
-        rut_usuario: user.rut_usuario,
-        nombres: user.nombres,
-        apellidos: user.apellidos,
-        email: user.email
-      },
-      tempToken,
-      requiresPin: true,
-      attemptsRemaining
-    }, null];
-
-  } catch (error) {
-    console.error('Error en validateEncryptedRutService:', error);
-    return [null, "Error validando el código QR"];
+    console.error('Error en validateQRCodeService:', error);
+    return [null, "Error interno del servidor"];
   }
 }
 
