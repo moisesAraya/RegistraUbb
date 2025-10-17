@@ -122,6 +122,8 @@ class Marcaje(models.Model):
     observacion = models.TextField(blank=True, null=True)
     createdAt = models.DateTimeField(auto_now_add=True)
     updatedAt = models.DateTimeField(auto_now=True)
+    rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario', to_field='rut_usuario')
+    id_totem = models.ForeignKey('Totem', on_delete=models.CASCADE, db_column='id_totem', to_field='id_totem')
 
     class Meta:
         db_table = 'Marcajes'

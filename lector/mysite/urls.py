@@ -38,10 +38,14 @@ def favicon_view(request):
 urlpatterns = [
     path('favicon.ico', favicon_view),  
     path('admin/', admin.site.urls),
+    path('configuracion/', views.configuracion_totem_view, name='configuracion_totem'),
+    path('guardar_totem/', views.guardar_totem, name='guardar_totem'),
+    path('reconfigurar_totem/', views.reconfigurar_totem, name='reconfigurar_totem'),
     path('', views.lector_qr_view, name='lector_qr'),
     path('procesar_qr/', views.procesar_qr, name='procesar_qr'),
     path('verificar_pin/', views.verificar_pin, name='verificar_pin'),
     path('reset/', views.reset_session, name='reset_session'),
+    
     
 ]
 
