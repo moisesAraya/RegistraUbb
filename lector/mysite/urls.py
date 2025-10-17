@@ -36,10 +36,13 @@ def favicon_view(request):
     )
 
 urlpatterns = [
-    path('favicon.ico', favicon_view),  # Mover al principio para que tenga prioridad
+    path('favicon.ico', favicon_view),  
     path('admin/', admin.site.urls),
-    path('hello/', views.index),
-    path('api/usuarios/', views.listar_usuarios, name='listar_usuarios'),
+    path('', views.lector_qr_view, name='lector_qr'),
+    path('procesar_qr/', views.procesar_qr, name='procesar_qr'),
+    path('verificar_pin/', views.verificar_pin, name='verificar_pin'),
+    path('reset/', views.reset_session, name='reset_session'),
+    
 ]
 
 # Servir archivos estáticos en desarrollo

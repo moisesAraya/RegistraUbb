@@ -1,307 +1,672 @@
-import React, { useState, useEffect } from 'react';
-import { QrCode, Eye, EyeOff, RefreshCw, AlertCircle, CheckCircle, Copy, Download } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../Context/AuthContext';
+import QRCode from 'qrcode';
+import { 
+  QrCode, 
+  RefreshCw, 
+  Trash2, 
+  Download, 
+  Eye,
+  EyeOff,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Copy,
+  Shield,
+  ShieldCheck,
+  Sparkles,
+  Unlock
+} from 'lucide-react';
 
-interface QRCodeData {
-  id: string;
-  code: string;
-  isActive: boolean;
-  createdAt: Date;
-  expiresAt: Date;
-  usageCount: number;
+interface QRData {
+  codigo_unico: string;
+  hash_encriptado: string;
+  activo: boolean;
+  permanente: boolean;
+  fecha_creacion: string;
+  rut_usuario: string;
 }
 
 const QRCodeManager: React.FC = () => {
-  const [qrCodes, setQrCodes] = useState<QRCodeData[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [showCode, setShowCode] = useState<string | null>(null);
-  const [copySuccess, setCopySuccess] = useState<string | null>(null);
+  const { user } = useAuth();
+  const [qrData, setQrData] = useState<string | null>(null);
+  const [qrImage, setQrImage] = useState<string | null>(null);
+  const [qrHistory, setQrHistory] = useState<QRData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showQRData, setShowQRData] = useState(false);
+  const [isQRRevealed, setIsQRRevealed] = useState(false);
+  const [revealAnimation, setRevealAnimation] = useState(false);
 
-  useEffect(() => {
-    loadQRCodes();
-  }, []);
-
-  const loadQRCodes = () => {
-    // Mock data - en producción vendría de la API
-    const mockQRCodes: QRCodeData[] = [
-      {
-        id: '1',
-        code: 'QR-2024-001-ABC123',
-        isActive: true,
-        createdAt: new Date(2024, 0, 15),
-        expiresAt: new Date(2024, 2, 15), // 2 meses después
-        usageCount: 45
-      },
-      {
-        id: '2',
-        code: 'QR-2023-012-XYZ789',
-        isActive: false,
-        createdAt: new Date(2023, 11, 1),
-        expiresAt: new Date(2024, 1, 1),
-        usageCount: 120
-      }
-    ];
-    setQrCodes(mockQRCodes);
+  // ✅ Función para obtener token
+  const getAuthToken = () => {
+    const localToken = localStorage.getItem('token');
+    if (localToken) {
+      console.log('💾 Usando token del localStorage');
+      return localToken;
+    }
+    
+    console.error('❌ No se encontró token');
+    return null;
   };
 
-  const generateNewQRCode = async () => {
-    setIsGenerating(true);
+  // ✅ Función para hacer requests API
+  const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
+    const token = localStorage.getItem('token');
+    
+    const config: RequestInit = {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+        ...options.headers,
+      },
+    };
+    
+    console.log(`🌐 API Request: ${config.method || 'GET'} ${endpoint}`);
     
     try {
-      // Simular llamada a API
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Desactivar código actual
-      setQrCodes(prev => prev.map(qr => ({ ...qr, isActive: false })));
-      
-      // Generar nuevo código
-      const newQRCode: QRCodeData = {
-        id: Date.now().toString(),
-        code: `QR-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
-        isActive: true,
-        createdAt: new Date(),
-        expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 días
-        usageCount: 0
-      };
-      
-      setQrCodes(prev => [newQRCode, ...prev]);
+      const response = await fetch(endpoint, config);
+      console.log(`📥 API Response: ${response.status} ${endpoint}`);
+      return response;
     } catch (error) {
-      console.error('Error generando código QR:', error);
-    } finally {
-      setIsGenerating(false);
+      console.error(`❌ API Error: ${endpoint}`, error);
+      throw error;
     }
   };
 
-  const deactivateQRCode = async (id: string) => {
-    setQrCodes(prev => 
-      prev.map(qr => 
-        qr.id === id ? { ...qr, isActive: false } : qr
-      )
-    );
-  };
-
-  const copyToClipboard = async (code: string) => {
+  // ✅ Generar imagen QR desde hash
+  const generateQRImage = async (hash: string) => {
     try {
-      await navigator.clipboard.writeText(code);
-      setCopySuccess(code);
-      setTimeout(() => setCopySuccess(null), 2000);
+      console.log('🎨 Generando imagen QR...');
+      
+      const qrDataURL = await QRCode.toDataURL(hash, {
+        width: 280,
+        margin: 2,
+        color: {
+          dark: '#1e293b', // slate-800
+          light: '#ffffff'
+        },
+        errorCorrectionLevel: 'M'
+      });
+      
+      setQrImage(qrDataURL);
+      console.log('✅ Imagen QR generada');
+      
     } catch (error) {
-      console.error('Error copiando al portapapeles:', error);
+      console.error('Error generando imagen QR:', error);
+      setError('Error generando la imagen del código QR');
     }
   };
 
-  const downloadQRCode = (code: string) => {
-    // Simular descarga del código QR
-    console.log('Descargando código QR:', code);
-    // En producción, esto generaría y descargaría la imagen del QR
+  // ✅ Función de prueba
+  const testApiConnection = async () => {
+    try {
+      console.log('🧪 Probando conectividad API...');
+      
+      const response = await makeApiRequest('/api/qr/test', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        const testData = await response.json();
+        console.log('✅ API conectada correctamente:', testData);
+        return true;
+      } else {
+        console.log('❌ API no responde correctamente');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error conectando con API:', error);
+      return false;
+    }
   };
 
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat('es-CL', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(date);
+  // ✅ Cargar historial de QR codes y mostrar el activo
+  const loadQRHistory = async () => {
+    try {
+      console.log('📜 Cargando historial de QR codes...');
+      
+      const authToken = getAuthToken();
+      if (!authToken) {
+        setError('No hay token de autenticación. Por favor, inicie sesión nuevamente.');
+        return;
+      }
+      
+      const response = await makeApiRequest('/api/qr/my-qr-codes', {
+        method: 'GET'
+      });
+
+      console.log('📥 Response status:', response.status);
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Historial cargado:', result);
+        
+        const qrCodes = result.data?.qr_codes || [];
+        setQrHistory(qrCodes);
+        
+        // ✅ Buscar QR activo y mostrarlo automáticamente
+        const activeQR = qrCodes.find((qr: QRData) => qr.activo);
+        if (activeQR) {
+          console.log('🔍 QR activo encontrado:', activeQR.codigo_unico);
+          setQrData(activeQR.hash_encriptado);
+          await generateQRImage(activeQR.hash_encriptado);
+          setIsQRRevealed(false);
+        } else {
+          console.log('ℹ️ No se encontró QR activo');
+          setQrData(null);
+          setQrImage(null);
+          setIsQRRevealed(false);
+        }
+        
+      } else {
+        const responseText = await response.text();
+        console.error('❌ Error response:', responseText.substring(0, 200));
+        
+        if (response.status === 401) {
+          setError('Sesión expirada. Por favor, inicie sesión nuevamente.');
+        } else {
+          try {
+            const errorData = JSON.parse(responseText);
+            setError(errorData.message || 'Error cargando historial');
+          } catch {
+            setError(`Error del servidor (${response.status})`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando historial QR:', error);
+      setError(`Error de red: ${error.message}`);
+    }
   };
 
-  const isExpired = (date: Date) => {
-    return new Date() > date;
+  // ✅ Generar nuevo QR code
+  const handleGenerateQR = async () => {
+    if (!user?.rut_usuario) {
+      setError('Usuario no autenticado. Por favor, inicie sesión nuevamente.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      console.log('🔄 Generando nuevo QR code...');
+      
+      const authToken = getAuthToken();
+      if (!authToken) {
+        setError('No hay token de autenticación. Por favor, inicie sesión nuevamente.');
+        return;
+      }
+      
+      const response = await makeApiRequest('/api/qr/generate-my-qr', {
+        method: 'GET'
+      });
+
+      console.log('📥 Response status:', response.status);
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ QR generado correctamente:', result);
+        
+        const hash = result.data.qrData;
+        setQrData(hash);
+        setIsQRRevealed(true);
+        
+        await generateQRImage(hash);
+        await loadQRHistory();
+        
+      } else {
+        const responseText = await response.text();
+        console.error('❌ Error response:', responseText.substring(0, 200));
+        
+        if (response.status === 401) {
+          setError('Sesión expirada. Por favor, inicie sesión nuevamente.');
+        } else {
+          try {
+            const errorData = JSON.parse(responseText);
+            setError(errorData.message || 'Error generando código QR');
+          } catch {
+            setError(`Error del servidor (${response.status})`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      setError(`Error de red: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const activeQRCode = qrCodes.find(qr => qr.isActive);
+  // ✅ Función para revelar el QR con animación
+  const handleRevealQR = () => {
+    setRevealAnimation(true);
+    
+    setTimeout(() => {
+      setIsQRRevealed(true);
+    }, 200);
+    
+    setTimeout(() => {
+      setRevealAnimation(false);
+    }, 600);
+  };
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center space-x-2 mb-4">
-          <QrCode className="w-5 h-5 text-blue-600" />
-          <h3 className="text-lg font-semibold text-gray-900">
-            Gestión de Códigos QR
-          </h3>
-        </div>
-        <p className="text-gray-600 mb-6">
-          Genera y administra tus códigos QR para el registro de asistencia. 
-          Solo puede haber un código activo a la vez.
-        </p>
+  // ✅ Invalidar QR codes
+  const handleInvalidateQR = async () => {
+    if (!confirm('¿Está seguro de que desea invalidar sus códigos QR activos?')) {
+      return;
+    }
 
-        {/* Código activo */}
-        {activeQRCode && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-medium text-green-900 mb-1">Código QR Activo</h4>
-                <div className="flex items-center space-x-2">
-                  <code className="text-sm font-mono text-green-800 bg-green-100 px-2 py-1 rounded">
-                    {showCode === activeQRCode.id ? activeQRCode.code : '••••••••••••'}
-                  </code>
-                  <button
-                    onClick={() => setShowCode(showCode === activeQRCode.id ? null : activeQRCode.id)}
-                    className="text-green-600 hover:text-green-800"
-                  >
-                    {showCode === activeQRCode.id ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                  <button
-                    onClick={() => copyToClipboard(activeQRCode.code)}
-                    className="text-green-600 hover:text-green-800"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </button>
-                </div>
-                <p className="text-sm text-green-700 mt-1">
-                  Expira: {formatDate(activeQRCode.expiresAt)} | 
-                  Usos: {activeQRCode.usageCount}
-                </p>
-              </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => downloadQRCode(activeQRCode.code)}
-                  className="flex items-center space-x-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Descargar</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+    setLoading(true);
+    setError(null);
 
-        {/* Generar nuevo código */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-          <div>
-            <h4 className="font-medium text-gray-900 mb-1">Generar Nuevo Código QR</h4>
-            <p className="text-sm text-gray-600">
-              {activeQRCode 
-                ? 'Al generar un nuevo código, el actual se desactivará automáticamente.'
-                : 'No tienes ningún código QR activo. Genera uno para comenzar.'
-              }
-            </p>
-          </div>
+    try {
+      const response = await makeApiRequest('/api/qr/invalidate-my-qr', {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setQrData(null);
+        setQrImage(null);
+        setIsQRRevealed(false);
+        await loadQRHistory();
+        console.log('✅ QR codes invalidados');
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || 'Error invalidando códigos QR');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      setError('Error de conexión');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ Descargar QR como imagen
+  const handleDownloadQR = () => {
+    if (!qrImage) return;
+
+    const link = document.createElement('a');
+    link.download = `qr-code-${user?.rut_usuario}-${new Date().toISOString().split('T')[0]}.png`;
+    link.href = qrImage;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // ✅ Copiar hash al portapapeles
+  const handleCopyHash = async () => {
+    if (!qrData) return;
+    
+    try {
+      await navigator.clipboard.writeText(qrData);
+      console.log('✅ Hash copiado al portapapeles');
+    } catch (error) {
+      console.error('Error copiando hash:', error);
+    }
+  };
+
+  // ✅ Cargar historial al montar el componente
+  useEffect(() => {
+    console.log('🔍 Iniciando QRCodeManager...');
+    testApiConnection().then((connected) => {
+      if (connected) {
+        const authToken = getAuthToken();
+        if (authToken) {
+          loadQRHistory();
+        }
+      }
+    });
+  }, []);
+
+  // ✅ Verificar autenticación
+  if (!getAuthToken()) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+          <div className="text-amber-600 text-4xl mb-4">🔒</div>
+          <h2 className="text-lg font-semibold text-amber-800 mb-2">
+            Sesión no válida
+          </h2>
+          <p className="text-amber-700 text-sm mb-4">
+            No se encontró token de autenticación válido. Por favor, inicie sesión nuevamente.
+          </p>
           <button
-            onClick={generateNewQRCode}
-            disabled={isGenerating}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            onClick={() => {
+              localStorage.clear();
+              sessionStorage.clear();
+              window.location.href = '/login';
+            }}
+            className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
           >
-            <RefreshCw className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
-            <span>{isGenerating ? 'Generando...' : 'Generar Código QR'}</span>
+            Ir al Login
           </button>
         </div>
       </div>
+    );
+  }
 
-      {/* Historial de códigos */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Historial de Códigos QR
-          </h3>
+  return (
+    <div className="max-w-4xl mx-auto p-6 space-y-6">
+      {/* Header profesional */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
+              <QrCode className="h-5 w-5 text-slate-600" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-slate-900">Gestión de Código QR</h1>
+              <p className="text-slate-600 text-sm">
+                Genere y gestione su código QR personal para registro de asistencia
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Error Alert profesional */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start space-x-3">
+          <XCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+          <div>
+            <h3 className="text-sm font-medium text-red-800">Error</h3>
+            <p className="text-sm text-red-700 mt-1">{error}</p>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code Display profesional */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-slate-900">Código QR Actual</h2>
+          <div className="flex space-x-2">
+            <button
+              onClick={handleGenerateQR}
+              disabled={loading}
+              className={`
+                flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                ${loading 
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                  : 'bg-slate-700 hover:bg-slate-800 text-white'
+                }
+              `}
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <span>{loading ? 'Generando...' : 'Generar Nuevo'}</span>
+            </button>
+            
+            {qrData && (
+              <button
+                onClick={handleInvalidateQR}
+                disabled={loading}
+                className="flex items-center space-x-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span>Invalidar</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="divide-y divide-gray-200">
-          {qrCodes.length === 0 ? (
-            <div className="px-6 py-8 text-center text-gray-500">
-              No hay códigos QR generados.
-            </div>
-          ) : (
-            qrCodes.map((qrCode) => (
-              <div key={qrCode.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <div className="flex items-center space-x-2">
-                        <code className="text-sm font-mono text-gray-800 bg-gray-100 px-2 py-1 rounded">
-                          {showCode === qrCode.id ? qrCode.code : '••••••••••••'}
-                        </code>
-                        <button
-                          onClick={() => setShowCode(showCode === qrCode.id ? null : qrCode.id)}
-                          className="text-gray-400 hover:text-gray-600"
-                        >
-                          {showCode === qrCode.id ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                        <button
-                          onClick={() => copyToClipboard(qrCode.code)}
-                          className="text-gray-400 hover:text-gray-600"
-                        >
-                          <Copy className="w-4 h-4" />
-                          {copySuccess === qrCode.code && (
-                            <span className="ml-1 text-xs text-green-600">¡Copiado!</span>
-                          )}
-                        </button>
+        {qrImage ? (
+          <div className="flex flex-col lg:flex-row lg:space-x-8 space-y-6 lg:space-y-0">
+            {/* ✅ QR Image profesional con efecto blur */}
+            <div className="lg:w-1/2">
+              <div className="relative bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl p-6 text-center overflow-hidden border border-slate-200">
+                
+                {/* ✅ Efectos de fondo más sutiles */}
+                <div className="absolute inset-0 overflow-hidden">
+                  <div className="absolute -top-8 -right-8 w-32 h-32 bg-slate-200 rounded-full opacity-20"></div>
+                  <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-blue-200 rounded-full opacity-20"></div>
+                </div>
+
+                {/* ✅ QR Image con blur condicional */}
+                <div className="relative z-10">
+                  <img 
+                    src={qrImage} 
+                    alt="Código QR" 
+                    className={`
+                      mx-auto mb-4 border-2 border-slate-200 shadow-lg rounded-xl transition-all duration-500 transform
+                      ${!isQRRevealed ? 'blur-sm scale-95 opacity-70' : 'blur-0 scale-100 opacity-100'}
+                      ${revealAnimation ? 'animate-pulse' : ''}
+                    `}
+                  />
+
+                  {/* ✅ Overlay profesional cuando está borroso */}
+                  {!isQRRevealed && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="bg-white/95 backdrop-blur-sm rounded-xl p-5 shadow-lg border border-slate-200 transform transition-all duration-300 hover:scale-105">
+                        <div className="text-center">
+                          <div className="w-12 h-12 bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-sm">
+                            <Shield className="h-6 w-6 text-white" />
+                          </div>
+                          <h3 className="text-base font-semibold text-slate-900 mb-2">
+                            Código QR Protegido
+                          </h3>
+                          <p className="text-sm text-slate-600 mb-4 leading-relaxed">
+                            Haga clic para mostrar su código QR
+                          </p>
+                          <button
+                            onClick={handleRevealQR}
+                            className="group bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white px-5 py-2 rounded-lg text-sm font-medium transition-all duration-200 transform hover:scale-105 flex items-center space-x-2 mx-auto"
+                          >
+                            <Unlock className="h-4 w-4 group-hover:rotate-12 transition-transform" />
+                            <span>Mostrar QR</span>
+                          </button>
+                        </div>
                       </div>
-                      
-                      {qrCode.isActive ? (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                          Activo
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                          Inactivo
-                        </span>
-                      )}
-                      
-                      {isExpired(qrCode.expiresAt) && (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
-                          Expirado
-                        </span>
-                      )}
                     </div>
-                    
-                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                      <div className="flex items-center space-x-1">
-                        <span>Creado: {formatDate(qrCode.createdAt)}</span>
-                      </div>
-                      
-                      <div className="flex items-center space-x-1">
-                        <span>Expira: {formatDate(qrCode.expiresAt)}</span>
-                      </div>
-                      
-                      <div className="flex items-center space-x-1">
-                        <span>Usos: {qrCode.usageCount}</span>
-                      </div>
+                  )}
+                </div>
+
+                {/* ✅ Botones de acción profesionales */}
+                {isQRRevealed && (
+                  <div className="relative z-10">
+                    <p className="text-sm text-slate-600 mb-4 font-medium">
+                      Escanee este código con el tótem para registrar su asistencia
+                    </p>
+                    <div className="flex justify-center space-x-2">
+                      <button
+                        onClick={handleDownloadQR}
+                        className="flex items-center space-x-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-all duration-200"
+                      >
+                        <Download className="h-3 w-3" />
+                        <span>Descargar</span>
+                      </button>
+                      <button
+                        onClick={handleCopyHash}
+                        className="flex items-center space-x-2 px-3 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition-all duration-200"
+                      >
+                        <Copy className="h-3 w-3" />
+                        <span>Copiar</span>
+                      </button>
+                      <button
+                        onClick={() => setIsQRRevealed(false)}
+                        className="flex items-center space-x-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-medium transition-all duration-200"
+                      >
+                        <EyeOff className="h-3 w-3" />
+                        <span>Ocultar</span>
+                      </button>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center space-x-2">
+                )}
+              </div>
+            </div>
+
+            {/* QR Info profesional */}
+            <div className="lg:w-1/2">
+              <div className="space-y-4">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+                  <div className="flex items-start space-x-3">
+                    <div className="bg-blue-600 rounded-full p-2">
+                      <CheckCircle className="h-4 w-4 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-blue-900">QR Activo</h3>
+                      <p className="text-sm text-blue-800 mt-1">
+                        Su código QR está activo y listo para usar
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-700">Hash del QR:</span>
                     <button
-                      onClick={() => downloadQRCode(qrCode.code)}
-                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                      title="Descargar QR"
+                      onClick={() => setShowQRData(!showQRData)}
+                      className="text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors"
                     >
-                      <Download className="w-4 h-4" />
+                      {showQRData ? (
+                        <><EyeOff className="h-3 w-3 inline mr-1" />Ocultar</>
+                      ) : (
+                        <><Eye className="h-3 w-3 inline mr-1" />Mostrar</>
+                      )}
                     </button>
-                    
-                    {qrCode.isActive && (
-                      <button
-                        onClick={() => deactivateQRCode(qrCode.id)}
-                        className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Desactivar"
-                      >
-                        <EyeOff className="w-4 h-4" />
-                      </button>
+                  </div>
+                  
+                  {showQRData && (
+                    <div className="bg-slate-100 rounded-lg p-3 border border-slate-200">
+                      <code className="text-xs text-slate-700 break-all font-mono">
+                        {qrData}
+                      </code>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                  <div className="flex items-center space-x-3">
+                    <Clock className="h-4 w-4 text-slate-600" />
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">Válido indefinidamente</p>
+                      <p className="text-xs text-slate-600">Hasta que lo invalide manualmente</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ✅ Indicador de estado profesional */}
+                <div className={`
+                  border rounded-xl p-4 transition-all duration-300
+                  ${isQRRevealed 
+                    ? 'bg-amber-50 border-amber-200' 
+                    : 'bg-slate-50 border-slate-200'
+                  }
+                `}>
+                  <div className="flex items-center space-x-3">
+                    {isQRRevealed ? (
+                      <>
+                        <ShieldCheck className="h-4 w-4 text-amber-600" />
+                        <div>
+                          <p className="text-sm font-medium text-amber-900">QR Visible</p>
+                          <p className="text-xs text-amber-700">El código está siendo mostrado</p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <Shield className="h-4 w-4 text-slate-600" />
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">QR Protegido</p>
+                          <p className="text-xs text-slate-600">El código está oculto por seguridad</p>
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <div className="relative">
+              <QrCode className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-16 h-16 border-2 border-slate-200 border-dashed rounded-lg"></div>
+              </div>
+            </div>
+            <h3 className="text-base font-medium text-slate-900 mb-2">
+              No tiene un código QR activo
+            </h3>
+            <p className="text-slate-600 text-sm mb-6">
+              Genere un nuevo código QR para poder registrar su asistencia
+            </p>
+          </div>
+        )}
       </div>
 
-      {/* Información adicional */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-start space-x-3">
-          <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
-          <div>
-            <h4 className="font-medium text-blue-900 mb-1">Información Importante</h4>
-            <ul className="text-sm text-blue-800 space-y-1">
-              <li>• Solo puede haber un código QR activo a la vez</li>
-              <li>• Los códigos QR expiran automáticamente después de 60 días</li>
-              <li>• Al generar un nuevo código, el anterior se desactiva automáticamente</li>
-              <li>• Puedes descargar la imagen del código QR para imprimirlo</li>
-              <li>• El código QR debe ser escaneado en el lector externo para registrar asistencia</li>
-            </ul>
-          </div>
+      {/* QR History profesional */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-slate-900">Historial de Códigos QR</h2>
+          <button
+            onClick={loadQRHistory}
+            className="text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors"
+          >
+            <RefreshCw className="h-3 w-3 inline mr-1" />
+            Actualizar
+          </button>
         </div>
+
+        {qrHistory.length > 0 ? (
+          <div className="space-y-3">
+            {qrHistory.map((qr, index) => (
+              <div
+                key={qr.codigo_unico}
+                className={`
+                  flex items-center justify-between p-4 rounded-xl border transition-all duration-200
+                  ${qr.activo 
+                    ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200' 
+                    : 'bg-slate-50 border-slate-200'
+                  }
+                `}
+              >
+                <div className="flex items-center space-x-4">
+                  <div className={`
+                    w-8 h-8 rounded-full flex items-center justify-center
+                    ${qr.activo ? 'bg-blue-600' : 'bg-slate-400'}
+                  `}>
+                    {qr.activo ? (
+                      <CheckCircle className="h-4 w-4 text-white" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-white" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-900 flex items-center space-x-2 text-sm">
+                      <span>{qr.activo ? 'Código QR Activo' : 'Código QR Inactivo'}</span>
+                      {qr.activo && (
+                        <span className="bg-blue-500 w-1.5 h-1.5 rounded-full animate-pulse"></span>
+                      )}
+                    </p>
+                    <p className="text-xs text-slate-600">
+                      Creado: {new Date(qr.fecha_creacion).toLocaleString('es-CL')}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className={`
+                    inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                    ${qr.activo 
+                      ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+                      : 'bg-slate-100 text-slate-800 border border-slate-200'
+                    }
+                  `}>
+                    {qr.activo ? 'Activo' : 'Inactivo'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <Clock className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+            <p className="text-slate-600 text-sm">No hay códigos QR en el historial</p>
+          </div>
+        )}
       </div>
     </div>
   );

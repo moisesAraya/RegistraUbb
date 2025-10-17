@@ -86,24 +86,24 @@ def sync_usuario_with_backend(sender, instance, created, **kwargs):
     """
     data = {
         "rut_usuario": instance.rut_usuario,
-        "nombres": instance.nombres,
-        "apellidos": instance.apellidos,
+        "nombres": instance.first_name,
+        "apellidos": instance.last_name,
         "email": instance.email,
-        "password": instance.password,
         "horas_atrabajar": instance.horas_atrabajar,
-        "id_rol": instance.id_rol.id_rol,
-        "id_cargo": instance.id_cargo.id_cargo,
+        "pin": instance.pin,
+        "intentos_pin": instance.intentos_pin,
+        "bloqueado_hasta": instance.bloqueado_hasta,
     }
 
     try:
         if created:
             # Crear en backend
-            requests.post(f"{BACKEND_URL}/api/users", json=data, timeout=5)
-            print(f'[SYNC] Usuario {instance.nombres} {instance.apellidos} creado en backend.')
+            requests.post(f"{BACKEND_URL}users", json=data, timeout=5)
+            print(f'[SYNC] Usuario {instance.first_name} {instance.last_name} creado en backend.')
         else:
             # Actualizar en backend
-            requests.put(f"{BACKEND_URL}/api/users/{instance.rut_usuario}", json=data, timeout=5)
-            print(f'[SYNC] Usuario {instance.nombres} {instance.apellidos} actualizado en backend.')
+            requests.put(f"{BACKEND_URL}users/{instance.rut_usuario}", json=data, timeout=5)
+            print(f'[SYNC] Usuario {instance.first_name} {instance.last_name} actualizado en backend.')
     except requests.RequestException as e:
         print(f"[ERROR] No se pudo sincronizar Usuario con backend: {e}")
 
