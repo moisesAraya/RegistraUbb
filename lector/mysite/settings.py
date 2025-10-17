@@ -23,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-g-xo9*6zdqi0+39a!!*(kb$=$+d*bmt@grp1n4*b_h)#6z9c1q'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = []
 
@@ -31,13 +31,13 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'modlector',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'modlector',
 ]
 
 MIDDLEWARE = [
@@ -75,23 +75,42 @@ WSGI_APPLICATION = 'mysite.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-BACKEND_URL = "http://146.83.194.142:1772/api/"
 
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'postgres',
-        'USER': 'postgres',
-        'PASSWORD': 'andrea2025',
-        'HOST': '146.83.194.142',
-        'PORT': '1774',
+# Configuración de base de datos según el entorno
+if DEBUG:  # DESARROLLO - Base de datos local
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'RegistraUbb',
+            'USER': 'postgres',
+            'PASSWORD': 'holiwis',
+            'HOST': 'localhost',
+            'PORT': '5432',
+        }
     }
-}
+    # URL del backend para desarrollo (puede ser localhost si tienes el backend corriendo local)
+    BACKEND_URL = "http://127.0.0.1:3000/api/"  # Cambia el puerto según tu backend local
+    
+else:  # PRODUCCIÓN - Base de datos remota
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'postgres',
+            'USER': 'postgres',
+            'PASSWORD': 'andrea2025',
+            'HOST': '146.83.194.142',
+            'PORT': '1774',
+        }
+    }
+    # URL del backend para producción
+    BACKEND_URL = "http://146.83.194.142:1772"
 
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
+
+AUTH_USER_MODEL = 'modlector.Usuario'
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -112,9 +131,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'es-cl'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Santiago'
 
 USE_I18N = True
 
@@ -148,8 +167,6 @@ else:
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# URL del backend para sincronización
-BACKEND_URL = "http://146.83.194.142:1772"
 
 # ==========================================
 # CONFIGURACIONES DE SEGURIDAD PARA PRODUCCIÓN
@@ -161,6 +178,7 @@ import os
 if not DEBUG:  # Cuando DEBUG=False (producción)
     
     # Configuraciones HTTPS
+    # USAR SOLO HTTP
     SECURE_SSL_REDIRECT = False  # Redirigir HTTP a HTTPS
     SECURE_HSTS_SECONDS = 0  # 1 año de HSTS
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
