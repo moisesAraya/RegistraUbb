@@ -1,94 +1,78 @@
 "use strict";
 import Usuario from "../entities/usuario.entity.js";
+import Rol from "../entities/rol.entity.js";
+import Cargo from "../entities/cargo.entity.js";
 import jwt from "jsonwebtoken";
 import { comparePassword, encryptPassword } from "../helpers/bcrypt.helper.js";
 import { JWT_SECRET } from "../config/envconfig.js";
-// import { addMinutes, isBefore } from "date-fns";
-// import { sendLoginAlertEmail, sendVerificationEmail } from "../helpers/email.helper.js";
 import TokenService from "./token.service.js";
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 3; // en minutos
 
-export async function loginService(user) {
+export async function loginService({ rut_usuario, password }) {
   try {
-    const { rut_usuario, password } = user;
-
-    const createErrorMessage = (dataInfo, message) => ({
-      dataInfo,
-      message
+    // Buscar usuario por RUT en lugar de email
+    const user = await Usuario.findOne({
+      where: { rut_usuario },
+      include: [
+        {
+          model: Rol,
+          as: 'rol',
+          attributes: ['id_rol', 'nombre_rol']
+        },
+        {
+          model: Cargo,
+          as: 'cargo',
+          attributes: ['id_cargo', 'nombre_cargo']
+        }
+      ]
     });
 
-    const userFound = await Usuario.findOne({ where: { rut_usuario } });
-
-    if (!userFound) {
-      return [null, createErrorMessage("rut", "El RUT es incorrecto")];
+    if (!user) {
+      return [null, "Usuario no encontrado"];
     }
 
-    // Preguntar si usaremos el bloqueo por intentos fallidos
-    /*
-    if (userFound.bloqueadoHasta && isBefore(new Date(), userFound.bloqueadoHasta)) {
-      return [null, createErrorMessage("email", "Cuenta temporalmente bloqueada por intentos fallidos. Intenta más tarde.")];
-    }
-    */
-
-    const isMatch = await comparePassword(password, userFound.password);
-
-    /*
-    if (!isMatch) {
-      userFound.intentosFallidos = (userFound.intentosFallidos || 0) + 1;
-
-      if (userFound.intentosFallidos >= MAX_LOGIN_ATTEMPTS) {
-        userFound.bloqueadoHasta = addMinutes(new Date(), LOCK_TIME);
-        userFound.intentosFallidos = 0;
-
-        await userFound.save();
-        await sendLoginAlertEmail(userFound.email);
-
-        return [null, createErrorMessage("email", "Cuenta bloqueada temporalmente. Revisa tu email.")];
-      }
-
-      await userFound.save();
-      return [null, createErrorMessage("password", "La contraseña es incorrecta")];
+    // Verificar contraseña
+    const isPasswordValid = await comparePassword(password, user.password);
+    
+    if (!isPasswordValid) {
+      return [null, "Contraseña incorrecta"];
     }
 
-    userFound.intentosFallidos = 0;
-    userFound.bloqueadoHasta = null;
-    */
+    // Generar token JWT
+    const token = TokenService.generateToken({
+      rut_usuario: user.rut_usuario,
+      nombres: user.nombres,
+      apellidos: user.apellidos,
+      email: user.email,
+      id_rol: user.id_rol,
+      id_cargo: user.id_cargo
+    });
 
-    if (!isMatch) {
-      return [null, createErrorMessage("password", "La contraseña es incorrecta")];
-    }
+    return [{
+      user: {
+        rut_usuario: user.rut_usuario,
+        nombres: user.nombres,
+        apellidos: user.apellidos,
+        email: user.email,
+        horas_atrabajar: user.horas_atrabajar,
+        id_rol: user.id_rol,
+        id_cargo: user.id_cargo,
+        rol: user.rol,
+        cargo: user.cargo
+      },
+      token
+    }, null];
 
-    const payload = {
-      nombreCompleto: `${userFound.nombre} ${userFound.apellidos}`,
-      email: userFound.email,
-      rut: userFound.rut,
-      rol: userFound.rol,
-    };
-
-    const accessToken = TokenService.generateToken(payload);
-
-    const userData = {
-      id_usuario: userFound.id_usuario,
-      nombre: userFound.nombre,
-      apellidos: userFound.apellidos,
-      email: userFound.email,
-      rut: userFound.rut,
-      rol: userFound.rol,
-    };
-
-    return [{ token: accessToken, user: userData }, null];
   } catch (error) {
-    console.error("Error al iniciar sesión:", error);
-    return [null, "Error interno del servidor"];
+    return [null, error.message];
   }
 }
 
-// Preguntar si se usará verificación por correo
 export async function registerService(user) {
   try {
-    const { nombre, apellidos, rut, email, password, rol, cargo } = user;
+    const { rut_usuario, nombres, apellidos, email, password, horas_atrabajar, id_rol, id_cargo } = user;
 
     const createErrorMessage = (dataInfo, message) => ({
       dataInfo,
@@ -98,25 +82,23 @@ export async function registerService(user) {
     const existingEmailUser = await Usuario.findOne({ where: { email } });
     if (existingEmailUser) return [null, createErrorMessage("email", "Correo electrónico en uso")];
 
-    const existingRutUser = await Usuario.findOne({ where: { rut } });
-    if (existingRutUser) return [null, createErrorMessage("rut", "RUT ya asociado a una cuenta")];
+    const existingRutUser = await Usuario.findOne({ where: { rut_usuario } });
+    if (existingRutUser) return [null, createErrorMessage("rut_usuario", "RUT ya asociado a una cuenta")];
 
     const verificationToken = jwt.sign(
       {
-        nombre,
+        rut_usuario,
+        nombres,
         apellidos,
-        rut,
         email,
-        rol,
-        cargo,
+        horas_atrabajar,
+        id_rol,
+        id_cargo,
         password: await encryptPassword(password),
       },
       JWT_SECRET,
       { expiresIn: "10m" }
     );
-
-    // Preguntar si se enviará correo de verificación
-    // await sendVerificationEmail(email, verificationToken);
 
     return [{ email, mensaje: "Correo de verificación enviado" }, null];
   } catch (error) {
@@ -138,13 +120,14 @@ export async function verifyEmailService(token) {
     if (existingUser) return [null, "El correo electrónico ya está en uso"];
 
     const newUser = await Usuario.create({
-      nombre: payload.nombre,
+      rut_usuario: payload.rut_usuario,
+      nombres: payload.nombres,
       apellidos: payload.apellidos,
-      rut: payload.rut,
       email: payload.email,
       password: payload.password,
-      rol: payload.rol || "cliente",
-      cargo: payload.cargo || null,
+      horas_atrabajar: payload.horas_atrabajar,
+      id_rol: payload.id_rol || 2,
+      id_cargo: payload.id_cargo || 1,
     });
 
     return [newUser, null];

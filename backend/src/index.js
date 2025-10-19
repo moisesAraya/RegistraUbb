@@ -20,31 +20,62 @@ async function main() {
         await sequelize.authenticate();
         console.log('Conexión a la base de datos establecida correctamente.');
 
-        // ⭐ CRÍTICO: Ejecutar ANTES de sync()
+        console.log('🔧 Configurando relaciones...');
         setupRelations();
+        console.log('✅ Todas las relaciones configuradas correctamente');
 
-        // Luego sincronizar las tablas
+        console.log('📋 Sincronizando tablas en orden...');
+
+        // PASO 1: Tablas base (ya creadas)
         await Rol.sync();
+        console.log('✅ Tabla Rol sincronizada');
+        
         await Cargo.sync();
+        console.log('✅ Tabla Cargo sincronizada');
+        
         await Usuario.sync();
+        console.log('✅ Tabla Usuario sincronizada');
+        
         await QR.sync();
+        console.log('✅ Tabla QR sincronizada');
+        
         await Totem.sync();
-        await Motivo.sync();
-        await Marcaje.sync();
-        await Asistencia.sync();
-        await Justificacion.sync();
-        await RegistroMarcaje.sync();
-        await RegistroJust.sync();
-        await Notificacion.sync();
+        console.log('✅ Tabla Totem sincronizada');
 
-        console.log('Todas las tablas fueron sincronizadas correctamente.');
+        // PASO 2: Tablas independientes (sin foreign keys complejas)
+        await Justificacion.sync();
+        console.log('✅ Tabla Justificacion sincronizada');
+        
+        await Marcaje.sync();
+        console.log('✅ Tabla Marcaje sincronizada');
+        
+        await Asistencia.sync();
+        console.log('✅ Tabla Asistencia sincronizada');
+
+        // PASO 3: Tablas que dependen de Justificacion
+        await Motivo.sync();
+        console.log('✅ Tabla Motivo sincronizada');
+
+        // PASO 4: Tablas de registro (dependen de otras)
+        await RegistroMarcaje.sync();
+        console.log('✅ Tabla RegistroMarcaje sincronizada');
+        
+        await RegistroJust.sync();
+        console.log('✅ Tabla RegistroJust sincronizada');
+
+        // PASO 5: Notificaciones al final
+        await Notificacion.sync();
+        console.log('✅ Tabla Notificacion sincronizada');
+
+        console.log('🎉 Todas las tablas fueron sincronizadas correctamente.');
 
         const PORT = process.env.PORT || 3000;
         app.listen(PORT, () => {
-            console.log(`Servidor corriendo en el puerto ${PORT}`);
+            console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
         });
     } catch (error) {
-        console.error('No se pudo conectar a la base de datos:', error);
+        console.error('❌ No se pudo conectar a la base de datos:', error);
+        console.error('Detalles del error:', error.message);
     }
 }
 

@@ -31,17 +31,19 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'modlector',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'modlector',
 ]
 
 MIDDLEWARE = [
+    'modlector.middleware.FaviconMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -73,23 +75,42 @@ WSGI_APPLICATION = 'mysite.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-BACKEND_URL = "http://146.83.194.142:1772/api/"
 
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'postgres',
-        'USER': 'postgres',
-        'PASSWORD': 'andrea2025',
-        'HOST': '146.83.194.142',
-        'PORT': '1774',
+# Configuración de base de datos según el entorno
+if DEBUG:  # DESARROLLO - Base de datos local
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'RegistraUbb',
+            'USER': 'postgres',
+            'PASSWORD': 'holiwis',
+            'HOST': 'localhost',
+            'PORT': '5432',
+        }
     }
-}
+    # URL del backend para desarrollo (puede ser localhost si tienes el backend corriendo local)
+    BACKEND_URL = "http://127.0.0.1:3000/api/"  # Cambia el puerto según tu backend local
+    
+else:  # PRODUCCIÓN - Base de datos remota
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'postgres',
+            'USER': 'postgres',
+            'PASSWORD': 'andrea2025',
+            'HOST': '146.83.194.142',
+            'PORT': '1774',
+        }
+    }
+    # URL del backend para producción
+    BACKEND_URL = "http://146.83.194.142:1772"
 
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
+
+AUTH_USER_MODEL = 'modlector.Usuario'
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -110,9 +131,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'es-cl'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Santiago'
 
 USE_I18N = True
 
@@ -122,9 +143,82 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Directorios adicionales de archivos estáticos
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
+
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+]
+
+# Usar storage estándar en desarrollo, comprimido en producción
+if DEBUG:
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+else:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# ==========================================
+# CONFIGURACIONES DE SEGURIDAD PARA PRODUCCIÓN
+# ==========================================
+
+import os
+
+# Solo aplicar configuraciones de seguridad en producción
+if not DEBUG:  # Cuando DEBUG=False (producción)
+    
+    # Configuraciones HTTPS
+    # USAR SOLO HTTP
+    SECURE_SSL_REDIRECT = False  # Redirigir HTTP a HTTPS
+    SECURE_HSTS_SECONDS = 0  # 1 año de HSTS
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    
+    # Cookies seguras
+    SESSION_COOKIE_SECURE = False  # Cookies de sesión solo por HTTPS
+    CSRF_COOKIE_SECURE = False    # Cookies CSRF solo por HTTPS
+    
+    # Hosts permitidos (reemplaza con tu dominio real)
+    ALLOWED_HOSTS = [ 
+        '146.83.194.142',
+    ]
+    
+    # Configuración mejorada de WhiteNoise para producción
+    WHITENOISE_USE_FINDERS = False  # Desactivar en producción
+    WHITENOISE_AUTOREFRESH = False  # Desactivar en producción
+    
+else:  # Desarrollo (DEBUG=True)
+    
+    # En desarrollo, permitir localhost
+    ALLOWED_HOSTS = [
+        'localhost',
+        '127.0.0.1',
+        '0.0.0.0',
+    ]
+    
+    # Configuración de WhiteNoise para desarrollo
+    WHITENOISE_USE_FINDERS = True
+    WHITENOISE_AUTOREFRESH = True
+
+# ==========================================
+# SECRET_KEY MEJORADA
+# ==========================================
+
+# Para producción, usa una SECRET_KEY generada específicamente
+# Puedes generar una nueva en: https://djecrety.ir/
+# O usar: python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_secret_key())'
+
+# En desarrollo mantienes la actual, en producción debes cambiarla
+if not DEBUG:
+    # ⚠️ CAMBIAR ESTA SECRET_KEY EN PRODUCCIÓN ⚠️
+    SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'tu-secret-key-super-segura-de-al-menos-50-caracteres-aqui')

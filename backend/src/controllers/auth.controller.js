@@ -6,10 +6,12 @@ import {
   verifyEmailService
 } from "../services/auth.service.js";
 
-import { authValidation, registerValidation } from "../validations/auth.validation.js";
+import { loginValidation, registerValidation } from "../validations/auth.validation.js";
+import { processRut } from "../utils/rut.utils.js";
 
 import TokenService from "../services/token.service.js";
 
+import { unlockAccountService } from "../services/qr-auth.service.js";
 
 import {
   handleErrorClient,
@@ -19,52 +21,68 @@ import {
 
 export async function login(req, res) {
   try {
-    const { body } = req;
-    const { error } = authValidation.validate(body);
+    console.log('=== LOGIN CONTROLLER ===');
+    console.log('Body original:', req.body);
 
+    // Validar con Joi (esto ya normaliza el RUT automáticamente)
+    const { error, value } = loginValidation.validate(req.body);
+    
     if (error) {
-      return handleErrorClient(res, 400, "Error de validación", error.message);
+      console.log('Error de validación:', error.details[0].message);
+      return handleErrorClient(res, 400, error.details[0].message);
     }
 
-    const [loginResult, errorToken] = await loginService(body);
+    const { rut_usuario, password } = value; // rut_usuario ya está normalizado por Joi
+    
+    console.log('RUT normalizado:', rut_usuario);
+    console.log('Password recibido:', password ? '***' : 'vacío');
 
-    if (errorToken) {
-      return handleErrorClient(res, 400, "Error iniciando sesión", errorToken.message || errorToken);
+    // Buscar usuario con el RUT normalizado
+    const [user, loginError] = await loginService({ rut_usuario, password });
+
+    if (loginError) {
+      console.log('Error del servicio de login:', loginError);
+      return handleErrorClient(res, 401, loginError);
     }
 
-    const { token, user } = loginResult;
-
-    res.cookie("jwt", token, {
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000,
-      sameSite: "lax",
-      secure: false,
-    });
-
-    handleSuccess(res, 200, "Inicio de sesión exitoso", { token, user });
+    console.log('Usuario encontrado:', user.rut_usuario, user.nombres);
+    handleSuccess(res, 200, "Login exitoso", user);
+    
   } catch (error) {
-    handleErrorServer(res, 500, error.message);
+    console.error('Error en login controller:', error);
+    handleErrorServer(res, 500, "Error interno del servidor");
   }
 }
 
 export async function register(req, res) {
   try {
-    const { body } = req;
-    const { error } = registerValidation.validate(body);
+    console.log('=== REGISTER CONTROLLER ===');
+    console.log('Body original:', req.body);
+
+    // Validar con Joi (esto normaliza el RUT automáticamente)
+    const { error, value } = registerValidation.validate(req.body);
 
     if (error) {
-      return handleErrorClient(res, 400, "Error de validación", error.message);
+      console.log('Error de validación:', error.details[0].message);
+      return handleErrorClient(res, 400, error.details[0].message);
     }
 
-    const [result, errorRegister] = await registerService(body);
+    console.log('Datos validados y normalizados:', value);
 
-    if (errorRegister) {
-      return handleErrorClient(res, 400, "Error registrando al usuario", errorRegister.message || errorRegister);
+    // Registrar usuario con datos normalizados
+    const [newUser, registerError] = await registerService(value);
+
+    if (registerError) {
+      console.log('Error del servicio de registro:', registerError);
+      return handleErrorClient(res, 400, registerError);
     }
 
-    handleSuccess(res, 201, "Usuario registrado con éxito", result);
+    console.log('Usuario registrado:', newUser.rut_usuario);
+    handleSuccess(res, 201, "Usuario registrado exitosamente", newUser);
+
   } catch (error) {
-    handleErrorServer(res, 500, error.message);
+    console.error('Error en register controller:', error);
+    handleErrorServer(res, 500, "Error interno del servidor");
   }
 }
 
