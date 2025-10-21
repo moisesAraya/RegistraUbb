@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const API_BASE_URL = 'http://localhost:3000'; // Ajusta según tu configuración
+const API_BASE_URL = import.meta.env.VITE_API_URL; // Ajusta según tu configuración
 
 export interface User {
   id: string;

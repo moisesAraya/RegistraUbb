@@ -63,6 +63,8 @@ interface RealTimeData {
   }>;
 }
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 export function useDashboard() {
   const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
@@ -90,8 +92,8 @@ export function useDashboard() {
       }
 
       console.log('📡 Llamando API dashboard/basic-stats...');
-      
-      const response = await fetch('http://localhost:3000/api/dashboard/basic-stats', {
+
+      const response = await fetch(`${API_URL}/dashboard/basic-stats`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

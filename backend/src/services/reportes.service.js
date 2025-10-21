@@ -12,14 +12,22 @@ import { getAsistenciaUsuarioService } from './asistencia.service.js';
 // ✅ OBTENER REPORTE MENSUAL DETALLADO
 export async function getReportePersonalMensual(rut_usuario, mes, anio) {
     console.log('📊 [REPORTES] Generando reporte mensual:', { rut_usuario, mes, anio });
-    
+
     try {
-        // Obtener datos de asistencia base
-        const asistenciaData = await getAsistenciaUsuarioService(rut_usuario, mes, anio);
+        // Validación fuerte
+        if (!rut_usuario) throw new Error("RUT requerido");
+        mes = Number(mes);
+        anio = Number(anio);
+        if (!mes || !anio || mes < 1 || mes > 12) throw new Error("Mes o año inválido");
 
         // Rango de fechas del mes
         const fechaInicio = `${anio}-${String(mes).padStart(2, '0')}-01`;
-        const fechaFin = `${anio}-${String(mes).padStart(2, '0')}-31`;
+        // Último día del mes
+        const lastDay = new Date(anio, mes, 0).getDate();
+        const fechaFin = `${anio}-${String(mes).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+        // Obtener datos de asistencia base
+        const asistenciaData = await getAsistenciaUsuarioService(rut_usuario, mes, anio);
 
         // Obtener las justificaciones del usuario en el rango de fechas
         const justificaciones = await Justificacion.findAll({

@@ -13,11 +13,24 @@ import {
 // ✅ OBTENER REPORTE MENSUAL
 export async function getReporteMensual(req, res) {
     console.log('📊 [REPORTES-CONTROLLER] ===== GET REPORTE MENSUAL =====');
-    
     try {
-        const rut_usuario = req.user?.rut_usuario;
+        const user = req.user;
+        let rut_usuario = user?.rut_usuario;
+
+        // Si es admin y viene rut por query, usa ese
+        if (user?.role === 'admin' && req.query.rut) {
+            rut_usuario = req.query.rut;
+        }
+
         const mes = parseInt(req.query.mes);
         const anio = parseInt(req.query.anio);
+
+        if (!rut_usuario) {
+            return res.status(400).json({ success: false, error: 'RUT requerido' });
+        }
+        if (!mes || !anio) {
+            return res.status(400).json({ success: false, error: 'Mes y año requeridos' });
+        }
 
         const reporte = await getReportePersonalMensual(rut_usuario, mes, anio);
 
