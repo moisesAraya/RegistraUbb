@@ -1,6 +1,8 @@
 import app from './app.js';
 import { sequelize } from './config/dbconfig.js';
 import { setupRelations } from './entities/relations.js'; 
+import https from "https";
+import fs from "fs";
 
 import Rol from './entities/rol.entity.js';
 import Cargo from './entities/cargo.entity.js';
@@ -14,65 +16,49 @@ import Justificacion from './entities/justificacion.entity.js';
 import Notificacion from './entities/notificacion.entity.js';
 import RegistroMarcaje from './entities/registro_marcaje.entity.js';
 
-async function main() {
+async function initDatabase() {
     try {
         await sequelize.authenticate();
-        console.log('Conexión a la base de datos establecida correctamente.');
+        console.log('✅ Conexión a la base de datos establecida correctamente.');
 
         console.log('🔧 Configurando relaciones...');
         setupRelations();
-        console.log('✅ Todas las relaciones configuradas correctamente');
 
-        console.log('📋 Sincronizando tablas en orden...');
-
-        // PASO 1: Tablas base (ya creadas)
+        console.log('📋 Sincronizando tablas...');
         await Rol.sync();
-        console.log('✅ Tabla Rol sincronizada');
-        
         await Cargo.sync();
-        console.log('✅ Tabla Cargo sincronizada');
-        
         await Usuario.sync();
-        console.log('✅ Tabla Usuario sincronizada');
-        
         await QR.sync();
-        console.log('✅ Tabla QR sincronizada');
-        
         await Totem.sync();
-        console.log('✅ Tabla Totem sincronizada');
-
-        // PASO 2: Tablas independientes (sin foreign keys complejas)
         await Justificacion.sync();
-        console.log('✅ Tabla Justificacion sincronizada');
-        
         await Marcaje.sync();
-        console.log('✅ Tabla Marcaje sincronizada');
-        
         await Asistencia.sync();
-        console.log('✅ Tabla Asistencia sincronizada');
-
-        // PASO 3: Tablas que dependen de Justificacion
         await Motivo.sync();
-        console.log('✅ Tabla Motivo sincronizada');
-
-        // PASO 4: Tablas de registro (dependen de otras)
         await RegistroMarcaje.sync();
-        console.log('✅ Tabla RegistroMarcaje sincronizada');
-
-        // PASO 5: Notificaciones al final
         await Notificacion.sync();
-        console.log('✅ Tabla Notificacion sincronizada');
 
         console.log('🎉 Todas las tablas fueron sincronizadas correctamente.');
-
-        const PORT = process.env.PORT || 3000;
-        app.listen(PORT, () => {
-            console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
-        });
     } catch (error) {
-        console.error('❌ No se pudo conectar a la base de datos:', error);
-        console.error('Detalles del error:', error.message);
+        console.error('❌ Error al conectar o sincronizar la base de datos:');
+        console.error(error.message);
     }
+}
+
+function startServer() {
+    const options = {
+        key: fs.readFileSync("/etc/ssl/registraubb/server.key"),
+        cert: fs.readFileSync("/etc/ssl/registraubb/server.crt"),
+    };
+
+    https.createServer(options, app).listen(1772, "0.0.0.0", () => {
+        console.log("🔐 Certificados cargados desde /etc/ssl/registraubb/");
+        console.log("🚀 Servidor HTTPS activo en https://146.83.194.142:1772");
+    });
+}
+
+async function main() {
+    await initDatabase();
+    startServer();
 }
 
 main();
