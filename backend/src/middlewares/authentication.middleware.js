@@ -4,7 +4,7 @@ import TokenService from "../services/token.service.js";
 import {
   handleErrorClient,
   handleErrorServer,
-  } from "../handlers/responseHandlers.js";
+} from "../handlers/responseHandlers.js";
 
 export function authenticateJwt(req, res, next) {
   passport.authenticate("jwt", { session: false }, (err, user, info) => {
@@ -21,7 +21,7 @@ export function authenticateJwt(req, res, next) {
         401,
         "No tienes permiso para acceder a este recurso",
         { info: info ? info.message : "No se encontró el usuario" }
-      )
+      );
     }
 
     req.user = user;
@@ -29,9 +29,9 @@ export function authenticateJwt(req, res, next) {
   })(req, res, next);
 }
 
+// Si prefieres usar TokenService, exporta esta:
 export function authenticateJwtWithTokenService(req, res, next) {
   try {
-    // Obtener el token del header de autorización
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.startsWith('Bearer ') 
       ? authHeader.substring(7) 
@@ -46,7 +46,6 @@ export function authenticateJwtWithTokenService(req, res, next) {
       );
     }
 
-    // Verificar el token usando TokenService
     const verification = TokenService.verifyToken(token);
 
     if (!verification.valid) {
@@ -58,14 +57,12 @@ export function authenticateJwtWithTokenService(req, res, next) {
       );
     }
 
-    // Establecer la información del usuario en la request
     req.user = verification.decoded;
     req.tokenInfo = {
       shouldRefresh: verification.shouldRefresh,
       timeRemaining: verification.timeRemaining
     };
 
-    // Agregar header con información sobre renovación si es necesario
     if (verification.shouldRefresh) {
       res.setHeader('X-Token-Refresh-Suggested', 'true');
       res.setHeader('X-Token-Time-Remaining', verification.timeRemaining);
@@ -81,3 +78,8 @@ export function authenticateJwtWithTokenService(req, res, next) {
     );
   }
 }
+
+// ✅ Exporta solo una función como authenticateToken
+export const authenticateToken = authenticateJwtWithTokenService;
+
+// export const authenticateToken = authenticateJwtWithTokenService;

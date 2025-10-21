@@ -1,67 +1,196 @@
 "use strict";
-// filepath: backend/src/app.js
-import express from 'express';
-import cors from 'cors';
-import userRoutes from './routes/usuario.routes.js';
-import authRoutes from './routes/auth.routes.js';
-import qrRoutes from './routes/qr.routes.js';
-import attendanceRoutes from './routes/asistencia.routes.js';
-import approvalRoutes from './routes/approval.routes.js';
-import qrAuthRoutes from './routes/qr-auth.routes.js';
-import path from 'path';
 
-import { fileURLToPath } from 'url';
+import express from "express";
+import cors from "cors";
+import { fileURLToPath } from "url";
+import path from "path";
+
+// ✅ IMPORTAR SEQUELIZE DESDE CONFIG
+import { sequelize } from "./config/dbconfig.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Configuración de CORS
-app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3001', 'http://localhost:3000','http://146.83.194.142:1772'], // Permitir el frontend
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+console.log("🚀 [APP] Iniciando aplicación...");
 
-// Middleware para parsear JSON y datos codificados en URL
-app.use(express.json());
+// ✅ CONFIGURACIÓN BÁSICA
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "http://localhost:3000"],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  })
+);
+
+app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-console.log('🔧 Registrando rutas QR...');
-
-// ✅ REGISTRAR LAS RUTAS QR
-app.use('/api/qr', qrRoutes);
-app.use('/api/qr-auth', qrAuthRoutes);
-
-console.log('✅ Rutas QR registradas: /api/qr y /api/qr-auth');
-
-// Rutas de la API
-app.use("/api/usuario", userRoutes);
-app.use("/api/auth", authRoutes);
-app.use("/api/approvals", approvalRoutes);
-app.use('/api/asistencia', attendanceRoutes);
-app.use("/api/roles", userRoutes);
-app.use("/api/cargos", userRoutes);
-
-// Ruta estática para servir archivos QR (si decides usarla en el futuro)
-app.use('/qrs', express.static(path.join(__dirname, '../public/qrs')));
-
-// Ruta principal para verificar que la API está funcionando
-app.get("/", (req, res) => {
-  res.send("API RegistraUBB funcionando");
+// ✅ LOGGING MIDDLEWARE
+app.use((req, res, next) => {
+  console.log(`🔍 ${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
 });
 
-// ✅ AGREGAR RUTA DE PRUEBA DIRECTA EN APP.JS
-app.get('/api/test', (req, res) => {
-  console.log('🧪 Ruta de prueba /api/test llamada');
-  res.json({
-    success: true,
-    message: 'API funcionando correctamente',
-    routes: ['GET /api/qr/test', 'GET /api/qr/my-qr-codes', 'GET /api/qr/generate-my-qr'],
-    timestamp: new Date().toISOString()
+// ✅ VERIFICAR CONEXIÓN A LA BASE DE DATOS
+app.get("/api/health", async (req, res) => {
+  try {
+    await sequelize.authenticate();
+    res.json({
+      success: true,
+      message: "Conexión a PostgreSQL exitosa",
+      database: sequelize.config.database,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("❌ Error conexión DB:", error);
+    res.status(500).json({
+      success: false,
+      error: "Error de conexión a base de datos",
+      message: error.message,
+    });
+  }
+});
+
+console.log("🔧 Cargando rutas...");
+
+try {
+  // ✅ 1. AUTH ROUTES
+  try {
+    console.log("🔑 Cargando Auth routes...");
+    const authRoutes = await import("./routes/auth.routes.js");
+    app.use("/api/auth", authRoutes.default);
+    console.log("✅ Auth routes cargadas");
+  } catch (authError) {
+    console.log("⚠️ Auth routes no disponibles:", authError.message);
+  }
+
+  // ✅ 2. QR ROUTES
+  try {
+    console.log("🔲 Cargando QR routes...");
+    const qrRoutes = await import("./routes/qr.routes.js");
+    app.use("/api/qr", qrRoutes.default);
+    console.log("✅ QR routes cargadas");
+  } catch (qrError) {
+    console.log("⚠️ QR routes no disponibles:", qrError.message);
+  }
+
+  // ✅ 3. DASHBOARD ROUTES
+  try {
+    console.log("📊 Cargando Dashboard routes...");
+    const dashboardRoutes = await import("./routes/dashboard.routes.js");
+    app.use("/api/dashboard", dashboardRoutes.default);
+    console.log("✅ Dashboard routes cargadas");
+  } catch (dashboardError) {
+    console.log("⚠️ Dashboard routes no disponibles:", dashboardError.message);
+  }
+
+  // ✅ 4. ASISTENCIA ROUTES
+  try {
+    console.log("📅 Cargando Asistencia routes...");
+    const asistenciaRoutes = await import("./routes/asistencia.routes.js");
+    app.use("/api/asistencia", asistenciaRoutes.default);
+    console.log("✅ Asistencia routes cargadas");
+  } catch (asistenciaError) {
+    console.log(
+      "⚠️ Asistencia routes no disponibles:",
+      asistenciaError.message
+    );
+  }
+
+  // ✅ 5. USUARIO ROUTES
+  try {
+    console.log("👤 Cargando Usuario routes...");
+    const usuarioRoutes = await import("./routes/usuario.routes.js");
+    app.use("/api/usuario", usuarioRoutes.default);
+    console.log("✅ Usuario routes cargadas");
+  } catch (usuarioError) {
+    console.log("⚠️ Usuario routes no disponibles:", usuarioError.message);
+  }
+
+  // ✅ 6. APPROVAL ROUTES
+  try {
+    console.log("✅ Cargando Approval routes...");
+    const approvalRoutes = await import("./routes/approval.routes.js");
+    app.use("/api/approval", approvalRoutes.default);
+    console.log("✅ Approval routes cargadas");
+  } catch (approvalError) {
+    console.log("⚠️ Approval routes no disponibles:", approvalError.message);
+  }
+
+  console.log("📊 Cargando Reportes routes...");
+  const reportesRoutes = await import("./routes/reportes.routes.js");
+  app.use("/api/reportes", reportesRoutes.default);
+  console.log("✅ Reportes routes cargadas");
+
+  try {
+    console.log(" Cargando Justificaciones routes...");
+    const justificacionesRoutes = await import(
+      "./routes/justificaciones.routes.js"
+    );
+    app.use("/api/justificaciones", justificacionesRoutes.default);
+    console.log(" Justificaciones routes cargadas");
+  } catch (justificacionesError) {
+    console.log(
+      " Justificaciones routes no disponibles:",
+      justificacionesError.message
+    );
+  }
+} catch (error) {
+  console.error(" Error crítico cargando rutas:", error.message);
+}
+
+const initializeDatabase = async () => {
+  try {
+    console.log("🔧 Verificando conexión a PostgreSQL...");
+    await sequelize.authenticate();
+    console.log("✅ Conexión a PostgreSQL establecida");
+
+    console.log("🔧 Sincronizando modelos...");
+    await sequelize.sync({ alter: false });
+    console.log("✅ Modelos sincronizados correctamente");
+  } catch (error) {
+    console.error("❌ Error inicializando base de datos:", error);
+    console.log("⚠️ Continuando sin base de datos...");
+  }
+};
+
+// ✅ MANEJO DE ERRORES
+app.use((error, req, res, next) => {
+  console.error("❌ Error no manejado:", error);
+  res.status(500).json({
+    success: false,
+    error: "Error interno del servidor",
+    message: error.message,
   });
 });
 
+// ✅ RUTA 404
+app.use((req, res) => {
+  console.log("❌ 404 para:", req.originalUrl);
+  res.status(404).json({
+    success: false,
+    error: "Ruta no encontrada",
+    path: req.originalUrl,
+    availableRoutes: [
+      "GET /api/health",
+      "POST /api/auth/login",
+      "GET /api/qr/*",
+      "GET /api/dashboard/*",
+      "GET /api/asistencia/*",
+      "GET /api/reportes/*",
+      "GET /api/justificaciones/*",
+      "GET /api/usuario/*",
+      "GET /api/approval/*",
+    ],
+  });
+});
+
+// ✅ INICIALIZAR AL EXPORTAR
+initializeDatabase();
+
 export default app;
+
+console.log("🚀 [APP] ✅ Aplicación configurada correctamente");

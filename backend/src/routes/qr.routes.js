@@ -6,7 +6,7 @@ import {
   invalidateMyQR,
   getMyQRCodes 
 } from "../controllers/qr.controller.js";
-import { authenticateJwtWithTokenService } from "../middlewares/authentication.middleware.js";
+import { authenticateToken } from "../middlewares/authentication.middleware.js";
 
 console.log('🔧 Inicializando rutas QR...');
 
@@ -26,17 +26,17 @@ router.get("/test", (req, res) => {
 router.get("/generate-my-qr", (req, res, next) => {
   console.log('📡 → GET /api/qr/generate-my-qr');
   next();
-}, authenticateJwtWithTokenService, generateMyQR);
+}, authenticateToken, generateMyQR);
 
 router.delete("/invalidate-my-qr", (req, res, next) => {
   console.log('📡 → DELETE /api/qr/invalidate-my-qr');
   next();
-}, authenticateJwtWithTokenService, invalidateMyQR);
+}, authenticateToken, invalidateMyQR);
 
 router.get("/my-qr-codes", (req, res, next) => {
   console.log('📡 → GET /api/qr/my-qr-codes');
   next();
-}, authenticateJwtWithTokenService, getMyQRCodes);
+}, authenticateToken, getMyQRCodes);
 
 console.log('✅ Rutas QR configuradas:');
 console.log('   📍 GET /test');

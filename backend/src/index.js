@@ -13,7 +13,6 @@ import Asistencia from './entities/asistencia.entity.js';
 import Justificacion from './entities/justificacion.entity.js';
 import Notificacion from './entities/notificacion.entity.js';
 import RegistroMarcaje from './entities/registro_marcaje.entity.js';
-import RegistroJust from './entities/registro_just.entity.js';
 
 async function main() {
     try {
@@ -59,9 +58,6 @@ async function main() {
         // PASO 4: Tablas de registro (dependen de otras)
         await RegistroMarcaje.sync();
         console.log('✅ Tabla RegistroMarcaje sincronizada');
-        
-        await RegistroJust.sync();
-        console.log('✅ Tabla RegistroJust sincronizada');
 
         // PASO 5: Notificaciones al final
         await Notificacion.sync();

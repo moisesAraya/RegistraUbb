@@ -1,4 +1,3 @@
-import RegistroJust from '../entities/registro_just.entity.js';
 import RegistroMarcaje from '../entities/registro_marcaje.entity.js';
 import Justificacion from '../entities/justificacion.entity.js';
 import Marcaje from '../entities/marcaje.entity.js';
@@ -8,16 +7,14 @@ import { sequelize } from '../config/dbconfig.js';
 // Obtener todas las solicitudes pendientes de aprobación
 export const getPendingApprovalsService = async () => {
     try {
-        // Obtener justificaciones pendientes
-        const pendingJustifications = await RegistroJust.findAll({
+        // Obtener justificaciones pendientes directamente
+        const pendingJustifications = await Justificacion.findAll({
+            where: { estado: 'PENDIENTE' },
             include: [
                 {
-                    model: Justificacion,
-                    where: { estado: 'PENDIENTE' }
-                },
-                {
                     model: Usuario,
-                    attributes: ['nombre', 'apellido']
+                    attributes: ['nombre', 'apellido'],
+                    as: 'usuario'
                 }
             ]
         });
@@ -45,10 +42,10 @@ export const getPendingApprovalsService = async () => {
                 id: `just_${record.id_justificacion}_${record.rut_usuario}`,
                 type: 'justification',
                 userId: record.rut_usuario,
-                userName: `${record.Usuario.nombre} ${record.Usuario.apellido}`,
-                date: record.fecha_registro,
-                submittedAt: record.createdAt || record.fecha_registro,
-                reason: record.Justificacion.descripcion
+                userName: record.usuario ? `${record.usuario.nombre} ${record.usuario.apellido}` : '',
+                date: record.fecha_justificacion,
+                submittedAt: record.createdAt || record.fecha_justificacion,
+                reason: record.descripcion
             });
         });
 
@@ -58,7 +55,7 @@ export const getPendingApprovalsService = async () => {
                 id: `marcaje_${record.id_marcaje}_${record.rut_usuario}`,
                 type: 'manual_attendance',
                 userId: record.rut_usuario,
-                userName: `${record.Usuario.nombre} ${record.Usuario.apellido}`,
+                userName: record.Usuario ? `${record.Usuario.nombre} ${record.Usuario.apellido}` : '',
                 date: record.fecha_registro,
                 submittedAt: record.createdAt || record.fecha_registro,
                 reason: record.Marcaje.observaciones || 'Registro manual de asistencia',

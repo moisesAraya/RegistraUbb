@@ -6,9 +6,14 @@ import Sidebar from './Sidebar';
 import Dashboard from '../Dashboard/Dashboard';
 import QRCodeManager from '../QRCode/QRCodeManager';
 import AttendanceList from '../Attendance/AttendanceList';
-import ManualAttendanceButton from '../Attendance/ManualAttendanceButton';
 import IDCardGenerator from '../ID/IDCardGenerator';
 import Login from '../Auth/LoginForm';
+
+// Nuevos componentes importados
+import ReportsSection from '../Reports/ReportsSection';
+import JustificationManager from '../Justifications/JustificationManager';
+import UserManagement from '../Admin/UserManagement';
+import ApprovalManager from '../Admin/ApprovalManager';
 
 const AppRoutes: React.FC = () => {
   const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
@@ -45,6 +50,49 @@ const AppRoutes: React.FC = () => {
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   const closeSidebar = () => setIsSidebarOpen(false);
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return <Dashboard />;
+      
+      case 'attendance':
+        return <AttendanceList />;
+      
+      case 'qr-management':
+        return <QRCodeManager />;
+      
+      case 'users':
+        return <UserManagement />;
+      
+      case 'reports':
+      case 'my-reports':
+        return <ReportsSection />;
+      
+      case 'justifications':
+        return <JustificationManager />;
+      
+      case 'approvals':
+        return <ApprovalManager />;
+      
+      case 'staff-attendance':
+        return <AttendanceList />;
+      
+      case 'id-card':
+        return <IDCardGenerator />;
+      
+      case 'settings':
+        return (
+          <div className="p-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Configuración</h2>
+            <p className="text-gray-600">Panel de configuración en desarrollo...</p>
+          </div>
+        );
+      
+      default:
+        return <Dashboard />;
+    }
+  };
 
   return (
     <div className="flex h-screen bg-slate-100">
@@ -83,33 +131,25 @@ const AppRoutes: React.FC = () => {
               } />
               
               <Route path="/attendance" element={
-                <div className="space-y-6">
-                  {user.id_rol === 2 && (
-                    <ManualAttendanceButton 
-                      onSubmit={async (data) => {
-                        console.log('📝 Registro manual enviado:', data);
-                        return { success: true };
-                      }} 
-                    />
-                  )}
-                  <AttendanceList records={[]} />
-                </div>
+                <AttendanceList records={[]} />
               } />
               
               <Route path="/reports" element={
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                  <h2 className="text-xl font-bold text-slate-900 mb-4">Reportes</h2>
-                  <p className="text-slate-600">Sección de reportes en desarrollo...</p>
-                </div>
+                <ReportsSection />
+              } />
+              
+              <Route path="/justifications" element={
+                <JustificationManager />
               } />
               
               {user.id_rol === 1 && (
                 <>
                   <Route path="/users" element={
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                      <h2 className="text-xl font-bold text-slate-900 mb-4">Gestión de Usuarios</h2>
-                      <p className="text-slate-600">Sección de usuarios en desarrollo...</p>
-                    </div>
+                    <UserManagement />
+                  } />
+                  
+                  <Route path="/approvals" element={
+                    <ApprovalManager />
                   } />
                   
                   <Route path="/settings" element={
@@ -120,13 +160,6 @@ const AppRoutes: React.FC = () => {
                   } />
                 </>
               )}
-              
-              <Route path="/justifications" element={
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                  <h2 className="text-xl font-bold text-slate-900 mb-4">Justificaciones</h2>
-                  <p className="text-slate-600">Sección de justificaciones en desarrollo...</p>
-                </div>
-              } />
               
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
