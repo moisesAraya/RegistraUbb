@@ -113,6 +113,13 @@ const Usuario = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true,
     },
+    foto_url: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      validate: {
+        isUrl: { msg: "La URL de la foto de perfil no es válida" },
+      },
+    },
   },
   {
     tableName: "Usuarios",

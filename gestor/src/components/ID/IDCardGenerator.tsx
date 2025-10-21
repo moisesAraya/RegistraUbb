@@ -8,6 +8,7 @@ interface User {
   rut_usuario: string;
   id_rol: number;
   email?: string;
+  foto_url?: string; // ✅ Agregado campo para URL de foto
 }
 
 interface IDCardGeneratorProps {
@@ -43,6 +44,7 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user }) => {
   const [realQRData, setRealQRData] = useState<string | null>(null);
   const [loadingQR, setLoadingQR] = useState(true);
   const [qrError, setQrError] = useState<string | null>(null);
+  const [fotoPerfilUrl, setFotoPerfilUrl] = useState<string | null>(null);
 
   // 🎨 Temas de colores disponibles
   const colorThemes: Record<string, ColorTheme> = {
@@ -386,6 +388,26 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user }) => {
       generateCard();
     }
   }, [realQRData, selectedTheme, user]);
+
+  // Cargar foto de perfil
+  useEffect(() => {
+    const fetchFotoPerfil = async () => {
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/minio/foto-perfil-url?rut=${user.rut_usuario}`
+        );
+        const json = await res.json();
+        if (json.success && json.url) {
+          setFotoPerfilUrl(json.url);
+        } else {
+          setFotoPerfilUrl(null);
+        }
+      } catch {
+        setFotoPerfilUrl(null);
+      }
+    };
+    fetchFotoPerfil();
+  }, [user.rut_usuario]);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">

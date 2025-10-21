@@ -14,6 +14,9 @@ import ReportsSection from '../Reports/ReportsSection';
 import JustificationManager from '../Justifications/JustificationManager';
 import UserManagement from '../Admin/UserManagement';
 import ApprovalManager from '../Admin/ApprovalManager';
+import AdminDashboard from '../Dashboard/AdminDashboard';
+import ProfilePage from '../Profile/ProfilePage';
+import HelpPage from '../Help/HelpPage';
 
 const AppRoutes: React.FC = () => {
   const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
@@ -160,6 +163,11 @@ const AppRoutes: React.FC = () => {
                   } />
                 </>
               )}
+              
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/perfil" element={<ProfilePage />} />
+              <Route path="/reportes" element={<ReportsSection />} />
+              <Route path="/ayuda" element={<HelpPage />} />
               
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
