@@ -50,7 +50,7 @@ function startServer() {
         cert: fs.readFileSync("/etc/ssl/registraubb/server.crt"),
     };
 
-    https.createServer(options, app).listen(1772, "0.0.0.0", () => {
+    https.createServer(options, app).listen(8080, "0.0.0.0", () => {
         console.log("🔐 Certificados cargados desde /etc/ssl/registraubb/");
         console.log("🚀 Servidor HTTPS activo en https://146.83.194.142:1772");
     });
