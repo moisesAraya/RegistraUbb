@@ -79,7 +79,5 @@ export function authenticateJwtWithTokenService(req, res, next) {
   }
 }
 
-// ✅ Exporta solo una función como authenticateToken
 export const authenticateToken = authenticateJwtWithTokenService;
 
-// export const authenticateToken = authenticateJwtWithTokenService;
