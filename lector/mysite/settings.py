@@ -104,7 +104,7 @@ else:  # PRODUCCIÓN - Base de datos remota
         }
     }
     # URL del backend para producción
-    BACKEND_URL = "http://146.83.194.142:1772/api/"
+    BACKEND_URL = "https://146.83.194.142:1776/api/"
 
 
 # Password validation
