@@ -1,17 +1,15 @@
-import { Router } from 'express';
+import express from 'express';
 import { 
     getPendingApprovals,
     approveRequest,
-    rejectRequest
+    rejectRequest 
 } from '../controllers/approval.controller.js';
-import { authenticateJwtWithTokenService } from '../middlewares/authentication.middleware.js';
-import { isAdmin } from '../middlewares/autorization.middleware.js';
+import { authenticateToken } from '../middlewares/authentication.middleware.js'; // ✅ Nombre correcto
 
-const router = Router();
+const router = express.Router();
 
-// Todas las rutas requieren autenticación y permisos de admin
-router.use(authenticateJwtWithTokenService);
-router.use(isAdmin);
+// Aplicar autenticación a todas las rutas de approval
+router.use(authenticateToken);
 
 // GET /api/approvals/pending - Obtener solicitudes pendientes de aprobación
 router.get('/pending', getPendingApprovals);

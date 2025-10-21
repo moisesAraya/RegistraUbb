@@ -114,7 +114,7 @@ try {
   try {
     console.log("✅ Cargando Approval routes...");
     const approvalRoutes = await import("./routes/approval.routes.js");
-    app.use("/api/approval", approvalRoutes.default);
+    app.use("/api/approvals", approvalRoutes.default);
     console.log("✅ Approval routes cargadas");
   } catch (approvalError) {
     console.log("⚠️ Approval routes no disponibles:", approvalError.message);

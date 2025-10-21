@@ -61,7 +61,18 @@ function setupRelations() {
             as: 'asistencias' 
         });
 
-        // 7️⃣ USUARIO <-> ROL (N:1)
+        // 5️⃣ USUARIO <-> JUSTIFICACION (1:N) ⭐ NUEVA RELACIÓN
+        Usuario.hasMany(Justificacion, { 
+            foreignKey: 'rut_usuario', 
+            as: 'justificaciones' 
+        });
+
+        Justificacion.belongsTo(Usuario, { 
+            foreignKey: 'rut_usuario', 
+            as: 'usuario' 
+        });
+
+        // 6️⃣ USUARIO <-> ROL (N:1)
         Usuario.belongsTo(Rol, { 
             foreignKey: 'id_rol', 
             as: 'rol' 
@@ -72,7 +83,7 @@ function setupRelations() {
             as: 'usuarios' 
         });
 
-        // 8️⃣ REGISTRO_MARCAJE <-> TOTEM (N:1)
+        // 7️⃣ REGISTRO_MARCAJE <-> TOTEM (N:1)
         RegistroMarcaje.belongsTo(Totem, { 
             foreignKey: 'id_totem', 
             as: 'totem' 

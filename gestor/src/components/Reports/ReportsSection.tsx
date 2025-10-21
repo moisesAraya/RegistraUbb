@@ -17,6 +17,7 @@ import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable'; // Importa SOLO así, no como import * as ...
 import autoTable from 'jspdf-autotable';
+import { useAuth } from '../../components/Context/AuthContext';
 
 // Augment jsPDF type for TypeScript
 declare module 'jspdf' {
@@ -40,6 +41,9 @@ const ReportsSection: React.FC = () => {
     obtenerEstadisticasAnuales,
     clearError
   } = useReportes();
+  const { user } = useAuth();
+  const [rutSeleccionado, setRutSeleccionado] = useState<string | null>(null);
+  const [usuarios, setUsuarios] = useState<any[]>([]);
 
   const [vistaActiva, setVistaActiva] = useState<'mensual' | 'comparativo' | 'anual'>('mensual');
   const [mesSeleccionado, setMesSeleccionado] = useState(new Date().getMonth() + 1);
@@ -579,6 +583,103 @@ const ReportsSection: React.FC = () => {
     doc.save('ReporteComparativo.pdf');
   };
 
+  // Solo para admin: cargar usuarios
+  useEffect(() => {
+    if (user?.id_rol === 1) {
+      fetch(`${import.meta.env.VITE_API_URL}/usuario`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      })
+        .then(res => res.json())
+        .then(data => setUsuarios(data.usuarios || []));
+    }
+  }, [user]);
+
+  // Cuando cambia el usuario seleccionado, carga el reporte de ese usuario
+  useEffect(() => {
+    if (user?.id_rol === 1 && rutSeleccionado) {
+      obtenerReporteMensual(mesSeleccionado, anioSeleccionado, rutSeleccionado);
+    }
+  }, [rutSeleccionado, mesSeleccionado, anioSeleccionado, user]);
+
+  // Carga el reporte correspondiente al usuario y fechas seleccionadas
+  useEffect(() => {
+    if (user?.id_rol === 1) {
+      if (!rutSeleccionado || rutSeleccionado === "") {
+        // Todos los usuarios
+        obtenerReporteMensual(mesSeleccionado, anioSeleccionado, undefined, true);
+      } else {
+        // Usuario específico
+        obtenerReporteMensual(mesSeleccionado, anioSeleccionado, rutSeleccionado);
+      }
+    } else {
+      // No admin: solo su propio reporte
+      obtenerReporteMensual(mesSeleccionado, anioSeleccionado);
+    }
+  }, [rutSeleccionado, mesSeleccionado, anioSeleccionado, user]);
+
+  // Vista comparativa para todos los usuarios
+  const VistaComparativaUsuarios = () => {
+    if (!Array.isArray(reporteActual)) return null;
+    return (
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Comparativa de Usuarios</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-white border rounded-lg shadow-md">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="py-3 px-4 border-b-2 border-gray-200 text-left text-sm font-medium text-gray-600">
+                  Usuario
+                </th>
+                <th className="py-3 px-4 border-b-2 border-gray-200 text-right text-sm font-medium text-gray-600">
+                  Horas
+                </th>
+                <th className="py-3 px-4 border-b-2 border-gray-200 text-right text-sm font-medium text-gray-600">
+                  Días
+                </th>
+                <th className="py-3 px-4 border-b-2 border-gray-200 text-right text-sm font-medium text-gray-600">
+                  Asistencia
+                </th>
+                <th className="py-3 px-4 border-b-2 border-gray-200 text-right text-sm font-medium text-gray-600">
+                  Justificaciones
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {reporteActual.map((item, idx) => (
+                <tr key={item.rut || idx} className="hover:bg-gray-50">
+                  <td className="py-3 px-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                        {item.rut?.charAt(0)?.toUpperCase()}
+                      </div>
+                      <div className="text-sm font-medium text-gray-800">
+                        {item.rut}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4 text-right text-sm text-gray-700">
+                    {item.reporte?.resumen_basico?.horasTotales ?? 0}
+                  </td>
+                  <td className="py-3 px-4 text-right text-sm text-gray-700">
+                    {item.reporte?.resumen_basico?.diasTrabajados ?? 0}
+                  </td>
+                  <td className="py-3 px-4 text-right text-sm text-gray-700">
+                    {item.reporte
+                      ? Math.round((item.reporte.resumen_basico?.diasTrabajados ?? 0) / 22 * 100)
+                      : 0}%
+                  </td>
+                  <td className="py-3 px-4 text-right text-sm text-gray-700">
+                    {item.reporte?.justificaciones?.length ?? 0}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -595,10 +696,31 @@ const ReportsSection: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Mis Reportes</h1>
-          <p className="text-gray-600">Análisis detallado de tu asistencia y rendimiento</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {user?.id_rol === 1 ? 'Reportes' : 'Mis Reportes'}
+          </h1>
+          <p className="text-gray-600">
+            {user?.id_rol === 1
+              ? 'Análisis detallado de la asistencia y rendimiento de todos los usuarios'
+              : 'Análisis detallado de tu asistencia y rendimiento'}
+          </p>
         </div>
         <div className="flex items-center space-x-3">
+          {/* Solo admin: selector de usuario */}
+          {user?.id_rol === 1 && (
+            <select
+              value={rutSeleccionado || ''}
+              onChange={e => setRutSeleccionado(e.target.value)}
+              className="border rounded px-3 py-2"
+            >
+              <option value="">Todos los usuarios</option>
+              {usuarios.map(u => (
+                <option key={u.rut_usuario} value={u.rut_usuario}>
+                  {u.nombres} {u.apellidos} ({u.rut_usuario})
+                </option>
+              ))}
+            </select>
+          )}
           <button
             onClick={() => {
               if (vistaActiva === 'mensual') exportMensualToExcel();
@@ -666,8 +788,17 @@ const ReportsSection: React.FC = () => {
       </div>
 
       {/* Contenido */}
-      {vistaActiva === 'mensual' && <VistaMensual />}
+      {vistaActiva === 'mensual' && (
+        Array.isArray(reporteActual)
+          ? <VistaComparativaUsuarios />
+          : <VistaMensual />
+      )}
       {vistaActiva === 'comparativo' && <VistaComparativa />}
+
+      {/* Vista Comparativa de Usuarios (solo admin) */}
+      {user?.id_rol === 1 && vistaActiva === 'comparativo' && (
+        <VistaComparativa />
+      )}
     </div>
   );
 };

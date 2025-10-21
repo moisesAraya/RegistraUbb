@@ -106,9 +106,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   const roleSpecificItems: { [key: string]: MenuItem[] } = {
     admin: [
       {
-        id: 'staff-attendance',
-        label: 'Asistencia Personal',
-        icon: <Users className="h-5 w-5" />,
+        id: 'attendance',
+        label: 'Mi Asistencia',
+        icon: <Clock className="h-5 w-5" />,
       },
       {
         id: 'users',
@@ -116,21 +116,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         icon: <User className="h-5 w-5" />,
       },
       {
-        id: 'qr-management',
-        label: 'Gestión QR Global',
-        icon: <QrCode className="h-5 w-5" />,
-        badge: 'Admin',
-      },
-      {
         id: 'reports',
         label: 'Reportes',
         icon: <BarChart3 className="h-5 w-5" />,
-      },
-      {
-        id: 'justifications',
-        label: 'Justificaciones',
-        icon: <FileText className="h-5 w-5" />,
-        badge: '3',
       },
       {
         id: 'approvals',

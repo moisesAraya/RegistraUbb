@@ -23,11 +23,6 @@ const AppRoutes: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  console.log('🚀 AppRoutes renderizando...');
-  console.log('👤 Usuario:', user);
-  console.log('🔐 Autenticado:', isAuthenticated);
-  console.log('⏳ Cargando:', authLoading);
-
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -53,49 +48,6 @@ const AppRoutes: React.FC = () => {
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   const closeSidebar = () => setIsSidebarOpen(false);
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return <Dashboard />;
-      
-      case 'attendance':
-        return <AttendanceList />;
-      
-      case 'qr-management':
-        return <QRCodeManager />;
-      
-      case 'users':
-        return <UserManagement />;
-      
-      case 'reports':
-      case 'my-reports':
-        return <ReportsSection />;
-      
-      case 'justifications':
-        return <JustificationManager />;
-      
-      case 'approvals':
-        return <ApprovalManager />;
-      
-      case 'staff-attendance':
-        return <AttendanceList />;
-      
-      case 'id-card':
-        return <IDCardGenerator />;
-      
-      case 'settings':
-        return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Configuración</h2>
-            <p className="text-gray-600">Panel de configuración en desarrollo...</p>
-          </div>
-        );
-      
-      default:
-        return <Dashboard />;
-    }
-  };
 
   return (
     <div className="flex h-screen bg-slate-100">
