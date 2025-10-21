@@ -1,104 +1,148 @@
 "use strict";
-// filepath: backend/src/entities/relations.js
-import Usuario from './usuario.entity.js';
-import Rol from './rol.entity.js';
-import Cargo from './cargo.entity.js';
-import Justificacion from './justificacion.entity.js';
-import RegistroJust from './registro_just.entity.js';
-import Marcaje from './marcaje.entity.js';
-import RegistroMarcaje from './registro_marcaje.entity.js';
-import QR from './qr.entity.js';
 
-export function setupRelations() {
-  console.log('🔧 Configurando relaciones...');
-  
-  // Relaciones Usuario - Rol
-  Usuario.belongsTo(Rol, {
-    foreignKey: 'id_rol',
-    as: 'rol'
-  });
-  
-  Rol.hasMany(Usuario, {
-    foreignKey: 'id_rol',
-    as: 'usuarios'
-  });
+// ✅ IMPORTAR TODAS LAS ENTIDADES NECESARIAS
+import Usuario from "./usuario.entity.js";
+import Marcaje from "./marcaje.entity.js";
+import RegistroMarcaje from "./registro_marcaje.entity.js";
+import Asistencia from "./asistencia.entity.js";
+import Justificacion from "./justificacion.entity.js";
+import Rol from "./rol.entity.js";
+import Totem from "./totem.entity.js";
+import Cargo from "./cargo.entity.js";
+import Motivo from "./motivo.entity.js";
+import Notificacion from "./notificacion.entity.js";
+import QR from "./qr.entity.js";
 
-  // Relaciones Usuario - Cargo
-  Usuario.belongsTo(Cargo, {
-    foreignKey: 'id_cargo',
-    as: 'cargo'
-  });
-  
-  Cargo.hasMany(Usuario, {
-    foreignKey: 'id_cargo',
-    as: 'usuarios'
-  });
+function setupRelations() {
+    try {
+        console.log('🔗 [RELATIONS] Configurando relaciones entre entidades...');
 
-  // Relaciones Usuario - RegistroJust
-  Usuario.hasMany(RegistroJust, { 
-    foreignKey: 'rut_usuario',
-    as: 'registrosJustificacion'
-  });
-  
-  RegistroJust.belongsTo(Usuario, { 
-    foreignKey: 'rut_usuario',
-    as: 'usuario'
-  });
+        // 1️⃣ MARCAJE <-> REGISTRO_MARCAJE (1:N)
+        Marcaje.hasMany(RegistroMarcaje, { 
+            foreignKey: 'id_marcaje', 
+            as: 'registroMarcajes'
+        });
 
-  // Relaciones Justificacion - RegistroJust
-  Justificacion.hasMany(RegistroJust, { 
-    foreignKey: 'id_justificacion',
-    as: 'registros'
-  });
-  
-  RegistroJust.belongsTo(Justificacion, { 
-    foreignKey: 'id_justificacion',
-    as: 'justificacion'
-  });
+        RegistroMarcaje.belongsTo(Marcaje, { 
+            foreignKey: 'id_marcaje', 
+            as: 'marcaje'
+        });
 
-  // Relaciones Usuario - RegistroMarcaje
-  Usuario.hasMany(RegistroMarcaje, { 
-    foreignKey: 'rut_usuario',
-    as: 'registrosMarcaje'
-  });
-  
-  RegistroMarcaje.belongsTo(Usuario, { 
-    foreignKey: 'rut_usuario',
-    as: 'usuarioMarcaje'
-  });
+        // 2️⃣ USUARIO <-> REGISTRO_MARCAJE (1:N)
+        Usuario.hasMany(RegistroMarcaje, { 
+            foreignKey: 'rut_usuario', 
+            as: 'registroMarcajes' 
+        });
 
-  // Relaciones Marcaje - RegistroMarcaje
-  Marcaje.hasMany(RegistroMarcaje, { 
-    foreignKey: 'id_marcaje',
-    as: 'registros'
-  });
-  
-  RegistroMarcaje.belongsTo(Marcaje, { 
-    foreignKey: 'id_marcaje',
-    as: 'marcaje'
-  });
+        RegistroMarcaje.belongsTo(Usuario, { 
+            foreignKey: 'rut_usuario', 
+            as: 'usuario'
+        });
 
-  // Relaciones Usuario - QR
-  Usuario.hasMany(QR, {
-    foreignKey: 'rut_usuario',
-    as: 'qr_codes'
-  });
-  
-  QR.belongsTo(Usuario, {
-    foreignKey: 'rut_usuario',
-    as: 'usuario'
-  });
+        // 3️⃣ ASISTENCIA <-> MARCAJE (N:1)
+        Asistencia.belongsTo(Marcaje, { 
+            foreignKey: 'id_marcaje', 
+            as: 'marcajeAsistencia'
+        });
 
-  console.log('✅ Todas las relaciones configuradas correctamente');
+        Marcaje.hasMany(Asistencia, { 
+            foreignKey: 'id_marcaje', 
+            as: 'asistencias' 
+        });
+
+        // 4️⃣ ASISTENCIA <-> JUSTIFICACION (N:1)
+        Asistencia.belongsTo(Justificacion, { 
+            foreignKey: 'id_justificacion', 
+            as: 'justificacion' 
+        });
+
+        Justificacion.hasMany(Asistencia, { 
+            foreignKey: 'id_justificacion', 
+            as: 'asistencias' 
+        });
+
+        // 7️⃣ USUARIO <-> ROL (N:1)
+        Usuario.belongsTo(Rol, { 
+            foreignKey: 'id_rol', 
+            as: 'rol' 
+        });
+
+        Rol.hasMany(Usuario, { 
+            foreignKey: 'id_rol', 
+            as: 'usuarios' 
+        });
+
+        // 8️⃣ REGISTRO_MARCAJE <-> TOTEM (N:1)
+        RegistroMarcaje.belongsTo(Totem, { 
+            foreignKey: 'id_totem', 
+            as: 'totem' 
+        });
+
+        Totem.hasMany(RegistroMarcaje, { 
+            foreignKey: 'id_totem', 
+            as: 'registros' 
+        });
+
+        // USUARIO <-> CARGO (si aplica)
+        if (Usuario.rawAttributes.id_cargo) {
+            Usuario.belongsTo(Cargo, { 
+                foreignKey: 'id_cargo', 
+                as: 'cargo' 
+            });
+
+            Cargo.hasMany(Usuario, { 
+                foreignKey: 'id_cargo', 
+                as: 'usuarios' 
+            });
+        }
+
+        // JUSTIFICACION <-> MOTIVO (si aplica)
+        if (Justificacion.rawAttributes.id_motivo) {
+            Justificacion.belongsTo(Motivo, { 
+                foreignKey: 'id_motivo', 
+                as: 'motivo' 
+            });
+
+            Motivo.hasMany(Justificacion, { 
+                foreignKey: 'id_motivo', 
+                as: 'justificaciones' 
+            });
+        }
+
+        // USUARIO <-> NOTIFICACION (si aplica)
+        if (Notificacion.rawAttributes.rut_usuario) {
+            Usuario.hasMany(Notificacion, { 
+                foreignKey: 'rut_usuario', 
+                as: 'notificaciones' 
+            });
+
+            Notificacion.belongsTo(Usuario, { 
+                foreignKey: 'rut_usuario', 
+                as: 'usuario' 
+            });
+        }
+
+        // TOTEM <-> QR (si aplica)
+        if (QR.rawAttributes.id_totem) {
+            Totem.hasMany(QR, { 
+                foreignKey: 'id_totem', 
+                as: 'qrs' 
+            });
+
+            QR.belongsTo(Totem, { 
+                foreignKey: 'id_totem', 
+                as: 'totem' 
+            });
+        }
+
+        console.log('✅ [RELATIONS] Todas las relaciones configuradas correctamente');
+
+    } catch (error) {
+        console.error('❌ [RELATIONS] Error configurando relaciones:', error);
+        throw error;
+    }
 }
 
-export {
-  Usuario,
-  Rol,
-  Cargo,
-  Justificacion,
-  RegistroJust,
-  Marcaje,
-  RegistroMarcaje,
-  QR
-};
+export { setupRelations };
+
+console.log('🔗 [RELATIONS] Módulo de relaciones cargado');

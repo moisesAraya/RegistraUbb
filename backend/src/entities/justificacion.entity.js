@@ -13,6 +13,14 @@ const Justificacion = sequelize.define('Justificacion', {
             notEmpty: { msg: 'El ID de la justificación no puede estar vacío' },
         }
     },
+    rut_usuario: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        validate: {
+            notNull: { msg: 'El rut del usuario es obligatorio' },
+            notEmpty: { msg: 'El rut del usuario no puede estar vacío' },
+        }
+    },
     descripcion: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -24,11 +32,19 @@ const Justificacion = sequelize.define('Justificacion', {
     estado: {
         type: DataTypes.STRING,
         allowNull: false,
+        defaultValue: 'PENDIENTE', // o el valor que uses para "no revisado"
         validate: {
             notNull: { msg: 'El estado es obligatorio' },
             notEmpty: { msg: 'El estado no puede estar vacío' },
         }
+    },
+    fecha_justificacion: {
+        type: DataTypes.DATEONLY,
+        allowNull: false
     }
-})
+}, {
+    tableName: 'Justificacions',
+    timestamps: true
+});
 
 export default Justificacion;

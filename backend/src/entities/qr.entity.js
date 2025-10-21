@@ -3,13 +3,17 @@ import { sequelize } from '../config/dbconfig.js';
 
 const QR = sequelize.define('QR', {
     codigo_unico: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,  // ✅ TEXT sin límite
         primaryKey: true,
         allowNull: false,
         unique: true,
         validate: {
             notNull: { msg: 'El código único es obligatorio' },
             notEmpty: { msg: 'El código único no puede estar vacío' },
+            len: {
+                args: [10, 10000],  // ✅ Hasta 10,000 caracteres
+                msg: 'El código QR debe tener entre 10 y 10,000 caracteres'
+            }
         }
     },
     estado_qr: {
@@ -45,8 +49,11 @@ const QR = sequelize.define('QR', {
             notEmpty: { msg: 'El RUT del usuario no puede estar vacío' },
         }
     }
-
-})
+}, {
+    tableName: 'QRs',
+    timestamps: false
+});
 
 export default QR;
-        
+
+console.log('✅ [QR-ENTITY] Modelo QR configurado - SIN BORRAR DATOS');

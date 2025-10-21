@@ -604,11 +604,9 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user }) => {
         <h5 className="font-semibold text-blue-900 mb-2">Características de la tarjeta:</h5>
         <ul className="text-sm text-blue-800 space-y-1">
           <li>• Tamaño estándar de tarjeta de identificación (86mm x 54mm)</li>
-          <li>• ✅ <strong>Incluye su código QR REAL desde la base de datos</strong></li>
           <li>• 6 temas de colores disponibles</li>
           <li>• Descarga en alta resolución (PNG)</li>
           <li>• Lista para imprimir en tarjetas PVC</li>
-          <li>• ✅ <strong>Sincronizado con el sistema de asistencia</strong></li>
         </ul>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../Context/AuthContext';
+import { useDashboard } from '../../hooks/useDashboard';
 import {
   Home,
   Users,
@@ -44,6 +45,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onClose 
 }) => {
   const { user, logout } = useAuth();
+  const { dashboardData } = useDashboard();
   const navigate = useNavigate();
   const location = useLocation();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
@@ -255,15 +257,16 @@ const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
       
-      {/* Sidebar */}
+      {/* Sidebar - ✅ ARREGLADO CON FLEX COLUMN */}
       <aside className={`
         fixed top-0 left-0 z-50 h-full w-80 bg-white border-r border-slate-200 shadow-xl transform transition-all duration-300 ease-in-out
         lg:translate-x-0 lg:static lg:z-auto
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        flex flex-col
       `}>
         
         {/* Header del sidebar - Solo info del usuario */}
-        <div className="bg-gradient-to-br from-slate-50 to-slate-100 border-b border-slate-200 p-6 mt-16 lg:mt-0">
+        <div className="bg-gradient-to-br from-slate-50 to-slate-100 border-b border-slate-200 p-6 mt-16 lg:mt-0 flex-shrink-0">
           {/* User info */}
           <div className="flex items-center space-x-4">
             <div className={`w-14 h-14 bg-gradient-to-r ${roleInfo.color} rounded-xl flex items-center justify-center text-white shadow-lg`}>
@@ -291,84 +294,90 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 px-4 py-6 space-y-1 h-full overflow-y-auto">
-          <div className="mb-4">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3">
-              Navegación
-            </p>
-          </div>
-          
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => handleTabClick(item.id)}
-              onMouseEnter={() => setHoveredItem(item.id)}
-              onMouseLeave={() => setHoveredItem(null)}
-              className={`
-                group flex items-center justify-between w-full px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200
-                ${activeTab === item.id
-                  ? 'bg-slate-900 text-white shadow-lg'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }
-              `}
-            >
-              <div className="flex items-center space-x-3">
-                <div className={`
-                  transition-all duration-200
-                  ${activeTab === item.id ? 'text-white' : 'group-hover:scale-110'}
-                `}>
-                  {item.icon}
-                </div>
-                <span className="font-medium">{item.label}</span>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                {item.badge && (
-                  <span className={`
-                    px-2 py-1 text-xs font-bold rounded-full
-                    ${activeTab === item.id 
-                      ? 'bg-white/20 text-white' 
-                      : 'bg-blue-100 text-blue-600'
-                    }
+        {/* Navigation - ✅ FLEX-1 PARA OCUPAR ESPACIO DISPONIBLE */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3">
+                Navegación
+              </p>
+            </div>
+            
+            {menuItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => handleTabClick(item.id)}
+                onMouseEnter={() => setHoveredItem(item.id)}
+                onMouseLeave={() => setHoveredItem(null)}
+                className={`
+                  group flex items-center justify-between w-full px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200
+                  ${activeTab === item.id
+                    ? 'bg-slate-900 text-white shadow-lg'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }
+                `}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className={`
+                    transition-all duration-200
+                    ${activeTab === item.id ? 'text-white' : 'group-hover:scale-110'}
                   `}>
-                    {item.badge}
-                  </span>
-                )}
+                    {item.icon}
+                  </div>
+                  <span className="font-medium">{item.label}</span>
+                </div>
                 
-                <ChevronRight className={`
-                  h-4 w-4 transition-all duration-200
-                  ${activeTab === item.id ? 'text-white rotate-90' : 'text-slate-400 group-hover:text-slate-600'}
-                  ${hoveredItem === item.id ? 'translate-x-1' : ''}
-                `} />
-              </div>
-            </button>
-          ))}
-          
-          {/* Logout button */}
-          <div className="pt-6 mt-6 border-t border-slate-200">
-            <button
-              onClick={handleLogout}
-              className="group flex items-center justify-between w-full px-4 py-3 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition-all duration-200"
-            >
-              <div className="flex items-center space-x-3">
-                <LogOut className="h-5 w-5 group-hover:scale-110 transition-transform" />
-                <span className="font-medium">Cerrar Sesión</span>
-              </div>
-              <ChevronRight className="h-4 w-4 text-red-400 group-hover:text-red-600 group-hover:translate-x-1 transition-all duration-200" />
-            </button>
-          </div>
-        </nav>
+                <div className="flex items-center space-x-2">
+                  {item.badge && (
+                    <span className={`
+                      px-2 py-1 text-xs font-bold rounded-full
+                      ${activeTab === item.id 
+                        ? 'bg-white/20 text-white' 
+                        : 'bg-blue-100 text-blue-600'
+                      }
+                    `}>
+                      {item.badge}
+                    </span>
+                  )}
+                  
+                  <ChevronRight className={`
+                    h-4 w-4 transition-all duration-200
+                    ${activeTab === item.id ? 'text-white rotate-90' : 'text-slate-400 group-hover:text-slate-600'}
+                    ${hoveredItem === item.id ? 'translate-x-1' : ''}
+                  `} />
+                </div>
+              </button>
+            ))}
+            
+            {/* Logout button */}
+            <div className="pt-6 mt-6 border-t border-slate-200">
+              <button
+                onClick={handleLogout}
+                className="group flex items-center justify-between w-full px-4 py-3 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition-all duration-200"
+              >
+                <div className="flex items-center space-x-3">
+                  <LogOut className="h-5 w-5 group-hover:scale-110 transition-transform" />
+                  <span className="font-medium">Cerrar Sesión</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-red-400 group-hover:text-red-600 group-hover:translate-x-1 transition-all duration-200" />
+              </button>
+            </div>
+          </nav>
+        </div>
 
-        {/* Footer con stats */}
-        <div className="px-4 py-4 border-t border-slate-200 bg-slate-50">
+        {/* Footer con stats - ✅ FIJO EN LA PARTE INFERIOR */}
+        <div className="px-4 py-4 border-t border-slate-200 bg-slate-50 flex-shrink-0">
           <div className="grid grid-cols-2 gap-3 text-center">
             <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-200">
-              <div className="text-lg font-bold text-blue-600">94%</div>
+              <div className="text-lg font-bold text-blue-600">
+                {dashboardData?.personal_basic_stats?.attendance_rate || 94}%
+              </div>
               <div className="text-xs text-slate-500">Asistencia</div>
             </div>
             <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-200">
-              <div className="text-lg font-bold text-green-600">38h</div>
+              <div className="text-lg font-bold text-green-600">
+                {dashboardData?.personal_basic_stats?.week_hours || 38}h
+              </div>
               <div className="text-xs text-slate-500">Esta semana</div>
             </div>
           </div>
