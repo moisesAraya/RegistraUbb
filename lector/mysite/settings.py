@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_extensions',
 ]
 
 MIDDLEWARE = [
@@ -179,15 +180,24 @@ if not DEBUG:  # Cuando DEBUG=False (producción)
     
     # Configuraciones HTTPS
     # USAR SOLO HTTP
-    SECURE_SSL_REDIRECT = False  # Redirigir HTTP a HTTPS
-    SECURE_HSTS_SECONDS = 0  # 1 año de HSTS
+    SECURE_SSL_REDIRECT = True  # Redirigir HTTP a HTTPS
+    SECURE_HSTS_SECONDS = 31536000  # 1 año de HSTS
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     
     # Cookies seguras
-    SESSION_COOKIE_SECURE = False  # Cookies de sesión solo por HTTPS
-    CSRF_COOKIE_SECURE = False    # Cookies CSRF solo por HTTPS
-    
+    SESSION_COOKIE_SECURE = True  # Cookies de sesión solo por HTTPS
+    CSRF_COOKIE_SECURE = True    # Cookies CSRF solo por HTTPS
+
+    # Headers adicionales de seguridad
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+    X_FRAME_OPTIONS = 'DENY'
+
+    # Proxy configuración
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    USE_TZ = True
+
     # Hosts permitidos (reemplaza con tu dominio real)
     ALLOWED_HOSTS = [ 
         '146.83.194.142',
