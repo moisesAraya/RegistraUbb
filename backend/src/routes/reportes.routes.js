@@ -18,10 +18,6 @@ router.get('/test', (req, res) => {
         success: true,
         message: 'Reportes API funcionando',
         user: req.user?.rut_usuario || 'no-auth',
-
-
-        
-
         timestamp: new Date().toISOString()
     });
 });
