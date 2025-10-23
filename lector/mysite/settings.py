@@ -175,6 +175,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 import os
 
+ENABLE_BACKEND_SYNC = False
+
 # Solo aplicar configuraciones de seguridad en producción
 if not DEBUG:  # Cuando DEBUG=False (producción)
     

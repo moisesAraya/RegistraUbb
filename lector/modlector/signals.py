@@ -6,13 +6,13 @@ from .models import Cargo, Rol, Totem, Usuario, Justificacion, Registro_just, No
 from django.conf import settings
 
 BACKEND_URL = getattr(settings, "BACKEND_URL", "http://localhost:3000")
-
+ENABLE_BACKEND_SYNC = getattr(settings, "ENABLE_BACKEND_SYNC", False)
+""" 
 @receiver(post_save, sender=Cargo)
 def sync_cargo_with_backend(sender, instance, created, **kwargs):
-    """
-    Cuando se crea o actualiza un Cargo en Django,
-    se envía la info al backend Node.js vía API.
-    """
+    
+
+    
     data = {
         "id_cargo": instance.id_cargo,
         "nombre_cargo": instance.nombre_cargo,
@@ -33,10 +33,7 @@ def sync_cargo_with_backend(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Rol)
 def sync_rol_with_backend(sender, instance, created, **kwargs):
-    """
-    Cuando se crea o actualiza un Rol en Django,
-    se envía la info al backend Node.js vía API.
-    """
+
     data = {
         "id_rol": instance.id_rol,
         "nombre_rol": instance.nombre_rol,
@@ -56,10 +53,7 @@ def sync_rol_with_backend(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Totem)
 def sync_totem_with_backend(sender, instance, created, **kwargs):
-    """
-    Cuando se crea o actualiza un Totem en Django,
-    se envía la info al backend Node.js vía API.
-    """
+
     data = {
         "id_totem": instance.id_totem,
         "ubicacion": instance.ubicacion,
@@ -80,10 +74,7 @@ def sync_totem_with_backend(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Usuario)
 def sync_usuario_with_backend(sender, instance, created, **kwargs):
-    """
-    Cuando se crea o actualiza un Usuario en Django,
-    se envía la info al backend Node.js vía API.
-    """
+
     data = {
         "rut_usuario": instance.rut_usuario,
         "nombres": instance.first_name,
@@ -109,10 +100,7 @@ def sync_usuario_with_backend(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Justificacion)
 def sync_justificacion_with_backend(sender, instance, created, **kwargs):
-    """
-    Cuando se crea o actualiza una Justificacion en Django,
-    se envía la info al backend Node.js vía API.
-    """
+
     data = {
         "id_justificacion": instance.id_justificacion,
         "descripcion": instance.descripcion,
@@ -133,10 +121,7 @@ def sync_justificacion_with_backend(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Marcaje)
 def sync_marcaje_with_backend(sender, instance, created, **kwargs):
-    """
-    Cuando se crea o actualiza un Marcaje en Django,
-    se envía la info al backend Node.js vía API.
-    """
+
     data = {
         "id_marcaje": instance.id_marcaje,
         "hora_ingreso": instance.hora_ingreso.isoformat() if instance.hora_ingreso else None,
@@ -177,3 +162,4 @@ def sync_qr_with_backend(sender, instance, created, **kwargs):
             print(f'[SYNC] QR {instance.codigo_unico} actualizado en backend.')
     except requests.RequestException as e:
         print(f"[ERROR] No se pudo sincronizar QR con backend: {e}")
+ """
