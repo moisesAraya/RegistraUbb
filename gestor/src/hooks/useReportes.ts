@@ -72,8 +72,10 @@ interface ReporteComparativo {
   generated_at: string;
 }
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 export const useReportes = () => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,16 +83,24 @@ export const useReportes = () => {
   const [reporteComparativo, setReporteComparativo] = useState<ReporteComparativo | null>(null);
   const [estadisticasAnuales, setEstadisticasAnuales] = useState<any | null>(null);
 
+  const [rutSeleccionado, setRutSeleccionado] = useState<string | null>("");
+  const [mesSeleccionado, setMesSeleccionado] = useState<number>(new Date().getMonth() + 1);
+  const [anioSeleccionado, setAnioSeleccionado] = useState<number>(new Date().getFullYear());
+
   // ✅ OBTENER REPORTE MENSUAL
-  const obtenerReporteMensual = async (mes: number, anio: number) => {
+  const obtenerReporteMensual = async (mes: number, anio: number, rut?: string, todos?: boolean) => {
     if (!token) return;
 
     setLoading(true);
     setError(null);
 
     try {
+      let url = `${API_URL}/reportes/mensual?mes=${mes}&anio=${anio}`;
+      if (rut) url += `&rut=${encodeURIComponent(rut)}`;
+      if (todos) url += `&todos=true`;
+
       const response = await fetch(
-        `http://localhost:3000/api/reportes/mensual?mes=${mes}&anio=${anio}`,
+        url,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -129,7 +139,7 @@ export const useReportes = () => {
 
     try {
       const response = await fetch(
-        'http://localhost:3000/api/reportes/comparativo',
+        `${API_URL}/reportes/comparativo`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -168,8 +178,8 @@ export const useReportes = () => {
 
     try {
       const url = anio 
-        ? `http://localhost:3000/api/reportes/anual?anio=${anio}`
-        : 'http://localhost:3000/api/reportes/anual';
+        ? `${API_URL}/reportes/anual?anio=${anio}`
+        : `${API_URL}/reportes/anual`;
 
       const response = await fetch(url, {
         headers: {
@@ -209,6 +219,22 @@ export const useReportes = () => {
       obtenerReporteMensual(mes, anio);
     }
   }, [token]);
+
+  // ✅ EFECTO PARA CARGAR REPORTES SEGÚN FILTROS
+  useEffect(() => {
+    if (user?.id_rol === 1) {
+      if (rutSeleccionado === "" || rutSeleccionado === null) {
+        // Todos los usuarios
+        obtenerReporteMensual(mesSeleccionado, anioSeleccionado, undefined, true);
+      } else {
+        // Usuario específico
+        obtenerReporteMensual(mesSeleccionado, anioSeleccionado, rutSeleccionado);
+      }
+    } else {
+      // No admin: solo su propio reporte
+      obtenerReporteMensual(mesSeleccionado, anioSeleccionado);
+    }
+  }, [rutSeleccionado, mesSeleccionado, anioSeleccionado, user]);
 
   return {
     // Estados

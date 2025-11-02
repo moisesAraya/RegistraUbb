@@ -12,6 +12,23 @@ import {
   Download,
   RefreshCw
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable'; // Importa SOLO así, no como import * as ...
+import autoTable from 'jspdf-autotable';
+import { useAuth } from '../../components/Context/AuthContext';
+
+// Augment jsPDF type for TypeScript
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: typeof autoTable;
+    lastAutoTable?: {
+      finalY: number;
+      [key: string]: any;
+    };
+  }
+}
 
 const ReportsSection: React.FC = () => {
   const {
@@ -24,6 +41,9 @@ const ReportsSection: React.FC = () => {
     obtenerEstadisticasAnuales,
     clearError
   } = useReportes();
+  const { user } = useAuth();
+  const [rutSeleccionado, setRutSeleccionado] = useState<string | null>(null);
+  const [usuarios, setUsuarios] = useState<any[]>([]);
 
   const [vistaActiva, setVistaActiva] = useState<'mensual' | 'comparativo' | 'anual'>('mensual');
   const [mesSeleccionado, setMesSeleccionado] = useState(new Date().getMonth() + 1);
@@ -327,6 +347,339 @@ const ReportsSection: React.FC = () => {
     );
   };
 
+  const exportMensualToExcel = () => {
+    if (!reporteActual) return;
+
+    const { resumen_basico, metricas_avanzadas } = reporteActual;
+
+    // Prepara los datos para la hoja principal
+    const resumen = [
+      { 
+        Métrica: 'Horas Totales', 
+        Valor: resumen_basico?.horasTotales || 0 
+      },
+      { 
+        Métrica: 'Días Trabajados', 
+        Valor: resumen_basico?.diasTrabajados || 0 
+      },
+      { 
+        Métrica: 'Promedio Horas Día', 
+        Valor: metricas_avanzadas?.promedio_horas_dia || 0 
+      },
+      { 
+        Métrica: 'Puntualidad (%)', 
+        Valor: metricas_avanzadas?.puntualidad?.puntualidad_score || 0 
+      },
+      { 
+        Métrica: 'Llegadas Tarde', 
+        Valor: metricas_avanzadas?.puntualidad?.llegadas_tarde || 0 
+      },
+      { 
+        Métrica: 'Consistencia (%)', 
+        Valor: metricas_avanzadas?.consistencia?.consistencia_score || 0 
+      },
+      { 
+        Métrica: 'Días Completos', 
+        Valor: metricas_avanzadas?.consistencia?.dias_completos || 0 
+      },
+    ];
+
+    // Justificaciones
+    const justificaciones = metricas_avanzadas?.justificaciones
+      ? [
+          {
+            Estado: 'Total',
+            Cantidad: metricas_avanzadas.justificaciones.total,
+          },
+          {
+            Estado: 'Aprobadas',
+            Cantidad: metricas_avanzadas.justificaciones.aprobadas,
+          },
+          {
+            Estado: 'Pendientes',
+            Cantidad: metricas_avanzadas.justificaciones.pendientes,
+          },
+          {
+            Estado: 'Rechazadas',
+            Cantidad: metricas_avanzadas.justificaciones.rechazadas,
+          },
+        ]
+      : [];
+
+    // Horas por día de la semana
+    const horasPorDia = reporteActual.graficos_data?.horas_por_dia_semana
+      ? reporteActual.graficos_data.horas_por_dia_semana.map((d: any) => ({
+          Día: d.dia,
+          Horas: d.horas,
+        }))
+      : [];
+
+    // Crea el libro y las hojas
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), 'Resumen');
+    if (justificaciones.length > 0) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(justificaciones), 'Justificaciones');
+    }
+    if (horasPorDia.length > 0) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(horasPorDia), 'Horas por Día');
+    }
+
+    // Exporta el archivo
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    saveAs(new Blob([wbout], { type: 'application/octet-stream' }), 'ReporteMensual.xlsx');
+  };
+
+  const exportComparativoToExcel = () => {
+    if (!reporteComparativo) return;
+
+    // Promedios
+    const promedios = [
+      { Métrica: 'Promedio Horas', Valor: reporteComparativo.promedios.horas },
+      { Métrica: 'Promedio Días', Valor: reporteComparativo.promedios.dias },
+      { Métrica: 'Promedio Asistencia (%)', Valor: reporteComparativo.promedios.asistencia },
+    ];
+
+    // Tendencias
+    const tendencias = [
+      { Métrica: 'Horas', Tendencia: reporteComparativo.tendencias_generales.horas },
+      { Métrica: 'Días', Tendencia: reporteComparativo.tendencias_generales.dias },
+      { Métrica: 'Asistencia', Tendencia: reporteComparativo.tendencias_generales.asistencia },
+    ];
+
+    // Detalle por mes
+    const detalle = reporteComparativo.reportes_mensuales.map((r: any) => ({
+      Mes: r.nombre_mes,
+      Horas: r.horas_totales,
+      Días: r.dias_trabajados,
+      Asistencia: r.porcentaje_asistencia,
+      Justificaciones: r.justificaciones,
+    }));
+
+    // Crea el libro y las hojas
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(promedios), 'Promedios');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tendencias), 'Tendencias');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalle), 'Detalle por Mes');
+
+    // Exporta el archivo
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    saveAs(new Blob([wbout], { type: 'application/octet-stream' }), 'ReporteComparativo.xlsx');
+  };
+
+  const exportMensualToPDF = () => {
+    if (!reporteActual) return;
+    const { resumen_basico, metricas_avanzadas } = reporteActual;
+    const doc = new jsPDF();
+
+    doc.setFontSize(16);
+    doc.text('Reporte Mensual', 14, 18);
+
+    // Resumen
+    doc.setFontSize(12);
+    doc.text('Resumen', 14, 28);
+    autoTable(doc, {
+      startY: 32,
+      head: [['Métrica', 'Valor']],
+      body: [
+        ['Horas Totales', resumen_basico?.horasTotales || 0],
+        ['Días Trabajados', resumen_basico?.diasTrabajados || 0],
+        ['Promedio Horas Día', metricas_avanzadas?.promedio_horas_dia || 0],
+        ['Puntualidad (%)', metricas_avanzadas?.puntualidad?.puntualidad_score || 0],
+        ['Llegadas Tarde', metricas_avanzadas?.puntualidad?.llegadas_tarde || 0],
+        ['Consistencia (%)', metricas_avanzadas?.consistencia?.consistencia_score || 0],
+        ['Días Completos', metricas_avanzadas?.consistencia?.dias_completos || 0],
+      ],
+      theme: 'grid',
+      styles: { fontSize: 10 },
+    });
+
+    // Justificaciones
+    if (metricas_avanzadas?.justificaciones) {
+      const lastY = doc.lastAutoTable?.finalY ?? 42;
+      doc.text('Justificaciones', 14, lastY + 10);
+      autoTable(doc, {
+        startY: lastY + 14,
+        head: [['Estado', 'Cantidad']],
+        body: [
+          ['Total', metricas_avanzadas.justificaciones.total],
+          ['Aprobadas', metricas_avanzadas.justificaciones.aprobadas],
+          ['Pendientes', metricas_avanzadas.justificaciones.pendientes],
+          ['Rechazadas', metricas_avanzadas.justificaciones.rechazadas],
+        ],
+        theme: 'grid',
+        styles: { fontSize: 10 },
+      });
+    }
+
+    // Horas por día de la semana
+    if (reporteActual.graficos_data?.horas_por_dia_semana) {
+      const horasPorDiaStartY = (doc.lastAutoTable?.finalY ?? 42) + 10;
+      doc.text('Horas por Día de la Semana', 14, horasPorDiaStartY);
+      autoTable(doc, {
+        startY: horasPorDiaStartY + 4,
+        head: [['Día', 'Horas']],
+        body: reporteActual.graficos_data.horas_por_dia_semana.map((d: any) => [d.dia, d.horas]),
+        theme: 'grid',
+        styles: { fontSize: 10 },
+      });
+    }
+
+    doc.save('ReporteMensual.pdf');
+  };
+
+  const exportComparativoToPDF = () => {
+    if (!reporteComparativo) return;
+    const doc = new jsPDF();
+
+    doc.setFontSize(16);
+    doc.text('Análisis Comparativo', 14, 18);
+
+    // Promedios
+    doc.setFontSize(12);
+    doc.text('Promedios', 14, 28);
+    autoTable(doc, {
+      startY: 32,
+      head: [['Métrica', 'Valor']],
+      body: [
+        ['Promedio Horas', reporteComparativo.promedios.horas],
+        ['Promedio Días', reporteComparativo.promedios.dias],
+        ['Promedio Asistencia (%)', reporteComparativo.promedios.asistencia],
+      ],
+      theme: 'grid',
+      styles: { fontSize: 10 },
+    });
+
+    // Tendencias
+    doc.text('Tendencias', 14, (doc.lastAutoTable?.finalY ?? 42) + 10);
+    autoTable(doc, {
+      startY: (doc.lastAutoTable?.finalY ?? 42) + 14,
+      head: [['Métrica', 'Tendencia']],
+      body: [
+        ['Horas', reporteComparativo.tendencias_generales.horas],
+        ['Días', reporteComparativo.tendencias_generales.dias],
+        ['Asistencia', reporteComparativo.tendencias_generales.asistencia],
+      ],
+      theme: 'grid',
+      styles: { fontSize: 10 },
+    });
+
+    // Detalle por mes
+    const detalleStartY = (doc.lastAutoTable?.finalY ?? 42) + 10;
+    doc.text('Detalle por Mes', 14, detalleStartY);
+    autoTable(doc, {
+      startY: detalleStartY + 4,
+      head: [['Mes', 'Horas', 'Días', 'Asistencia', 'Justificaciones']],
+      body: reporteComparativo.reportes_mensuales.map((r: any) => [
+        r.nombre_mes,
+        r.horas_totales,
+        r.dias_trabajados,
+        r.porcentaje_asistencia,
+        r.justificaciones,
+      ]),
+      theme: 'grid',
+      styles: { fontSize: 10 },
+    });
+
+    doc.save('ReporteComparativo.pdf');
+  };
+
+  // Solo para admin: cargar usuarios
+  useEffect(() => {
+    if (user?.id_rol === 1) {
+      fetch(`${import.meta.env.VITE_API_URL}/usuario`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      })
+        .then(res => res.json())
+        .then(data => setUsuarios(data.usuarios || []));
+    }
+  }, [user]);
+
+  // Cuando cambia el usuario seleccionado, carga el reporte de ese usuario
+  useEffect(() => {
+    if (user?.id_rol === 1 && rutSeleccionado) {
+      obtenerReporteMensual(mesSeleccionado, anioSeleccionado, rutSeleccionado);
+    }
+  }, [rutSeleccionado, mesSeleccionado, anioSeleccionado, user]);
+
+  // Carga el reporte correspondiente al usuario y fechas seleccionadas
+  useEffect(() => {
+    if (user?.id_rol === 1) {
+      if (!rutSeleccionado || rutSeleccionado === "") {
+        // Todos los usuarios
+        obtenerReporteMensual(mesSeleccionado, anioSeleccionado, undefined, true);
+      } else {
+        // Usuario específico
+        obtenerReporteMensual(mesSeleccionado, anioSeleccionado, rutSeleccionado);
+      }
+    } else {
+      // No admin: solo su propio reporte
+      obtenerReporteMensual(mesSeleccionado, anioSeleccionado);
+    }
+  }, [rutSeleccionado, mesSeleccionado, anioSeleccionado, user]);
+
+  // Vista comparativa para todos los usuarios
+  const VistaComparativaUsuarios = () => {
+    if (!Array.isArray(reporteActual)) return null;
+    return (
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Comparativa de Usuarios</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-white border rounded-lg shadow-md">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="py-3 px-4 border-b-2 border-gray-200 text-left text-sm font-medium text-gray-600">
+                  Usuario
+                </th>
+                <th className="py-3 px-4 border-b-2 border-gray-200 text-right text-sm font-medium text-gray-600">
+                  Horas
+                </th>
+                <th className="py-3 px-4 border-b-2 border-gray-200 text-right text-sm font-medium text-gray-600">
+                  Días
+                </th>
+                <th className="py-3 px-4 border-b-2 border-gray-200 text-right text-sm font-medium text-gray-600">
+                  Asistencia
+                </th>
+                <th className="py-3 px-4 border-b-2 border-gray-200 text-right text-sm font-medium text-gray-600">
+                  Justificaciones
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {reporteActual.map((item, idx) => (
+                <tr key={item.rut || idx} className="hover:bg-gray-50">
+                  <td className="py-3 px-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                        {item.rut?.charAt(0)?.toUpperCase()}
+                      </div>
+                      <div className="text-sm font-medium text-gray-800">
+                        {item.rut}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4 text-right text-sm text-gray-700">
+                    {item.reporte?.resumen_basico?.horasTotales ?? 0}
+                  </td>
+                  <td className="py-3 px-4 text-right text-sm text-gray-700">
+                    {item.reporte?.resumen_basico?.diasTrabajados ?? 0}
+                  </td>
+                  <td className="py-3 px-4 text-right text-sm text-gray-700">
+                    {item.reporte
+                      ? Math.round((item.reporte.resumen_basico?.diasTrabajados ?? 0) / 22 * 100)
+                      : 0}%
+                  </td>
+                  <td className="py-3 px-4 text-right text-sm text-gray-700">
+                    {item.reporte?.justificaciones?.length ?? 0}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -343,16 +696,50 @@ const ReportsSection: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Mis Reportes</h1>
-          <p className="text-gray-600">Análisis detallado de tu asistencia y rendimiento</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {user?.id_rol === 1 ? 'Reportes' : 'Mis Reportes'}
+          </h1>
+          <p className="text-gray-600">
+            {user?.id_rol === 1
+              ? 'Análisis detallado de la asistencia y rendimiento de todos los usuarios'
+              : 'Análisis detallado de tu asistencia y rendimiento'}
+          </p>
         </div>
         <div className="flex items-center space-x-3">
+          {/* Solo admin: selector de usuario */}
+          {user?.id_rol === 1 && (
+            <select
+              value={rutSeleccionado || ''}
+              onChange={e => setRutSeleccionado(e.target.value)}
+              className="border rounded px-3 py-2"
+            >
+              <option value="">Todos los usuarios</option>
+              {usuarios.map(u => (
+                <option key={u.rut_usuario} value={u.rut_usuario}>
+                  {u.nombres} {u.apellidos} ({u.rut_usuario})
+                </option>
+              ))}
+            </select>
+          )}
           <button
-            onClick={() => window.print()}
-            className="flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            onClick={() => {
+              if (vistaActiva === 'mensual') exportMensualToExcel();
+              else if (vistaActiva === 'comparativo') exportComparativoToExcel();
+            }}
+            className="flex items-center space-x-2 px-4 py-2 bg-green-100 hover:bg-green-200 rounded-lg transition-colors"
           >
             <Download className="w-4 h-4" />
-            <span>Exportar</span>
+            <span>Exportar Excel</span>
+          </button>
+          <button
+            onClick={() => {
+              if (vistaActiva === 'mensual') exportMensualToPDF();
+              else if (vistaActiva === 'comparativo') exportComparativoToPDF();
+            }}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            <span>Exportar PDF</span>
           </button>
         </div>
       </div>
@@ -401,8 +788,17 @@ const ReportsSection: React.FC = () => {
       </div>
 
       {/* Contenido */}
-      {vistaActiva === 'mensual' && <VistaMensual />}
+      {vistaActiva === 'mensual' && (
+        Array.isArray(reporteActual)
+          ? <VistaComparativaUsuarios />
+          : <VistaMensual />
+      )}
       {vistaActiva === 'comparativo' && <VistaComparativa />}
+
+      {/* Vista Comparativa de Usuarios (solo admin) */}
+      {user?.id_rol === 1 && vistaActiva === 'comparativo' && (
+        <VistaComparativa />
+      )}
     </div>
   );
 };

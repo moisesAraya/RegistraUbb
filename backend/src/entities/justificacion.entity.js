@@ -6,41 +6,45 @@ const Justificacion = sequelize.define('Justificacion', {
         type: DataTypes.INTEGER,
         primaryKey: true,
         autoIncrement: true,
-        allowNull: false,
-        validate: {
-            isInt: { msg: 'El ID de la justificación debe ser un número entero' },
-            notNull: { msg: 'El ID de la justificación es obligatorio' },
-            notEmpty: { msg: 'El ID de la justificación no puede estar vacío' },
-        }
+        allowNull: false
     },
     rut_usuario: {
         type: DataTypes.STRING,
-        allowNull: false,
-        validate: {
-            notNull: { msg: 'El rut del usuario es obligatorio' },
-            notEmpty: { msg: 'El rut del usuario no puede estar vacío' },
-        }
+        allowNull: false
     },
     descripcion: {
         type: DataTypes.STRING,
-        allowNull: false,
-        validate: {
-            notNull: { msg: 'La descripción es obligatoria' },
-            notEmpty: { msg: 'La descripción no puede estar vacía' },
-        }
+        allowNull: false
     },
     estado: {
         type: DataTypes.STRING,
         allowNull: false,
-        defaultValue: 'PENDIENTE', // o el valor que uses para "no revisado"
-        validate: {
-            notNull: { msg: 'El estado es obligatorio' },
-            notEmpty: { msg: 'El estado no puede estar vacío' },
-        }
+        defaultValue: 'PENDIENTE'
     },
     fecha_justificacion: {
         type: DataTypes.DATEONLY,
         allowNull: false
+    },
+    // ⭐ Campos para el tracking de aprobaciones
+    observaciones_admin: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    aprobado_por: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    fecha_aprobacion: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
+    rechazado_por: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    fecha_rechazo: {
+        type: DataTypes.DATE,
+        allowNull: true
     }
 }, {
     tableName: 'Justificacions',

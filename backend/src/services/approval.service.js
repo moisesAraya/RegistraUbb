@@ -1,72 +1,31 @@
-import RegistroMarcaje from '../entities/registro_marcaje.entity.js';
 import Justificacion from '../entities/justificacion.entity.js';
-import Marcaje from '../entities/marcaje.entity.js';
 import Usuario from '../entities/usuario.entity.js';
 import { sequelize } from '../config/dbconfig.js';
 
 // Obtener todas las solicitudes pendientes de aprobación
 export const getPendingApprovalsService = async () => {
     try {
-        // Obtener justificaciones pendientes directamente
         const pendingJustifications = await Justificacion.findAll({
             where: { estado: 'PENDIENTE' },
             include: [
                 {
                     model: Usuario,
-                    attributes: ['nombre', 'apellido'],
+                    attributes: ['nombres', 'apellidos'],
                     as: 'usuario'
                 }
             ]
         });
 
-        // Obtener registros manuales pendientes
-        const pendingManualRecords = await RegistroMarcaje.findAll({
-            include: [
-                {
-                    model: Marcaje,
-                    where: { estado: 'PENDIENTE' }
-                },
-                {
-                    model: Usuario,
-                    attributes: ['nombre', 'apellido']
-                }
-            ]
-        });
-
         // Formatear datos para el frontend
-        const approvals = [];
-
-        // Formatear justificaciones
-        pendingJustifications.forEach(record => {
-            approvals.push({
-                id: `just_${record.id_justificacion}_${record.rut_usuario}`,
-                type: 'justification',
-                userId: record.rut_usuario,
-                userName: record.usuario ? `${record.usuario.nombre} ${record.usuario.apellido}` : '',
-                date: record.fecha_justificacion,
-                submittedAt: record.createdAt || record.fecha_justificacion,
-                reason: record.descripcion
-            });
-        });
-
-        // Formatear registros manuales
-        pendingManualRecords.forEach(record => {
-            approvals.push({
-                id: `marcaje_${record.id_marcaje}_${record.rut_usuario}`,
-                type: 'manual_attendance',
-                userId: record.rut_usuario,
-                userName: record.Usuario ? `${record.Usuario.nombre} ${record.Usuario.apellido}` : '',
-                date: record.fecha_registro,
-                submittedAt: record.createdAt || record.fecha_registro,
-                reason: record.Marcaje.observaciones || 'Registro manual de asistencia',
-                details: {
-                    checkInTime: record.Marcaje.hora_entrada,
-                    checkOutTime: record.Marcaje.hora_salida,
-                    location: `Tótem ${record.id_totem}`,
-                    notes: record.Marcaje.observaciones
-                }
-            });
-        });
+        const approvals = pendingJustifications.map(record => ({
+            id: `just_${record.id_justificacion}_${record.rut_usuario}`,
+            type: 'justification',
+            userId: record.rut_usuario,
+            userName: record.usuario ? `${record.usuario.nombres} ${record.usuario.apellidos}` : '',
+            date: record.fecha_justificacion,
+            submittedAt: record.createdAt || record.fecha_justificacion,
+            reason: record.descripcion
+        }));
 
         // Ordenar por fecha de envío (más recientes primero)
         approvals.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
@@ -85,38 +44,24 @@ export const approveRequestService = async (requestId, adminRut, reviewNotes = '
     try {
         const [type, id, userRut] = requestId.split('_');
         
-        if (type === 'just') {
-            // Aprobar justificación
-            await Justificacion.update(
-                { 
-                    estado: 'APROBADO',
-                    observaciones_admin: reviewNotes,
-                    aprobado_por: adminRut,
-                    fecha_aprobacion: new Date()
-                },
-                { 
-                    where: { id_justificacion: id },
-                    transaction
-                }
-            );
-        } else if (type === 'marcaje') {
-            // Aprobar registro manual
-            await Marcaje.update(
-                { 
-                    estado: 'APROBADO',
-                    observaciones_admin: reviewNotes,
-                    aprobado_por: adminRut,
-                    fecha_aprobacion: new Date()
-                },
-                { 
-                    where: { id_marcaje: id },
-                    transaction
-                }
-            );
-        } else {
+        if (type !== 'just') {
             await transaction.rollback();
             return [null, 'Tipo de solicitud no válido'];
         }
+
+        // Aprobar justificación
+        await Justificacion.update(
+            { 
+                estado: 'APROBADO',
+                observaciones_admin: reviewNotes,
+                aprobado_por: adminRut,
+                fecha_aprobacion: new Date()
+            },
+            { 
+                where: { id_justificacion: id },
+                transaction
+            }
+        );
 
         await transaction.commit();
         return [{ message: 'Solicitud aprobada exitosamente' }, null];
@@ -134,38 +79,24 @@ export const rejectRequestService = async (requestId, adminRut, reviewNotes) => 
     try {
         const [type, id, userRut] = requestId.split('_');
         
-        if (type === 'just') {
-            // Rechazar justificación
-            await Justificacion.update(
-                { 
-                    estado: 'RECHAZADO',
-                    observaciones_admin: reviewNotes,
-                    rechazado_por: adminRut,
-                    fecha_rechazo: new Date()
-                },
-                { 
-                    where: { id_justificacion: id },
-                    transaction
-                }
-            );
-        } else if (type === 'marcaje') {
-            // Rechazar registro manual
-            await Marcaje.update(
-                { 
-                    estado: 'RECHAZADO',
-                    observaciones_admin: reviewNotes,
-                    rechazado_por: adminRut,
-                    fecha_rechazo: new Date()
-                },
-                { 
-                    where: { id_marcaje: id },
-                    transaction
-                }
-            );
-        } else {
+        if (type !== 'just') {
             await transaction.rollback();
             return [null, 'Tipo de solicitud no válido'];
         }
+
+        // Rechazar justificación
+        await Justificacion.update(
+            { 
+                estado: 'RECHAZADO',
+                observaciones_admin: reviewNotes,
+                rechazado_por: adminRut,
+                fecha_rechazo: new Date()
+            },
+            { 
+                where: { id_justificacion: id },
+                transaction
+            }
+        );
 
         await transaction.commit();
         return [{ message: 'Solicitud rechazada exitosamente' }, null];

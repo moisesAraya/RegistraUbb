@@ -53,7 +53,7 @@ export const useAsistencia = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE_URL = 'http://localhost:3000/api';
+  const API_BASE_URL = import.meta.env.VITE_API_URL;
 
   const getAuthToken = () => {
     return localStorage.getItem('token');

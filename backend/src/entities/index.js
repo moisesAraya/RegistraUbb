@@ -31,38 +31,8 @@ export {
   Justificacion,
   Motivo,
   Notificacion,
-  Asistencia,
-  RegistroJust
+  Asistencia
 };
 
-// Exportar default para compatibilidad
-export default {
-  sequelize,
-  Usuario,
-  Rol,
-  Cargo,
-  Marcaje,
-  RegistroMarcaje,
-  Totem,
-  QR,
-  Justificacion,
-  Motivo,
-  Notificacion,
-  Asistencia,
-  RegistroJust
-};
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const entitiesDir = __dirname;
-
-fs.readdirSync(entitiesDir)
-  .filter((file) => file.endsWith(".entity.js"))
-  .forEach(async (file) => {
-    const fileUrl = pathToFileURL(path.join(entitiesDir, file)).href;
-    await import(fileUrl);
-    console.log(`Entidad cargada: ${file}`);
-  });
 
 console.log('✅ [ENTITIES] Todos los modelos y sequelize exportados correctamente');

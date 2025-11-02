@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const API_BASE_URL = 'http://localhost:3000'; // Ajusta según tu configuración
+const API_BASE_URL = import.meta.env.VITE_API_URL; // Ajusta según tu configuración
 
 interface PendingApproval {
   id: string;
@@ -47,7 +47,7 @@ export const useApprovals = () => {
     setError(null);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/approvals/pending`, {
+      const response = await fetch(`${API_BASE_URL}/approvals/pending`, {
         method: 'GET',
         headers: getHeaders()
       });
@@ -84,7 +84,7 @@ export const useApprovals = () => {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/approvals/${approvalId}/approve`, {
+      const response = await fetch(`${API_BASE_URL}/approvals/${approvalId}/approve`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({ reviewNotes })
@@ -126,7 +126,7 @@ export const useApprovals = () => {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/approvals/${approvalId}/reject`, {
+      const response = await fetch(`${API_BASE_URL}/approvals/${approvalId}/reject`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({ reviewNotes })

@@ -1,7 +1,7 @@
-import { 
-    getPendingApprovalsService,
-    approveRequestService,
-    rejectRequestService 
+import {
+  getPendingApprovalsService,
+  approveRequestService,
+  rejectRequestService
 } from '../services/approval.service.js';
 import { handleErrorClient, handleErrorServer, handleSuccess } from '../handlers/responseHandlers.js';
 

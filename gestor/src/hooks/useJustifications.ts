@@ -38,6 +38,8 @@ interface FiltrosJustificaciones {
   limit?: number;
 }
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 export const useJustificaciones = () => {
   const { token } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -56,7 +58,6 @@ export const useJustificaciones = () => {
 
     try {
       const params = new URLSearchParams();
-      
       if (filtros.estado) params.append('estado', filtros.estado);
       if (filtros.mes) params.append('mes', filtros.mes.toString());
       if (filtros.anio) params.append('anio', filtros.anio.toString());
@@ -65,7 +66,7 @@ export const useJustificaciones = () => {
       if (filtros.limit) params.append('limit', filtros.limit.toString());
 
       const response = await fetch(
-        `http://localhost:3000/api/justificaciones?${params.toString()}`,
+        `${API_URL}/justificaciones?${params.toString()}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -105,7 +106,7 @@ export const useJustificaciones = () => {
 
     try {
       const response = await fetch(
-        'http://localhost:3000/api/justificaciones',
+        `${API_URL}/justificaciones`,
         {
           method: 'POST',
           headers: {
@@ -148,7 +149,7 @@ export const useJustificaciones = () => {
 
     try {
       const response = await fetch(
-        `http://localhost:3000/api/justificaciones/${id}`,
+        `${API_URL}/justificaciones/${id}`,
         {
           method: 'PUT',
           headers: {
@@ -191,7 +192,7 @@ export const useJustificaciones = () => {
 
     try {
       const response = await fetch(
-        `http://localhost:3000/api/justificaciones/${id}`,
+        `${API_URL}/justificaciones/${id}`,
         {
           method: 'DELETE',
           headers: {
@@ -230,7 +231,7 @@ export const useJustificaciones = () => {
 
     try {
       const response = await fetch(
-        'http://localhost:3000/api/justificaciones/motivos',
+        `${API_URL}/justificaciones/motivos`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
