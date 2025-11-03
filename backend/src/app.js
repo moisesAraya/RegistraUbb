@@ -120,26 +120,36 @@ try {
     console.log("⚠️ Approval routes no disponibles:", approvalError.message);
   }
 
-  console.log("📊 Cargando Reportes routes...");
-  const reportesRoutes = await import("./routes/reportes.routes.js");
-  app.use("/api/reportes", reportesRoutes.default);
-  console.log("✅ Reportes routes cargadas");
-
+  // ✅ 7. REPORTES ROUTES - ENVOLVER EN TRY-CATCH
   try {
-    console.log(" Cargando Justificaciones routes...");
+    console.log("📊 Cargando Reportes routes...");
+    const reportesRoutes = await import("./routes/reportes.routes.js");
+    app.use("/api/reportes", reportesRoutes.default);
+    console.log("✅ Reportes routes cargadas");
+  } catch (reportesError) {
+    console.error("❌ Error detallado Reportes routes:", reportesError);
+    console.log("⚠️ Reportes routes no disponibles:", reportesError.message);
+  }
+
+  // ✅ 8. JUSTIFICACIONES ROUTES
+  try {
+    console.log("📝 Cargando Justificaciones routes...");
     const justificacionesRoutes = await import(
       "./routes/justificaciones.routes.js"
     );
     app.use("/api/justificaciones", justificacionesRoutes.default);
-    console.log(" Justificaciones routes cargadas");
+    console.log("✅ Justificaciones routes cargadas");
   } catch (justificacionesError) {
+    console.error("❌ Error detallado Justificaciones routes:", justificacionesError);
     console.log(
-      " Justificaciones routes no disponibles:",
+      "⚠️ Justificaciones routes no disponibles:",
       justificacionesError.message
     );
   }
+
 } catch (error) {
-  console.error(" Error crítico cargando rutas:", error.message);
+  console.error("❌ Error crítico cargando rutas:", error);
+  console.error("❌ Stack trace:", error.stack);
 }
 
 const initializeDatabase = async () => {
