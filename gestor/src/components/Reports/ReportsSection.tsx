@@ -1,806 +1,851 @@
-import React, { useState, useEffect } from 'react';
-import { useReportes } from '../../hooks/useReportes';
+import { useState, useEffect } from "react";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { useAuth } from "../Context/AuthContext";
+import { useReportes } from "../../hooks/useReportes";
 import { 
-  BarChart3, 
-  TrendingUp, 
-  TrendingDown, 
+  FileText, 
   Calendar, 
-  Clock, 
-  Target,
-  Award,
-  AlertCircle,
-  Download,
-  RefreshCw
+  Users, 
+  Clock,
+  FileSpreadsheet,
+  FileDown,
+  RefreshCw,
+  TrendingUp
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
-import { saveAs } from 'file-saver';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable'; // Importa SOLO así, no como import * as ...
-import autoTable from 'jspdf-autotable';
-import { useAuth } from '../../components/Context/AuthContext';
 
-// Augment jsPDF type for TypeScript
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: typeof autoTable;
-    lastAutoTable?: {
-      finalY: number;
-      [key: string]: any;
-    };
-  }
+interface Usuario {
+  rut_usuario: string;
+  nombres: string;
+  apellidos: string;
 }
 
-const ReportsSection: React.FC = () => {
-  const {
-    loading,
-    error,
-    reporteActual,
-    reporteComparativo,
-    obtenerReporteMensual,
-    obtenerReporteComparativo,
-    obtenerEstadisticasAnuales,
-    clearError
-  } = useReportes();
+export default function ReportsSection() {
   const { user } = useAuth();
-  const [rutSeleccionado, setRutSeleccionado] = useState<string | null>(null);
-  const [usuarios, setUsuarios] = useState<any[]>([]);
+  const { reporteActual, obtenerReporteMensual, loading } = useReportes();
+  
+  // Estados de filtros
+  const [tipoFiltro, setTipoFiltro] = useState<'mes' | 'rango'>('mes');
+  const [mes, setMes] = useState<number>(new Date().getMonth() + 1);
+  const [anio, setAnio] = useState<number>(new Date().getFullYear());
+  const [fechaInicio, setFechaInicio] = useState<string>("");
+  const [fechaFin, setFechaFin] = useState<string>("");
+  
+  // Estados para admin
+  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<string>("mi-reporte");
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  
+  const isAdmin = user?.id_rol === 1;
 
-  const [vistaActiva, setVistaActiva] = useState<'mensual' | 'comparativo' | 'anual'>('mensual');
-  const [mesSeleccionado, setMesSeleccionado] = useState(new Date().getMonth() + 1);
-  const [anioSeleccionado, setAnioSeleccionado] = useState(new Date().getFullYear());
-
-  // ✅ CARGAR REPORTE COMPARATIVO AL INICIAR
+  // Cargar lista de usuarios (solo admin)
   useEffect(() => {
-    if (vistaActiva === 'comparativo') {
-      obtenerReporteComparativo();
-    }
-  }, [vistaActiva]);
-
-  // ✅ CAMBIAR MES/AÑO
-  const handleFechaChange = (mes: number, anio: number) => {
-    setMesSeleccionado(mes);
-    setAnioSeleccionado(anio);
-    obtenerReporteMensual(mes, anio);
-  };
-
-  // ✅ COMPONENTE DE MÉTRICAS
-  const MetricCard = ({ 
-    title, 
-    value, 
-    subtitle, 
-    icon: Icon, 
-    color = 'blue',
-    trend 
-  }: {
-    title: string;
-    value: string | number;
-    subtitle?: string;
-    icon: any;
-    color?: string;
-    trend?: 'up' | 'down' | 'neutral';
-  }) => {
-    const colorClasses = {
-      blue: 'bg-blue-50 border-blue-200 text-blue-700',
-      green: 'bg-green-50 border-green-200 text-green-700',
-      purple: 'bg-purple-50 border-purple-200 text-purple-700',
-      orange: 'bg-orange-50 border-orange-200 text-orange-700',
-      red: 'bg-red-50 border-red-200 text-red-700'
-    };
-
-    return (
-      <div className={`p-4 rounded-lg border-2 ${colorClasses[color as keyof typeof colorClasses]}`}>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium opacity-80">{title}</p>
-            <p className="text-2xl font-bold mt-1">{value}</p>
-            {subtitle && (
-              <p className="text-xs opacity-60 mt-1">{subtitle}</p>
-            )}
-          </div>
-          <div className="flex flex-col items-center">
-            <Icon className="w-8 h-8" />
-            {trend && (
-              <div className="mt-1">
-                {trend === 'up' && <TrendingUp className="w-4 h-4 text-green-600" />}
-                {trend === 'down' && <TrendingDown className="w-4 h-4 text-red-600" />}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ✅ VISTA MENSUAL
-  const VistaMensual = () => {
-    if (!reporteActual) return null;
-
-    const { resumen_basico, metricas_avanzadas, tendencias } = reporteActual;
-
-    return (
-      <div className="space-y-6">
-        {/* Selector de Fecha */}
-        <div className="flex items-center space-x-4 bg-white p-4 rounded-lg border">
-          <Calendar className="w-5 h-5 text-gray-500" />
-          <select 
-            value={mesSeleccionado}
-            onChange={(e) => handleFechaChange(parseInt(e.target.value), anioSeleccionado)}
-            className="border rounded px-3 py-2"
-          >
-            {Array.from({length: 12}, (_, i) => (
-              <option key={i + 1} value={i + 1}>
-                {new Date(2023, i).toLocaleDateString('es-CL', { month: 'long' })}
-              </option>
-            ))}
-          </select>
-          <select 
-            value={anioSeleccionado}
-            onChange={(e) => handleFechaChange(mesSeleccionado, parseInt(e.target.value))}
-            className="border rounded px-3 py-2"
-          >
-            {[2023, 2024, 2025].map(year => (
-              <option key={year} value={year}>{year}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Métricas Principales */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard
-            title="Horas Totales"
-            value={`${resumen_basico?.horasTotales || 0}h`}
-            subtitle={`Promedio: ${metricas_avanzadas?.promedio_horas_dia || 0}h/día`}
-            icon={Clock}
-            color="blue"
-            trend={tendencias?.tendencia === 'mejorando' ? 'up' : tendencias?.tendencia === 'empeorando' ? 'down' : 'neutral'}
-          />
-          
-          <MetricCard
-            title="Días Trabajados"
-            value={resumen_basico?.diasTrabajados || 0}
-            subtitle="del mes"
-            icon={Calendar}
-            color="green"
-          />
-          
-          <MetricCard
-            title="Puntualidad"
-            value={`${metricas_avanzadas?.puntualidad?.puntualidad_score || 0}%`}
-            subtitle={`${metricas_avanzadas?.puntualidad?.llegadas_tarde || 0} llegadas tarde`}
-            icon={Target}
-            color="purple"
-          />
-          
-          <MetricCard
-            title="Consistencia"
-            value={`${metricas_avanzadas?.consistencia?.consistencia_score || 0}%`}
-            subtitle={`${metricas_avanzadas?.consistencia?.dias_completos || 0} días completos`}
-            icon={Award}
-            color="orange"
-          />
-        </div>
-
-        {/* Gráfico Simple de Horas por Día de Semana */}
-        {reporteActual.graficos_data?.horas_por_dia_semana && (
-          <div className="bg-white p-6 rounded-lg border">
-            <h3 className="text-lg font-semibold mb-4 flex items-center">
-              <BarChart3 className="w-5 h-5 mr-2" />
-              Horas por Día de la Semana
-            </h3>
-            <div className="space-y-3">
-              {reporteActual.graficos_data.horas_por_dia_semana.map((dia) => (
-                <div key={dia.dia} className="flex items-center">
-                  <div className="w-20 text-sm font-medium">{dia.dia}</div>
-                  <div className="flex-1 bg-gray-200 rounded-full h-6 relative">
-                    <div 
-                      className="bg-blue-500 h-6 rounded-full flex items-center justify-end pr-2"
-                      style={{ width: `${Math.min((dia.horas / 10) * 100, 100)}%` }}
-                    >
-                      <span className="text-white text-xs font-medium">
-                        {dia.horas}h
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Justificaciones del Mes */}
-        {metricas_avanzadas?.justificaciones && (
-          <div className="bg-white p-6 rounded-lg border">
-            <h3 className="text-lg font-semibold mb-4">Justificaciones del Mes</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-3 bg-gray-50 rounded">
-                <div className="text-2xl font-bold text-gray-700">
-                  {metricas_avanzadas.justificaciones.total}
-                </div>
-                <div className="text-sm text-gray-500">Total</div>
-              </div>
-              <div className="text-center p-3 bg-green-50 rounded">
-                <div className="text-2xl font-bold text-green-700">
-                  {metricas_avanzadas.justificaciones.aprobadas}
-                </div>
-                <div className="text-sm text-gray-500">Aprobadas</div>
-              </div>
-              <div className="text-center p-3 bg-yellow-50 rounded">
-                <div className="text-2xl font-bold text-yellow-700">
-                  {metricas_avanzadas.justificaciones.pendientes}
-                </div>
-                <div className="text-sm text-gray-500">Pendientes</div>
-              </div>
-              <div className="text-center p-3 bg-red-50 rounded">
-                <div className="text-2xl font-bold text-red-700">
-                  {metricas_avanzadas.justificaciones.rechazadas}
-                </div>
-                <div className="text-sm text-gray-500">Rechazadas</div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // ✅ VISTA COMPARATIVA
-  const VistaComparativa = () => {
-    if (!reporteComparativo) return null;
-
-    return (
-      <div className="space-y-6">
-        <div className="bg-white p-6 rounded-lg border">
-          <h3 className="text-lg font-semibold mb-4">Últimos 6 Meses</h3>
-          
-          {/* Promedios */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <MetricCard
-              title="Promedio Horas"
-              value={`${reporteComparativo.promedios.horas}h`}
-              subtitle="mensual"
-              icon={Clock}
-              color="blue"
-            />
-            <MetricCard
-              title="Promedio Días"
-              value={reporteComparativo.promedios.dias}
-              subtitle="mensuales"
-              icon={Calendar}
-              color="green"
-            />
-            <MetricCard
-              title="Promedio Asistencia"
-              value={`${reporteComparativo.promedios.asistencia}%`}
-              subtitle="mensual"
-              icon={Target}
-              color="purple"
-            />
-          </div>
-
-          {/* Tendencias */}
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h4 className="font-semibold mb-3">Tendencias Generales</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex items-center space-x-2">
-                <Clock className="w-4 h-4" />
-                <span className="text-sm">Horas: </span>
-                <span className={`text-sm font-medium ${
-                  reporteComparativo.tendencias_generales.horas === 'mejorando' ? 'text-green-600' :
-                  reporteComparativo.tendencias_generales.horas === 'empeorando' ? 'text-red-600' : 'text-gray-600'
-                }`}>
-                  {reporteComparativo.tendencias_generales.horas}
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Calendar className="w-4 h-4" />
-                <span className="text-sm">Días: </span>
-                <span className={`text-sm font-medium ${
-                  reporteComparativo.tendencias_generales.dias === 'mejorando' ? 'text-green-600' :
-                  reporteComparativo.tendencias_generales.dias === 'empeorando' ? 'text-red-600' : 'text-gray-600'
-                }`}>
-                  {reporteComparativo.tendencias_generales.dias}
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Target className="w-4 h-4" />
-                <span className="text-sm">Asistencia: </span>
-                <span className={`text-sm font-medium ${
-                  reporteComparativo.tendencias_generales.asistencia === 'mejorando' ? 'text-green-600' :
-                  reporteComparativo.tendencias_generales.asistencia === 'empeorando' ? 'text-red-600' : 'text-gray-600'
-                }`}>
-                  {reporteComparativo.tendencias_generales.asistencia}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Tabla de Reportes Mensuales */}
-          <div className="mt-6">
-            <h4 className="font-semibold mb-3">Detalle por Mes</h4>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2">Mes</th>
-                    <th className="text-right py-2">Horas</th>
-                    <th className="text-right py-2">Días</th>
-                    <th className="text-right py-2">Asistencia</th>
-                    <th className="text-right py-2">Justif.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reporteComparativo.reportes_mensuales.map((reporte, index) => (
-                    <tr key={index} className="border-b">
-                      <td className="py-2 font-medium">{reporte.nombre_mes}</td>
-                      <td className="text-right py-2">{reporte.horas_totales}h</td>
-                      <td className="text-right py-2">{reporte.dias_trabajados}</td>
-                      <td className="text-right py-2">{reporte.porcentaje_asistencia}%</td>
-                      <td className="text-right py-2">{reporte.justificaciones}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const exportMensualToExcel = () => {
-    if (!reporteActual) return;
-
-    const { resumen_basico, metricas_avanzadas } = reporteActual;
-
-    // Prepara los datos para la hoja principal
-    const resumen = [
-      { 
-        Métrica: 'Horas Totales', 
-        Valor: resumen_basico?.horasTotales || 0 
-      },
-      { 
-        Métrica: 'Días Trabajados', 
-        Valor: resumen_basico?.diasTrabajados || 0 
-      },
-      { 
-        Métrica: 'Promedio Horas Día', 
-        Valor: metricas_avanzadas?.promedio_horas_dia || 0 
-      },
-      { 
-        Métrica: 'Puntualidad (%)', 
-        Valor: metricas_avanzadas?.puntualidad?.puntualidad_score || 0 
-      },
-      { 
-        Métrica: 'Llegadas Tarde', 
-        Valor: metricas_avanzadas?.puntualidad?.llegadas_tarde || 0 
-      },
-      { 
-        Métrica: 'Consistencia (%)', 
-        Valor: metricas_avanzadas?.consistencia?.consistencia_score || 0 
-      },
-      { 
-        Métrica: 'Días Completos', 
-        Valor: metricas_avanzadas?.consistencia?.dias_completos || 0 
-      },
-    ];
-
-    // Justificaciones
-    const justificaciones = metricas_avanzadas?.justificaciones
-      ? [
-          {
-            Estado: 'Total',
-            Cantidad: metricas_avanzadas.justificaciones.total,
-          },
-          {
-            Estado: 'Aprobadas',
-            Cantidad: metricas_avanzadas.justificaciones.aprobadas,
-          },
-          {
-            Estado: 'Pendientes',
-            Cantidad: metricas_avanzadas.justificaciones.pendientes,
-          },
-          {
-            Estado: 'Rechazadas',
-            Cantidad: metricas_avanzadas.justificaciones.rechazadas,
-          },
-        ]
-      : [];
-
-    // Horas por día de la semana
-    const horasPorDia = reporteActual.graficos_data?.horas_por_dia_semana
-      ? reporteActual.graficos_data.horas_por_dia_semana.map((d: any) => ({
-          Día: d.dia,
-          Horas: d.horas,
-        }))
-      : [];
-
-    // Crea el libro y las hojas
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), 'Resumen');
-    if (justificaciones.length > 0) {
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(justificaciones), 'Justificaciones');
-    }
-    if (horasPorDia.length > 0) {
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(horasPorDia), 'Horas por Día');
-    }
-
-    // Exporta el archivo
-    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    saveAs(new Blob([wbout], { type: 'application/octet-stream' }), 'ReporteMensual.xlsx');
-  };
-
-  const exportComparativoToExcel = () => {
-    if (!reporteComparativo) return;
-
-    // Promedios
-    const promedios = [
-      { Métrica: 'Promedio Horas', Valor: reporteComparativo.promedios.horas },
-      { Métrica: 'Promedio Días', Valor: reporteComparativo.promedios.dias },
-      { Métrica: 'Promedio Asistencia (%)', Valor: reporteComparativo.promedios.asistencia },
-    ];
-
-    // Tendencias
-    const tendencias = [
-      { Métrica: 'Horas', Tendencia: reporteComparativo.tendencias_generales.horas },
-      { Métrica: 'Días', Tendencia: reporteComparativo.tendencias_generales.dias },
-      { Métrica: 'Asistencia', Tendencia: reporteComparativo.tendencias_generales.asistencia },
-    ];
-
-    // Detalle por mes
-    const detalle = reporteComparativo.reportes_mensuales.map((r: any) => ({
-      Mes: r.nombre_mes,
-      Horas: r.horas_totales,
-      Días: r.dias_trabajados,
-      Asistencia: r.porcentaje_asistencia,
-      Justificaciones: r.justificaciones,
-    }));
-
-    // Crea el libro y las hojas
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(promedios), 'Promedios');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tendencias), 'Tendencias');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalle), 'Detalle por Mes');
-
-    // Exporta el archivo
-    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    saveAs(new Blob([wbout], { type: 'application/octet-stream' }), 'ReporteComparativo.xlsx');
-  };
-
-  const exportMensualToPDF = () => {
-    if (!reporteActual) return;
-    const { resumen_basico, metricas_avanzadas } = reporteActual;
-    const doc = new jsPDF();
-
-    doc.setFontSize(16);
-    doc.text('Reporte Mensual', 14, 18);
-
-    // Resumen
-    doc.setFontSize(12);
-    doc.text('Resumen', 14, 28);
-    autoTable(doc, {
-      startY: 32,
-      head: [['Métrica', 'Valor']],
-      body: [
-        ['Horas Totales', resumen_basico?.horasTotales || 0],
-        ['Días Trabajados', resumen_basico?.diasTrabajados || 0],
-        ['Promedio Horas Día', metricas_avanzadas?.promedio_horas_dia || 0],
-        ['Puntualidad (%)', metricas_avanzadas?.puntualidad?.puntualidad_score || 0],
-        ['Llegadas Tarde', metricas_avanzadas?.puntualidad?.llegadas_tarde || 0],
-        ['Consistencia (%)', metricas_avanzadas?.consistencia?.consistencia_score || 0],
-        ['Días Completos', metricas_avanzadas?.consistencia?.dias_completos || 0],
-      ],
-      theme: 'grid',
-      styles: { fontSize: 10 },
-    });
-
-    // Justificaciones
-    if (metricas_avanzadas?.justificaciones) {
-      const lastY = doc.lastAutoTable?.finalY ?? 42;
-      doc.text('Justificaciones', 14, lastY + 10);
-      autoTable(doc, {
-        startY: lastY + 14,
-        head: [['Estado', 'Cantidad']],
-        body: [
-          ['Total', metricas_avanzadas.justificaciones.total],
-          ['Aprobadas', metricas_avanzadas.justificaciones.aprobadas],
-          ['Pendientes', metricas_avanzadas.justificaciones.pendientes],
-          ['Rechazadas', metricas_avanzadas.justificaciones.rechazadas],
-        ],
-        theme: 'grid',
-        styles: { fontSize: 10 },
-      });
-    }
-
-    // Horas por día de la semana
-    if (reporteActual.graficos_data?.horas_por_dia_semana) {
-      const horasPorDiaStartY = (doc.lastAutoTable?.finalY ?? 42) + 10;
-      doc.text('Horas por Día de la Semana', 14, horasPorDiaStartY);
-      autoTable(doc, {
-        startY: horasPorDiaStartY + 4,
-        head: [['Día', 'Horas']],
-        body: reporteActual.graficos_data.horas_por_dia_semana.map((d: any) => [d.dia, d.horas]),
-        theme: 'grid',
-        styles: { fontSize: 10 },
-      });
-    }
-
-    doc.save('ReporteMensual.pdf');
-  };
-
-  const exportComparativoToPDF = () => {
-    if (!reporteComparativo) return;
-    const doc = new jsPDF();
-
-    doc.setFontSize(16);
-    doc.text('Análisis Comparativo', 14, 18);
-
-    // Promedios
-    doc.setFontSize(12);
-    doc.text('Promedios', 14, 28);
-    autoTable(doc, {
-      startY: 32,
-      head: [['Métrica', 'Valor']],
-      body: [
-        ['Promedio Horas', reporteComparativo.promedios.horas],
-        ['Promedio Días', reporteComparativo.promedios.dias],
-        ['Promedio Asistencia (%)', reporteComparativo.promedios.asistencia],
-      ],
-      theme: 'grid',
-      styles: { fontSize: 10 },
-    });
-
-    // Tendencias
-    doc.text('Tendencias', 14, (doc.lastAutoTable?.finalY ?? 42) + 10);
-    autoTable(doc, {
-      startY: (doc.lastAutoTable?.finalY ?? 42) + 14,
-      head: [['Métrica', 'Tendencia']],
-      body: [
-        ['Horas', reporteComparativo.tendencias_generales.horas],
-        ['Días', reporteComparativo.tendencias_generales.dias],
-        ['Asistencia', reporteComparativo.tendencias_generales.asistencia],
-      ],
-      theme: 'grid',
-      styles: { fontSize: 10 },
-    });
-
-    // Detalle por mes
-    const detalleStartY = (doc.lastAutoTable?.finalY ?? 42) + 10;
-    doc.text('Detalle por Mes', 14, detalleStartY);
-    autoTable(doc, {
-      startY: detalleStartY + 4,
-      head: [['Mes', 'Horas', 'Días', 'Asistencia', 'Justificaciones']],
-      body: reporteComparativo.reportes_mensuales.map((r: any) => [
-        r.nombre_mes,
-        r.horas_totales,
-        r.dias_trabajados,
-        r.porcentaje_asistencia,
-        r.justificaciones,
-      ]),
-      theme: 'grid',
-      styles: { fontSize: 10 },
-    });
-
-    doc.save('ReporteComparativo.pdf');
-  };
-
-  // Solo para admin: cargar usuarios
-  useEffect(() => {
-    if (user?.id_rol === 1) {
-      fetch(`${import.meta.env.VITE_API_URL}/usuario`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      })
-        .then(res => res.json())
-        .then(data => setUsuarios(data.usuarios || []));
+    if (isAdmin) {
+      fetchUsuarios();
     }
   }, [user]);
 
-  // Cuando cambia el usuario seleccionado, carga el reporte de ese usuario
+  // Generar reporte automáticamente cuando cambien los filtros
   useEffect(() => {
-    if (user?.id_rol === 1 && rutSeleccionado) {
-      obtenerReporteMensual(mesSeleccionado, anioSeleccionado, rutSeleccionado);
-    }
-  }, [rutSeleccionado, mesSeleccionado, anioSeleccionado, user]);
+    if (!user) return;
 
-  // Carga el reporte correspondiente al usuario y fechas seleccionadas
-  useEffect(() => {
-    if (user?.id_rol === 1) {
-      if (!rutSeleccionado || rutSeleccionado === "") {
-        // Todos los usuarios
-        obtenerReporteMensual(mesSeleccionado, anioSeleccionado, undefined, true);
+    const generarReporteAutomatico = async () => {
+      if (tipoFiltro === 'mes') {
+        // Para filtro por mes, generar inmediatamente
+        if (usuarioSeleccionado === 'todos') {
+          await obtenerReporteMensual(mes, anio, undefined, true);
+        } else if (usuarioSeleccionado === 'mi-reporte') {
+          await obtenerReporteMensual(mes, anio, undefined, false);
+        } else {
+          await obtenerReporteMensual(mes, anio, usuarioSeleccionado, false);
+        }
       } else {
-        // Usuario específico
-        obtenerReporteMensual(mesSeleccionado, anioSeleccionado, rutSeleccionado);
+        // Para filtro por rango, solo generar si ambas fechas están seleccionadas
+        if (fechaInicio && fechaFin) {
+          if (usuarioSeleccionado === 'todos') {
+            await obtenerReporteMensual(undefined, undefined, undefined, true, fechaInicio, fechaFin);
+          } else if (usuarioSeleccionado === 'mi-reporte') {
+            await obtenerReporteMensual(undefined, undefined, undefined, false, fechaInicio, fechaFin);
+          } else {
+            await obtenerReporteMensual(undefined, undefined, usuarioSeleccionado, false, fechaInicio, fechaFin);
+          }
+        }
       }
-    } else {
-      // No admin: solo su propio reporte
-      obtenerReporteMensual(mesSeleccionado, anioSeleccionado);
-    }
-  }, [rutSeleccionado, mesSeleccionado, anioSeleccionado, user]);
+    };
 
-  // Vista comparativa para todos los usuarios
-  const VistaComparativaUsuarios = () => {
-    if (!Array.isArray(reporteActual)) return null;
-    return (
-      <div>
-        <h2 className="text-lg font-semibold mb-4">Comparativa de Usuarios</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white border rounded-lg shadow-md">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="py-3 px-4 border-b-2 border-gray-200 text-left text-sm font-medium text-gray-600">
-                  Usuario
-                </th>
-                <th className="py-3 px-4 border-b-2 border-gray-200 text-right text-sm font-medium text-gray-600">
-                  Horas
-                </th>
-                <th className="py-3 px-4 border-b-2 border-gray-200 text-right text-sm font-medium text-gray-600">
-                  Días
-                </th>
-                <th className="py-3 px-4 border-b-2 border-gray-200 text-right text-sm font-medium text-gray-600">
-                  Asistencia
-                </th>
-                <th className="py-3 px-4 border-b-2 border-gray-200 text-right text-sm font-medium text-gray-600">
-                  Justificaciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {reporteActual.map((item, idx) => (
-                <tr key={item.rut || idx} className="hover:bg-gray-50">
-                  <td className="py-3 px-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3">
-                        {item.rut?.charAt(0)?.toUpperCase()}
-                      </div>
-                      <div className="text-sm font-medium text-gray-800">
-                        {item.rut}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 text-right text-sm text-gray-700">
-                    {item.reporte?.resumen_basico?.horasTotales ?? 0}
-                  </td>
-                  <td className="py-3 px-4 text-right text-sm text-gray-700">
-                    {item.reporte?.resumen_basico?.diasTrabajados ?? 0}
-                  </td>
-                  <td className="py-3 px-4 text-right text-sm text-gray-700">
-                    {item.reporte
-                      ? Math.round((item.reporte.resumen_basico?.diasTrabajados ?? 0) / 22 * 100)
-                      : 0}%
-                  </td>
-                  <td className="py-3 px-4 text-right text-sm text-gray-700">
-                    {item.reporte?.justificaciones?.length ?? 0}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
+    generarReporteAutomatico();
+  }, [tipoFiltro, mes, anio, fechaInicio, fechaFin, usuarioSeleccionado, user]);
+
+  const fetchUsuarios = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/usuarios`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUsuarios(data.data || []);
+      }
+    } catch (error) {
+      console.error("Error al cargar usuarios:", error);
+    }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="flex items-center space-x-3">
-          <RefreshCw className="w-6 h-6 animate-spin text-blue-500" />
-          <span className="text-gray-600">Generando reporte...</span>
-        </div>
-      </div>
-    );
-  }
+  const handleExportExcel = async () => {
+    if (!user) return alert("No hay usuario autenticado.");
+    if (!reporteActual) {
+      alert("Primero debes generar un reporte");
+      return;
+    }
+
+    if (usuarioSeleccionado === 'todos') {
+      await exportarExcelGeneral();
+    } else {
+      await exportarExcelPersonal();
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (!user) return alert("No hay usuario autenticado.");
+    if (!reporteActual) {
+      alert("Primero debes generar un reporte");
+      return;
+    }
+
+    if (usuarioSeleccionado === 'todos') {
+      await exportarPDFGeneral();
+    } else {
+      await exportarPDFPersonal();
+    }
+  };
+
+  // ================= EXPORTACIÓN EXCEL GENERAL =================
+  const exportarExcelGeneral = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Reporte General");
+
+    // Título
+    sheet.mergeCells("A1:Z1");
+    sheet.getCell("A1").value = "Reporte General de Asistencia";
+    sheet.getCell("A1").alignment = { horizontal: "center" };
+    sheet.getCell("A1").font = { bold: true, size: 16 };
+
+    // Período
+    const periodo = Array.isArray(reporteActual) && reporteActual[0]?.reporte?.periodo
+      ? (reporteActual[0].reporte.periodo as any).nombre_periodo || reporteActual[0].reporte.periodo.nombre_mes
+      : "Sin período";
+    
+    sheet.mergeCells("A2:Z2");
+    sheet.getCell("A2").value = `Período: ${periodo}`;
+    sheet.getCell("A2").alignment = { horizontal: "center" };
+
+    sheet.addRow([]);
+
+    const profesores = Array.isArray(reporteActual) ? reporteActual : [];
+    
+    if (profesores.length === 0) {
+      sheet.addRow(["No hay datos para mostrar"]);
+      const buffer = await workbook.xlsx.writeBuffer();
+      saveAs(new Blob([buffer]), `ReporteGeneral_${periodo.replace(/\s+/g, '_')}.xlsx`);
+      return;
+    }
+
+    // Obtener todas las fechas únicas del período
+    const fechasSet = new Set<string>();
+    profesores.forEach((p: any) => {
+      const asistencias = p.reporte?.asistencias_detalle || [];
+      asistencias.forEach((a: any) => fechasSet.add(a.fecha));
+    });
+    const fechasOrdenadas = Array.from(fechasSet).sort();
+
+    // Crear encabezados con estructura: Nombre | Día1 (fecha) [Mañana: E/S, Tarde: E/S] | Día2...
+    const headerRow1: any[] = ["Nombre"];
+    const headerRow2: any[] = [""];
+    const headerRow3: any[] = [""];
+
+    fechasOrdenadas.forEach((fecha) => {
+      const fechaObj = new Date(fecha + 'T00:00:00');
+      const diaSemana = fechaObj.toLocaleDateString("es-CL", { weekday: "short" });
+      const diaNumero = fechaObj.getDate();
+      
+      // Día de la semana y fecha (merge 4 columns)
+      headerRow1.push(diaSemana.toUpperCase());
+      headerRow1.push("");
+      headerRow1.push("");
+      headerRow1.push("");
+      
+      // Fecha (merge 4 columns)
+      headerRow2.push(`${diaNumero}`);
+      headerRow2.push("");
+      headerRow2.push("");
+      headerRow2.push("");
+      
+      // Mañana y Tarde
+      headerRow3.push("M-E");
+      headerRow3.push("M-S");
+      headerRow3.push("T-E");
+      headerRow3.push("T-S");
+    });
+
+    // Agregar columna de totales
+    headerRow1.push("Total Hrs");
+    headerRow2.push("");
+    headerRow3.push("");
+
+    // Agregar las filas de encabezado
+    const row1 = sheet.addRow(headerRow1);
+    const row2 = sheet.addRow(headerRow2);
+    const row3 = sheet.addRow(headerRow3);
+
+    // Aplicar estilos a encabezados
+    [row1, row2, row3].forEach((row) => {
+      row.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      row.eachCell((cell) => {
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FF4472C4" },
+        };
+        cell.alignment = { horizontal: "center", vertical: "middle" };
+        cell.border = {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" },
+        };
+      });
+    });
+
+    // Merge cells for days
+    let colIndex = 2; // Start after "Nombre" column
+    fechasOrdenadas.forEach(() => {
+      // Merge día de la semana (4 columns)
+      sheet.mergeCells(4, colIndex, 4, colIndex + 3);
+      // Merge fecha (4 columns)
+      sheet.mergeCells(5, colIndex, 5, colIndex + 3);
+      colIndex += 4;
+    });
+
+    // Merge "Total Hrs" cell
+    sheet.mergeCells(4, colIndex, 6, colIndex);
+
+    // Agregar datos de cada profesor
+    profesores.forEach((p: any) => {
+      const nombreCompleto = p.usuario
+        ? `${p.usuario.nombres || ''} ${p.usuario.apellidos || ''}`
+        : "Sin nombre";
+      
+      const asistencias = p.reporte?.asistencias_detalle || [];
+      const asistenciasPorFecha = new Map<string, any>();
+      asistencias.forEach((a: any) => asistenciasPorFecha.set(a.fecha, a));
+
+      const dataRow: any[] = [nombreCompleto.trim()];
+
+      fechasOrdenadas.forEach((fecha) => {
+        const asistencia = asistenciasPorFecha.get(fecha);
+        
+        if (asistencia) {
+          dataRow.push(asistencia.manana?.entrada || "X");
+          dataRow.push(asistencia.manana?.salida || "X");
+          dataRow.push(asistencia.tarde?.entrada || "X");
+          dataRow.push(asistencia.tarde?.salida || "X");
+        } else {
+          dataRow.push("X");
+          dataRow.push("X");
+          dataRow.push("X");
+          dataRow.push("X");
+        }
+      });
+
+      // Total de horas
+      const totalHoras = p.reporte?.resumen_basico?.horasTotales || 0;
+      dataRow.push(totalHoras);
+
+      const row = sheet.addRow(dataRow);
+
+      // Estilo de datos
+      row.eachCell((cell, colNumber) => {
+        cell.alignment = { horizontal: "center", vertical: "middle" };
+        cell.border = {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" },
+        };
+
+        // Colorear las X en rojo
+        if (cell.value === "X") {
+          cell.font = { color: { argb: "FFFF0000" }, bold: true };
+        }
+
+        // Primera columna (nombre) en negrita
+        if (colNumber === 1) {
+          cell.font = { bold: true };
+          cell.alignment = { horizontal: "left", vertical: "middle" };
+        }
+      });
+    });
+
+    // Ajustar anchos de columna
+    sheet.getColumn(1).width = 25; // Nombre
+    for (let i = 2; i <= fechasOrdenadas.length * 4 + 1; i++) {
+      sheet.getColumn(i).width = 8;
+    }
+    sheet.getColumn(fechasOrdenadas.length * 4 + 2).width = 12; // Total Hrs
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), `ReporteGeneral_${periodo.replace(/\s+/g, '_')}.xlsx`);
+  };
+
+  // ================= EXPORTACIÓN EXCEL PERSONAL =================
+  const exportarExcelPersonal = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Reporte Personal");
+
+    // Determinar el nombre del usuario según contexto
+    let nombreUsuario = "";
+    if (usuarioSeleccionado === 'mi-reporte' || !isAdmin) {
+      nombreUsuario = user?.nombres || user?.rut_usuario || "Usuario";
+    } else {
+      // Buscar el usuario seleccionado en la lista
+      const usuarioEncontrado = usuarios.find(u => u.rut_usuario === usuarioSeleccionado);
+      nombreUsuario = usuarioEncontrado 
+        ? `${usuarioEncontrado.nombres} ${usuarioEncontrado.apellidos}` 
+        : usuarioSeleccionado;
+    }
+
+    const periodo = (reporteActual?.periodo as any)?.nombre_periodo || reporteActual?.periodo?.nombre_mes || "Sin período";
+
+    sheet.mergeCells("A1:H1");
+    sheet.getCell("A1").value = `Reporte de ${nombreUsuario}`;
+    sheet.getCell("A1").alignment = { horizontal: "center" };
+    sheet.getCell("A1").font = { bold: true, size: 16 };
+
+    sheet.mergeCells("A2:H2");
+    sheet.getCell("A2").value = `Período: ${periodo}`;
+    sheet.getCell("A2").alignment = { horizontal: "center" };
+
+    sheet.addRow([]);
+    
+    // Encabezados
+    sheet.addRow(["Fecha", "Día", "Mañana Entrada", "Mañana Salida", "Tarde Entrada", "Tarde Salida", "Horas Totales", "Estado"]);
+    const headerRow = sheet.getRow(4);
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    headerRow.eachCell((cell) => {
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF4472C4" },
+      };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      cell.border = {
+        top: { style: "thin" },
+        left: { style: "thin" },
+        bottom: { style: "thin" },
+        right: { style: "thin" },
+      };
+    });
+
+    const registros = reporteActual?.asistencias_detalle || [];
+    registros.forEach((r: any) => {
+      const row = sheet.addRow([
+        new Date(r.fecha).toLocaleDateString("es-CL"),
+        r.dia_semana || new Date(r.fecha).toLocaleDateString("es-CL", { weekday: "long" }),
+        r.manana?.entrada || "X",
+        r.manana?.salida || "X",
+        r.tarde?.entrada || "X",
+        r.tarde?.salida || "X",
+        r.horas_totales || 0,
+        r.estado || "Presente"
+      ]);
+
+      // Estilo de datos
+      row.eachCell((cell) => {
+        cell.alignment = { horizontal: "center", vertical: "middle" };
+        cell.border = {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" },
+        };
+
+        // Colorear las X en rojo
+        if (cell.value === "X") {
+          cell.font = { color: { argb: "FFFF0000" }, bold: true };
+        }
+      });
+    });
+
+    const resumen = reporteActual?.resumen_basico;
+    if (resumen) {
+      sheet.addRow([]);
+      const resumenRow = sheet.addRow([
+        "RESUMEN",
+        `Días trabajados: ${resumen.diasTrabajados ?? 0}`,
+        "",
+        `Horas totales: ${resumen.horasTotales ?? 0}`,
+        "",
+        `Promedio: ${resumen.promedioHorasDia ?? 0} hrs/día`,
+        "",
+        ""
+      ]);
+      resumenRow.font = { bold: true };
+      resumenRow.eachCell((cell) => {
+        cell.alignment = { horizontal: "center", vertical: "middle" };
+      });
+    }
+
+    // Ajustar anchos
+    sheet.columns = [
+      { width: 12 }, // Fecha
+      { width: 12 }, // Día
+      { width: 15 }, // Mañana Entrada
+      { width: 15 }, // Mañana Salida
+      { width: 15 }, // Tarde Entrada
+      { width: 15 }, // Tarde Salida
+      { width: 15 }, // Horas Totales
+      { width: 12 }  // Estado
+    ];
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), `Reporte_${nombreUsuario}_${periodo.replace(/\s+/g, '_')}.xlsx`);
+  };
+
+  // ================= EXPORTACIÓN PDF GENERAL =================
+  const exportarPDFGeneral = async () => {
+    const doc = new jsPDF();
+    
+    const periodo = Array.isArray(reporteActual) && reporteActual[0]?.reporte?.periodo
+      ? (reporteActual[0].reporte.periodo as any).nombre_periodo || reporteActual[0].reporte.periodo.nombre_mes
+      : "Sin período";
+
+    doc.setFontSize(18);
+    doc.text("Reporte General de Asistencia", 105, 20, { align: "center" });
+    doc.setFontSize(12);
+    doc.text(`Período: ${periodo}`, 105, 30, { align: "center" });
+
+    const profesores = Array.isArray(reporteActual) ? reporteActual : [];
+    const tableData = profesores.map((p: any) => {
+      const nombreCompleto = p.usuario
+        ? `${p.usuario.nombres || ''} ${p.usuario.apellidos || ''}`
+        : "Sin nombre";
+      const resumen = p.reporte?.resumen_basico;
+      
+      return [
+        p.rut_usuario || "N/A",
+        nombreCompleto.trim(),
+        resumen?.horasTotales || 0,
+        resumen?.diasTrabajados || 0,
+        resumen?.promedioHorasDia || 0,
+      ];
+    });
+
+    autoTable(doc, {
+      head: [["RUT", "Nombre", "Horas", "Días", "Promedio"]],
+      body: tableData,
+      startY: 40,
+      theme: "grid",
+      headStyles: { fillColor: [66, 139, 202] },
+    });
+
+    doc.save(`ReporteGeneral_${periodo.replace(/\s+/g, '_')}.pdf`);
+  };
+
+  // ================= EXPORTACIÓN PDF PERSONAL =================
+  const exportarPDFPersonal = async () => {
+    const doc = new jsPDF();
+    
+    // Determinar el nombre del usuario según contexto
+    let nombreUsuario = "";
+    if (usuarioSeleccionado === 'mi-reporte' || !isAdmin) {
+      nombreUsuario = user?.nombres || user?.rut_usuario || "Usuario";
+    } else {
+      const usuarioEncontrado = usuarios.find(u => u.rut_usuario === usuarioSeleccionado);
+      nombreUsuario = usuarioEncontrado 
+        ? `${usuarioEncontrado.nombres} ${usuarioEncontrado.apellidos}` 
+        : usuarioSeleccionado;
+    }
+    
+    const periodo = (reporteActual?.periodo as any)?.nombre_periodo || reporteActual?.periodo?.nombre_mes || "Sin período";
+
+    doc.setFontSize(18);
+    doc.text(`Reporte de ${nombreUsuario}`, 105, 20, { align: "center" });
+    doc.setFontSize(12);
+    doc.text(`Período: ${periodo}`, 105, 30, { align: "center" });
+
+    const registros = reporteActual?.asistencias_detalle || [];
+    const tableData = registros.map((r: any) => [
+      new Date(r.fecha).toLocaleDateString("es-CL"),
+      r.dia_semana || new Date(r.fecha).toLocaleDateString("es-CL", { weekday: "long" }),
+      r.manana?.entrada || "X",
+      r.manana?.salida || "X",
+      r.tarde?.entrada || "X",
+      r.tarde?.salida || "X",
+      r.horas_totales || 0,
+      r.estado || "Presente"
+    ]);
+
+    autoTable(doc, {
+      head: [["Fecha", "Día", "Mañana\nEntrada", "Mañana\nSalida", "Tarde\nEntrada", "Tarde\nSalida", "Horas", "Estado"]],
+      body: tableData,
+      startY: 40,
+      theme: "grid",
+      headStyles: { 
+        fillColor: [66, 139, 202],
+        fontSize: 8,
+        halign: 'center'
+      },
+      styles: {
+        fontSize: 7,
+        cellPadding: 2
+      },
+      columnStyles: {
+        0: { cellWidth: 20 },  // Fecha
+        1: { cellWidth: 22 },  // Día
+        2: { cellWidth: 18 },  // Mañana Entrada
+        3: { cellWidth: 18 },  // Mañana Salida
+        4: { cellWidth: 18 },  // Tarde Entrada
+        5: { cellWidth: 18 },  // Tarde Salida
+        6: { cellWidth: 15 },  // Horas
+        7: { cellWidth: 20 }   // Estado
+      }
+    });
+
+    const resumen = reporteActual?.resumen_basico;
+    if (resumen) {
+      const finalY = (doc as any).lastAutoTable.finalY || 40;
+      doc.setFontSize(12);
+      doc.text("Resumen:", 14, finalY + 10);
+      doc.setFontSize(10);
+      doc.text(`Horas Totales: ${resumen.horasTotales ?? 0}`, 14, finalY + 18);
+      doc.text(`Días Trabajados: ${resumen.diasTrabajados ?? 0}`, 14, finalY + 26);
+      doc.text(`Promedio Hrs/Día: ${resumen.promedioHorasDia?.toFixed(2) ?? 0}`, 14, finalY + 34);
+    }
+
+    doc.save(`Reporte_${nombreUsuario}_${periodo.replace(/\s+/g, '_')}.pdf`);
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {user?.id_rol === 1 ? 'Reportes' : 'Mis Reportes'}
-          </h1>
-          <p className="text-gray-600">
-            {user?.id_rol === 1
-              ? 'Análisis detallado de la asistencia y rendimiento de todos los usuarios'
-              : 'Análisis detallado de tu asistencia y rendimiento'}
-          </p>
-        </div>
-        <div className="flex items-center space-x-3">
-          {/* Solo admin: selector de usuario */}
-          {user?.id_rol === 1 && (
-            <select
-              value={rutSeleccionado || ''}
-              onChange={e => setRutSeleccionado(e.target.value)}
-              className="border rounded px-3 py-2"
-            >
-              <option value="">Todos los usuarios</option>
-              {usuarios.map(u => (
-                <option key={u.rut_usuario} value={u.rut_usuario}>
-                  {u.nombres} {u.apellidos} ({u.rut_usuario})
-                </option>
-              ))}
-            </select>
-          )}
-          <button
-            onClick={() => {
-              if (vistaActiva === 'mensual') exportMensualToExcel();
-              else if (vistaActiva === 'comparativo') exportComparativoToExcel();
-            }}
-            className="flex items-center space-x-2 px-4 py-2 bg-green-100 hover:bg-green-200 rounded-lg transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            <span>Exportar Excel</span>
-          </button>
-          <button
-            onClick={() => {
-              if (vistaActiva === 'mensual') exportMensualToPDF();
-              else if (vistaActiva === 'comparativo') exportComparativoToPDF();
-            }}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            <span>Exportar PDF</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Error */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3">
-          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-          <div>
-            <p className="text-red-700 font-medium">Error generando reporte</p>
-            <p className="text-red-600 text-sm">{error}</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4">
+      <div className="max-w-7xl mx-auto space-y-6">
+        
+        {/* Header con estilo consistente */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900 flex items-center">
+                <FileText className="h-7 w-7 text-blue-600 mr-3" />
+                Reportes de Asistencia
+              </h1>
+              <p className="text-slate-600 mt-1">
+                {isAdmin ? 'Gestiona y visualiza reportes de todos los usuarios' : 'Consulta tu historial de asistencia'}
+              </p>
+              <p className="text-slate-500 text-sm">
+                {user?.nombres} {user?.apellidos} | {isAdmin ? 'Administrador' : 'Usuario'}
+              </p>
+            </div>
           </div>
-          <button
-            onClick={clearError}
-            className="ml-auto text-red-500 hover:text-red-700"
-          >
-            ×
-          </button>
         </div>
-      )}
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setVistaActiva('mensual')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              vistaActiva === 'mensual'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            Reporte Mensual
-          </button>
-          <button
-            onClick={() => setVistaActiva('comparativo')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              vistaActiva === 'comparativo'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            Análisis Comparativo
-          </button>
-        </nav>
+        {/* Panel de filtros */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
+            <Calendar className="h-5 w-5 text-blue-600 mr-2" />
+            Filtros de Búsqueda
+          </h2>
+          
+          <div className="space-y-4">
+            {/* Tipo de filtro */}
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  value="mes"
+                  checked={tipoFiltro === 'mes'}
+                  onChange={() => setTipoFiltro('mes')}
+                  className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-slate-700 font-medium">Por Mes</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  value="rango"
+                  checked={tipoFiltro === 'rango'}
+                  onChange={() => setTipoFiltro('rango')}
+                  className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-slate-700 font-medium">Rango de Fechas</span>
+              </label>
+            </div>
+
+            {/* Filtros por mes */}
+            {tipoFiltro === 'mes' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Mes</label>
+                  <select
+                    value={mes}
+                    onChange={(e) => setMes(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  >
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                      <option key={m} value={m}>
+                        {new Date(2024, m - 1).toLocaleDateString('es-CL', { month: 'long' })}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Año</label>
+                  <select
+                    value={anio}
+                    onChange={(e) => setAnio(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  >
+                    {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Filtros por rango */}
+            {tipoFiltro === 'rango' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Fecha Inicio</label>
+                  <input
+                    type="date"
+                    value={fechaInicio}
+                    onChange={(e) => setFechaInicio(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Fecha Fin</label>
+                  <input
+                    type="date"
+                    value={fechaFin}
+                    onChange={(e) => setFechaFin(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Selector de usuario (solo admin) o indicador de reporte personal */}
+            {isAdmin ? (
+              <div>
+                <label className="flex items-center text-sm font-medium text-slate-700 mb-2">
+                  <Users className="h-4 w-4 mr-2" />
+                  Seleccionar Reporte
+                </label>
+                <select
+                  value={usuarioSeleccionado}
+                  onChange={(e) => setUsuarioSeleccionado(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  <option value="mi-reporte">Mi reporte personal</option>
+                  <option value="todos">📊 Reporte General - Todos los usuarios</option>
+                  <optgroup label="Reportes Individuales">
+                    {usuarios.map((u) => (
+                      <option key={u.rut_usuario} value={u.rut_usuario}>
+                        {u.nombres} {u.apellidos} ({u.rut_usuario})
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+              </div>
+            ) : (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800 font-medium flex items-center">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Visualizando: <span className="font-bold ml-1">Mi reporte personal</span>
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  {user?.nombres} {user?.apellidos} ({user?.rut_usuario})
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Botones de exportación */}
+          <div className="mt-6 pt-6 border-t border-slate-200">
+            {/* Indicador de carga sutil */}
+            {loading && (
+              <div className="mb-4 flex items-center gap-2 text-blue-600 text-sm">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                <span>Generando reporte automáticamente...</span>
+              </div>
+            )}
+            
+            <div className="flex gap-3 flex-wrap">
+              <button
+                onClick={handleExportExcel}
+                disabled={!reporteActual || loading}
+                className="flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors shadow-sm font-medium"
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                Exportar Excel
+              </button>
+              
+              <button
+                onClick={handleExportPDF}
+                disabled={!reporteActual || loading}
+                className="flex items-center gap-2 px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors shadow-sm font-medium"
+              >
+                <FileDown className="h-4 w-4" />
+                Exportar PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Vista previa de datos */}
+        {reporteActual && (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
+              {usuarioSeleccionado === 'todos' ? (
+                <>
+                  <TrendingUp className="h-5 w-5 text-blue-600 mr-2" />
+                  Vista Previa - Reporte General
+                </>
+              ) : (
+                <>
+                  <Clock className="h-5 w-5 text-blue-600 mr-2" />
+                  Vista Previa - Reporte Individual
+                </>
+              )}
+            </h3>
+            
+            {Array.isArray(reporteActual) ? (
+              <div className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-800 font-medium flex items-center">
+                    <Users className="h-4 w-4 mr-2" />
+                    <span className="font-bold">{reporteActual.length}</span> 
+                    <span className="ml-1">usuarios incluidos en el reporte general</span>
+                  </p>
+                </div>
+
+                {/* Calcular suma total de horas de todos los usuarios */}
+                {(() => {
+                  const totalHoras = reporteActual.reduce((sum: number, r: any) => {
+                    return sum + (r.reporte?.resumen_basico?.horasTotales || 0);
+                  }, 0);
+                  
+                  return (
+                    <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg p-6 text-white shadow-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-blue-100 text-sm font-medium mb-1">Suma Total de Horas Trabajadas</p>
+                          <p className="text-4xl font-bold">{totalHoras.toFixed(2)} hrs</p>
+                          <p className="text-blue-100 text-xs mt-2">
+                            Promedio por usuario: {(totalHoras / (reporteActual.length || 1)).toFixed(2)} hrs
+                          </p>
+                        </div>
+                        <Clock className="h-16 w-16 text-blue-200 opacity-50" />
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {reporteActual.slice(0, 8).map((r: any, idx: number) => (
+                    <div key={idx} className="bg-slate-50 border border-slate-200 p-3 rounded-lg hover:shadow-md transition-shadow">
+                      <p className="text-sm font-semibold text-slate-800 truncate">
+                        {r.usuario?.nombres} {r.usuario?.apellidos}
+                      </p>
+                      <p className="text-xs text-slate-600 mt-1">
+                        {r.usuario?.rut_usuario}
+                      </p>
+                      <div className="mt-2 flex items-center justify-between">
+                        <span className="text-xs text-slate-500">Horas:</span>
+                        <span className="text-sm font-bold text-blue-600">
+                          {r.reporte?.resumen_basico?.horasTotales || 0} hrs
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between">
+                        <span className="text-xs text-slate-500">Días:</span>
+                        <span className="text-sm font-semibold text-green-600">
+                          {r.reporte?.resumen_basico?.diasTrabajados || 0}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {reporteActual.length > 8 && (
+                  <p className="text-center text-sm text-slate-500 mt-3">
+                    ... y {reporteActual.length - 8} usuarios más
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Tarjeta destacada de suma total de horas */}
+                <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg p-6 text-white shadow-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-blue-100 text-sm font-medium mb-1">Total de Horas Trabajadas en el Período</p>
+                      <p className="text-4xl font-bold">{reporteActual.resumen_basico?.horasTotales?.toFixed(2) || 0} hrs</p>
+                      <p className="text-blue-100 text-xs mt-2">
+                        {reporteActual.asistencias_detalle?.length || 0} días registrados
+                      </p>
+                    </div>
+                    <Clock className="h-16 w-16 text-blue-200 opacity-50" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-lg">
+                    <p className="text-slate-600 text-xs font-medium mb-1 flex items-center">
+                      <Calendar className="h-3 w-3 mr-1" />
+                      Período
+                    </p>
+                    <p className="font-semibold text-slate-900 text-sm">
+                      {(reporteActual.periodo as any)?.nombre_periodo || reporteActual.periodo?.nombre_mes || 'N/A'}
+                    </p>
+                  </div>
+                  
+                  <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
+                    <p className="text-green-700 text-xs font-medium mb-1">Días Trabajados</p>
+                    <p className="font-bold text-green-600 text-2xl">
+                      {reporteActual.resumen_basico?.diasTrabajados || 0}
+                    </p>
+                  </div>
+                  
+                  <div className="bg-purple-50 border border-purple-200 p-4 rounded-lg">
+                    <p className="text-purple-700 text-xs font-medium mb-1">Promedio Horas/Día</p>
+                    <p className="font-bold text-purple-600 text-2xl">
+                      {reporteActual.resumen_basico?.promedioHorasDia?.toFixed(2) || 0}
+                    </p>
+                  </div>
+                  
+                  <div className="bg-orange-50 border border-orange-200 p-4 rounded-lg">
+                    <p className="text-orange-700 text-xs font-medium mb-1">Registros</p>
+                    <p className="font-bold text-orange-600 text-2xl">
+                      {reporteActual.asistencias_detalle?.length || 0}
+                    </p>
+                  </div>
+                </div>
+
+                {usuarioSeleccionado !== 'mi-reporte' && usuarioSeleccionado !== 'todos' && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-blue-700 text-sm font-medium">Viendo reporte de:</p>
+                    <p className="font-bold text-blue-900 text-lg">
+                      {usuarios.find(u => u.rut_usuario === usuarioSeleccionado)?.nombres || usuarioSeleccionado}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
-
-      {/* Contenido */}
-      {vistaActiva === 'mensual' && (
-        Array.isArray(reporteActual)
-          ? <VistaComparativaUsuarios />
-          : <VistaMensual />
-      )}
-      {vistaActiva === 'comparativo' && <VistaComparativa />}
-
-      {/* Vista Comparativa de Usuarios (solo admin) */}
-      {user?.id_rol === 1 && vistaActiva === 'comparativo' && (
-        <VistaComparativa />
-      )}
     </div>
   );
-};
-
-export default ReportsSection;
+}
