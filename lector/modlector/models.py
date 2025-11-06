@@ -85,6 +85,7 @@ class Usuario(AbstractUser):
     pin = models.CharField(max_length=10, blank=True, null=True)
     intentos_pin = models.IntegerField(default=0, blank=True, null=True)
     bloqueado_hasta = models.DateTimeField(blank=True, null=True)
+    foto_url = models.URLField(max_length=500, blank=True, null=True)
     id_rol = models.ForeignKey('Rol', on_delete=models.CASCADE, null=True, db_column='id_rol')
     id_cargo = models.ForeignKey('Cargo', on_delete=models.CASCADE, null=True, db_column='id_cargo')
 
@@ -107,8 +108,8 @@ class QR(models.Model):
     estado_qr = models.BooleanField(default=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario', to_field='rut_usuario')
-    createdAt = models.DateTimeField(auto_now_add=True)
-    updatedAt = models.DateTimeField(auto_now=True)
+    #createdAt = models.DateTimeField(auto_now_add=True)
+    #updatedAt = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'QRs'
