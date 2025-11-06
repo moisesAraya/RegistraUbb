@@ -129,7 +129,7 @@ class Marcaje(models.Model):
 
 
 class Registro_marcaje(models.Model):
-    rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario')
+    rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario', to_field='rut_usuario')
     id_marcaje = models.ForeignKey('Marcaje', on_delete=models.CASCADE, db_column='id_marcaje')
     id_totem = models.ForeignKey('Totem', on_delete=models.CASCADE, db_column='id_totem')
     fecha_registro = models.DateTimeField(auto_now_add=True)
@@ -178,7 +178,7 @@ class Notificacion(models.Model):
 
 class Registro_just(models.Model):
     id_justificacion = models.ForeignKey('Justificacion', on_delete=models.CASCADE, db_column='id_justificacion')
-    rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario')
+    rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario', to_field='rut_usuario')
     fecha_registro = models.DateTimeField(auto_now_add=True)
 
     class Meta:
