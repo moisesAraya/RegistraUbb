@@ -7,7 +7,7 @@ const Usuario = sequelize.define(
   "Usuario",
   {
     rut_usuario: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(30),
       primaryKey: true,
       allowNull: false,
       unique: true,

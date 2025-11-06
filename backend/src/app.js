@@ -204,3 +204,4 @@ initializeDatabase();
 export default app;
 
 console.log("🚀 [APP] ✅ Aplicación configurada correctamente");
+console.log(RegistroMarcaje.rawAttributes.rut_usuario);
