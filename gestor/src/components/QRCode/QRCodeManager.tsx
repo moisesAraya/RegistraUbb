@@ -103,7 +103,7 @@ const QRCodeManager: React.FC = () => {
     try {
       console.log('🧪 Probando conectividad API...');
       
-      const response = await makeApiRequest('/api/qr/test', {
+      const response = await makeApiRequest('/qr/test', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -133,7 +133,7 @@ const QRCodeManager: React.FC = () => {
         return;
       }
       
-      const response = await makeApiRequest('/api/qr/my-qr-codes', {
+      const response = await makeApiRequest('/qr/my-qr-codes', {
         method: 'GET'
       });
 
