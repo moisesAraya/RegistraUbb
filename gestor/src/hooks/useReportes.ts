@@ -75,7 +75,7 @@ interface ReporteComparativo {
 const API_URL = import.meta.env.VITE_API_URL;
 
 export const useReportes = () => {
-  const { token, user } = useAuth();
+  const { token } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,27 +87,41 @@ export const useReportes = () => {
   const [mesSeleccionado, setMesSeleccionado] = useState<number>(new Date().getMonth() + 1);
   const [anioSeleccionado, setAnioSeleccionado] = useState<number>(new Date().getFullYear());
 
-  // ✅ OBTENER REPORTE MENSUAL
-  const obtenerReporteMensual = async (mes: number, anio: number, rut?: string, todos?: boolean) => {
+  // ✅ OBTENER REPORTE MENSUAL O POR RANGO DE FECHAS
+  const obtenerReporteMensual = async (
+    mes?: number, 
+    anio?: number, 
+    rut?: string, 
+    todos?: boolean,
+    fecha_inicio?: string,
+    fecha_fin?: string
+  ) => {
     if (!token) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      let url = `${API_URL}/reportes/mensual?mes=${mes}&anio=${anio}`;
+      let url = `${API_URL}/reportes/mensual?`;
+      
+      // Priorizar rango de fechas sobre mes/año
+      if (fecha_inicio && fecha_fin) {
+        url += `fecha_inicio=${fecha_inicio}&fecha_fin=${fecha_fin}`;
+      } else if (mes && anio) {
+        url += `mes=${mes}&anio=${anio}`;
+      } else {
+        throw new Error('Se requiere mes/año o rango de fechas');
+      }
+      
       if (rut) url += `&rut=${encodeURIComponent(rut)}`;
       if (todos) url += `&todos=true`;
 
-      const response = await fetch(
-        url,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -220,22 +234,6 @@ export const useReportes = () => {
     }
   }, [token]);
 
-  // ✅ EFECTO PARA CARGAR REPORTES SEGÚN FILTROS
-  useEffect(() => {
-    if (user?.id_rol === 1) {
-      if (rutSeleccionado === "" || rutSeleccionado === null) {
-        // Todos los usuarios
-        obtenerReporteMensual(mesSeleccionado, anioSeleccionado, undefined, true);
-      } else {
-        // Usuario específico
-        obtenerReporteMensual(mesSeleccionado, anioSeleccionado, rutSeleccionado);
-      }
-    } else {
-      // No admin: solo su propio reporte
-      obtenerReporteMensual(mesSeleccionado, anioSeleccionado);
-    }
-  }, [rutSeleccionado, mesSeleccionado, anioSeleccionado, user]);
-
   return {
     // Estados
     loading,
@@ -243,6 +241,14 @@ export const useReportes = () => {
     reporteActual,
     reporteComparativo,
     estadisticasAnuales,
+    rutSeleccionado,
+    mesSeleccionado,
+    anioSeleccionado,
+
+    // Setters
+    setRutSeleccionado,
+    setMesSeleccionado,
+    setAnioSeleccionado,
 
     // Funciones
     obtenerReporteMensual,
