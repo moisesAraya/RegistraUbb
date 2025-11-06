@@ -129,13 +129,25 @@ class Marcaje(models.Model):
 
 
 class Registro_marcaje(models.Model):
-    rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario', to_field='rut_usuario')
+    rut_usuario = models.CharField(
+        max_length=30,  
+        validators=[rut_validator],
+        db_column='rut_usuario'
+    )
     id_marcaje = models.ForeignKey('Marcaje', on_delete=models.CASCADE, db_column='id_marcaje')
     id_totem = models.ForeignKey('Totem', on_delete=models.CASCADE, db_column='id_totem')
     fecha_registro = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = 'RegistroMarcaje'
+        
+        
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        try:
+            Usuario.objects.get(rut_usuario=self.rut_usuario)
+        except Usuario.DoesNotExist:
+            raise ValidationError({'rut_usuario': 'Usuario con este RUT no existe.'})
 
 
 class Justificacion(models.Model):
