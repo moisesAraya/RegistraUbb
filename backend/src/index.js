@@ -103,6 +103,7 @@ async function initDatabase() {
     try {
       await RegistroMarcaje.sync();
       console.log('✅ Tabla RegistroMarcaje sincronizada');
+      console.log(RegistroMarcaje.rawAttributes.rut_usuario);
     } catch (error) {
       console.error('❌ Error en RegistroMarcaje:', error.message);
     }
