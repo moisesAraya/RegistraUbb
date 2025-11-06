@@ -9,27 +9,16 @@ import {
   getRolesController,
   getCargosController
 } from "../controllers/usuario.controller.js";
-import Usuario from '../entities/usuario.entity.js';
 
 const router = express.Router();
 
-// Endpoint para obtener todos los usuarios (solo campos necesarios)
-router.get('/', async (req, res) => {
-  try {
-    const usuarios = await Usuario.findAll({
-      attributes: ['rut_usuario', 'nombres', 'apellidos']
-    });
-    res.json({ usuarios });
-  } catch (err) {
-    res.status(500).json({ error: 'Error obteniendo usuarios' });
-  }
-});
-
-router.get("/search", getUserController);
-router.post("/", createUserController);
-router.put("/:rut_usuario", updateUserController);
-router.delete("/:rut_usuario", deleteUserController);
-router.get("/roles", getRolesController);
-router.get("/cargos", getCargosController);
+// Rutas de usuarios
+router.get("/", getUsersController);        // Obtener todos los usuarios
+router.get("/search", getUserController);   // Buscar usuario específico
+router.get("/roles", getRolesController);   // Obtener roles
+router.get("/cargos", getCargosController); // Obtener cargos
+router.post("/", createUserController);     // Crear usuario
+router.put("/:rut_usuario", updateUserController);    // Actualizar usuario
+router.delete("/:rut_usuario", deleteUserController); // Eliminar usuario
 
 export default router;
