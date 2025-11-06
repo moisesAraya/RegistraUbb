@@ -77,7 +77,7 @@ class Totem(models.Model):
 
 class Usuario(AbstractUser):
     rut_usuario = models.CharField( 
-        max_length=12,
+        max_length=30,
         unique=True,
         validators=[rut_validator]
     )

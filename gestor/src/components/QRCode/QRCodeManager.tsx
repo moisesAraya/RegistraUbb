@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Context/AuthContext';
 import QRCode from 'qrcode';
 import { 
@@ -14,7 +14,6 @@ import {
   Copy,
   Shield,
   ShieldCheck,
-  Sparkles,
   Unlock
 } from 'lucide-react';
 
@@ -201,7 +200,7 @@ const QRCodeManager: React.FC = () => {
         return;
       }
       
-      const response = await makeApiRequest('/api/qr/generate-my-qr', {
+      const response = await makeApiRequest('/qr/generate-my-qr', {
         method: 'GET'
       });
 
@@ -264,7 +263,7 @@ const QRCodeManager: React.FC = () => {
     setError(null);
 
     try {
-      const response = await makeApiRequest('/api/qr/invalidate-my-qr', {
+      const response = await makeApiRequest('/qr/invalidate-my-qr', {
         method: 'DELETE'
       });
 
@@ -613,7 +612,7 @@ const QRCodeManager: React.FC = () => {
 
         {qrHistory.length > 0 ? (
           <div className="space-y-3">
-            {qrHistory.map((qr, index) => (
+            {qrHistory.map((qr) => (
               <div
                 key={qr.codigo_unico}
                 className={`
