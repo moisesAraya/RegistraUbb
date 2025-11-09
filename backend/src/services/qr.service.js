@@ -1,5 +1,4 @@
 "use strict";
-// filepath: backend/src/services/qr.service.js
 import crypto from 'crypto';
 import Usuario from '../entities/usuario.entity.js';
 import QR from '../entities/qr.entity.js';
@@ -7,20 +6,24 @@ import Rol from '../entities/rol.entity.js';
 import Cargo from '../entities/cargo.entity.js';
 import { processRut } from '../utils/rut.utils.js';
 
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'defaultEncryptionKey123456789012345';
+const ENCRYPTION_KEY = crypto
+  .createHash('sha256')
+  .update(process.env.ENCRYPTION_KEY || 'defaultEncryptionKey123456789012345')
+  .digest(); // 🔒 32 bytes exactos para AES-256
 const ALGORITHM = 'aes-256-cbc';
 const IV_LENGTH = 16;
 
-// ✅ Función de encriptación moderna (sin deprecation)
+// ============================================================
+// ✅ Función de encriptación moderna (compatible Node 18+)
+// ============================================================
 function encryptData(text) {
   try {
     const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipher(ALGORITHM, ENCRYPTION_KEY);
-    
+    const cipher = crypto.createCipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
     let encrypted = cipher.update(text, 'utf8', 'hex');
     encrypted += cipher.final('hex');
-    
-    // Retornar IV + datos encriptados (más corto que antes)
+
+    // Guardamos IV junto al texto encriptado (necesario para desencriptar)
     return iv.toString('hex') + ':' + encrypted;
   } catch (error) {
     console.error('Error encriptando datos:', error);
@@ -28,19 +31,23 @@ function encryptData(text) {
   }
 }
 
+// ============================================================
 // ✅ Función de desencriptación moderna
+// ============================================================
 function decryptData(encryptedData) {
   try {
     const [ivHex, encrypted] = encryptedData.split(':');
-    
+
     if (!ivHex || !encrypted) {
       throw new Error('Formato de datos encriptados inválido');
     }
-    
-    const decipher = crypto.createDecipher(ALGORITHM, ENCRYPTION_KEY);
+
+    const iv = Buffer.from(ivHex, 'hex');
+    const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
+
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
-    
+
     return decrypted;
   } catch (error) {
     console.error('Error desencriptando datos:', error);
@@ -48,54 +55,38 @@ function decryptData(encryptedData) {
   }
 }
 
+// ============================================================
+// ✅ Generar QR encriptado
+// ============================================================
 export async function generateEncryptedRutService(rut_usuario) {
   try {
     console.log('=== GENERATE ENCRYPTED RUT SERVICE ===');
-    
+
     const { normalized: rutNormalizado, isValid } = processRut(rut_usuario);
-    
-    if (!isValid) {
-      return [null, "Formato de RUT inválido"];
-    }
-    
+
+    if (!isValid) return [null, "Formato de RUT inválido"];
+
     console.log('Buscando usuario:', rutNormalizado);
 
     const user = await Usuario.findOne({
       where: { rut_usuario: rutNormalizado },
       include: [
-        {
-          model: Rol,
-          as: 'rol',
-          attributes: ['id_rol', 'nombre_rol']
-        },
-        {
-          model: Cargo,
-          as: 'cargo',
-          attributes: ['id_cargo', 'nombre_cargo']
-        }
+        { model: Rol, as: 'rol', attributes: ['id_rol', 'nombre_rol'] },
+        { model: Cargo, as: 'cargo', attributes: ['id_cargo', 'nombre_cargo'] }
       ]
     });
 
-    if (!user) {
-      return [null, `Usuario con RUT ${rutNormalizado} no encontrado`];
-    }
+    if (!user) return [null, `Usuario con RUT ${rutNormalizado} no encontrado`];
 
     console.log('✅ Usuario encontrado:', user.nombres, user.apellidos);
 
-    // Invalidar QR codes anteriores del usuario
     await QR.update(
       { estado_qr: false },
-      { 
-        where: { 
-          rut_usuario: rutNormalizado,
-          estado_qr: true 
-        } 
-      }
+      { where: { rut_usuario: rutNormalizado, estado_qr: true } }
     );
 
     console.log('✅ QR codes anteriores invalidados');
 
-    // ✅ Crear datos más compactos para encriptar
     const dataToEncrypt = JSON.stringify({
       rut: rutNormalizado,
       action: 'qr_auth',
@@ -110,17 +101,13 @@ export async function generateEncryptedRutService(rut_usuario) {
 
     console.log('Datos a encriptar (longitud):', dataToEncrypt.length);
 
-    // ✅ Usar la función de encriptación moderna
     const encryptedHash = encryptData(dataToEncrypt);
-    
+
     console.log('Hash generado (longitud):', encryptedHash.length);
 
-    // Verificar que el hash no sea demasiado largo
-    if (encryptedHash.length > 500) {
+    if (encryptedHash.length > 500)
       console.warn('⚠️  Hash muy largo:', encryptedHash.length, 'caracteres');
-    }
 
-    // Guardar QR code en tu tabla QR existente
     const newQR = await QR.create({
       codigo_unico: encryptedHash,
       estado_qr: true,
@@ -140,70 +127,56 @@ export async function generateEncryptedRutService(rut_usuario) {
       permanent: true,
       activo: newQR.estado_qr,
       fecha_creacion: newQR.fecha_creacion,
-      message: "Código QR generado y guardado. Válido hasta que lo dé de baja manualmente."
+      message: "Código QR generado y guardado correctamente."
     }, null];
 
   } catch (error) {
     console.error('Error en generateEncryptedRutService:', error);
-    
-    // Manejo específico de errores de Sequelize
+
     if (error.name === 'SequelizeDatabaseError') {
-      if (error.original?.code === '22001') {
+      if (error.original?.code === '22001')
         return [null, "Error: El código QR generado es demasiado largo. Contacte al administrador."];
-      }
       return [null, "Error de base de datos al guardar el QR"];
     }
-    
+
     if (error.name === 'SequelizeValidationError') {
       const messages = error.errors.map(err => err.message).join(', ');
       return [null, `Error de validación: ${messages}`];
     }
-    
-    if (error.name === 'SequelizeUniqueConstraintError') {
+
+    if (error.name === 'SequelizeUniqueConstraintError')
       return [null, "Ya existe un código QR con ese hash. Intente nuevamente."];
-    }
-    
+
     return [null, "Error interno generando el código QR"];
   }
 }
 
+// ============================================================
+// ✅ Invalidar QR del usuario
+// ============================================================
 export async function invalidateUserQRService(rut_usuario) {
   try {
     console.log('=== INVALIDATE USER QR SERVICE ===');
-    
+
     const { normalized: rutNormalizado, isValid } = processRut(rut_usuario);
-    
-    if (!isValid) {
-      return [null, "Formato de RUT inválido"];
-    }
+    if (!isValid) return [null, "Formato de RUT inválido"];
 
-    const user = await Usuario.findOne({
-      where: { rut_usuario: rutNormalizado }
-    });
+    const user = await Usuario.findOne({ where: { rut_usuario: rutNormalizado } });
+    if (!user) return [null, `Usuario con RUT ${rutNormalizado} no encontrado`];
 
-    if (!user) {
-      return [null, `Usuario con RUT ${rutNormalizado} no encontrado`];
-    }
-
-    // Invalidar todos los QR codes activos del usuario
     const [updatedCount] = await QR.update(
       { estado_qr: false },
-      { 
-        where: { 
-          rut_usuario: rutNormalizado,
-          estado_qr: true 
-        } 
-      }
+      { where: { rut_usuario: rutNormalizado, estado_qr: true } }
     );
 
     console.log(`✅ ${updatedCount} QR code(s) invalidado(s) para:`, user.nombres, user.apellidos);
-    
+
     return [{
       rut_usuario: user.rut_usuario,
       nombres: user.nombres,
       apellidos: user.apellidos,
       invalidated_count: updatedCount,
-      message: `${updatedCount} código(s) QR invalidado(s). Deberás generar uno nuevo para volver a usarlo.`
+      message: `${updatedCount} código(s) QR invalidado(s).`
     }, null];
 
   } catch (error) {
@@ -212,15 +185,15 @@ export async function invalidateUserQRService(rut_usuario) {
   }
 }
 
+// ============================================================
+// ✅ Obtener QR del usuario
+// ============================================================
 export async function getUserQRCodesService(rut_usuario) {
   try {
     console.log('=== GET USER QR CODES SERVICE ===');
-    
+
     const { normalized: rutNormalizado, isValid } = processRut(rut_usuario);
-    
-    if (!isValid) {
-      return [null, "Formato de RUT inválido"];
-    }
+    if (!isValid) return [null, "Formato de RUT inválido"];
 
     const qrCodes = await QR.findAll({
       where: { rut_usuario: rutNormalizado },
@@ -245,5 +218,4 @@ export async function getUserQRCodesService(rut_usuario) {
   }
 }
 
-// ✅ Exportar funciones de encriptación para usar en qr-auth.service.js
 export { encryptData, decryptData };
