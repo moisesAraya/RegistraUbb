@@ -77,7 +77,7 @@ class Totem(models.Model):
 
 class Usuario(AbstractUser):
     rut_usuario = models.CharField( 
-        max_length=12,
+        max_length=30,
         unique=True,
         validators=[rut_validator]
     )
@@ -85,6 +85,7 @@ class Usuario(AbstractUser):
     pin = models.CharField(max_length=10, blank=True, null=True)
     intentos_pin = models.IntegerField(default=0, blank=True, null=True)
     bloqueado_hasta = models.DateTimeField(blank=True, null=True)
+    foto_url = models.URLField(max_length=500, blank=True, null=True)
     id_rol = models.ForeignKey('Rol', on_delete=models.CASCADE, null=True, db_column='id_rol')
     id_cargo = models.ForeignKey('Cargo', on_delete=models.CASCADE, null=True, db_column='id_cargo')
 
@@ -107,8 +108,8 @@ class QR(models.Model):
     estado_qr = models.BooleanField(default=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario', to_field='rut_usuario')
-    createdAt = models.DateTimeField(auto_now_add=True)
-    updatedAt = models.DateTimeField(auto_now=True)
+    #createdAt = models.DateTimeField(auto_now_add=True)
+    #updatedAt = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'QRs'
@@ -122,21 +123,31 @@ class Marcaje(models.Model):
     observacion = models.TextField(blank=True, null=True)
     createdAt = models.DateTimeField(auto_now_add=True)
     updatedAt = models.DateTimeField(auto_now=True)
-    rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario', to_field='rut_usuario')
-    id_totem = models.ForeignKey('Totem', on_delete=models.CASCADE, db_column='id_totem', to_field='id_totem')
 
     class Meta:
         db_table = 'Marcajes'
 
 
 class Registro_marcaje(models.Model):
-    rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario')
+    rut_usuario = models.CharField(
+        max_length=30,  
+        validators=[rut_validator],
+        db_column='rut_usuario'
+    )
     id_marcaje = models.ForeignKey('Marcaje', on_delete=models.CASCADE, db_column='id_marcaje')
     id_totem = models.ForeignKey('Totem', on_delete=models.CASCADE, db_column='id_totem')
     fecha_registro = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = 'RegistroMarcaje'
+        
+        
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        try:
+            Usuario.objects.get(rut_usuario=self.rut_usuario)
+        except Usuario.DoesNotExist:
+            raise ValidationError({'rut_usuario': 'Usuario con este RUT no existe.'})
 
 
 class Justificacion(models.Model):
@@ -179,7 +190,7 @@ class Notificacion(models.Model):
 
 class Registro_just(models.Model):
     id_justificacion = models.ForeignKey('Justificacion', on_delete=models.CASCADE, db_column='id_justificacion')
-    rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario')
+    rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario', to_field='rut_usuario')
     fecha_registro = models.DateTimeField(auto_now_add=True)
 
     class Meta:
