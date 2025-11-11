@@ -270,6 +270,29 @@
             margin-top: 20px;
         }
 
+        /* Notificaciones dentro del modal */
+        .modal-notification {
+            margin: 15px 0 5px 0;
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            text-align: center;
+            animation: slideIn 0.3s ease;
+            display: none;
+        }
+
+        .modal-notification.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .modal-notification.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
         .btn {
             padding: 12px 25px;
             border: none;
@@ -431,6 +454,10 @@
         </div>
 
             <h2>Ingresa tu PIN</h2>
+            
+            <!-- Área de notificaciones dentro del modal -->
+            <div class="modal-notification" id="modal-notification"></div>
+            
             <div class="pin-display" id="pin-display">••••</div>
             
             <div class="keypad">
@@ -447,9 +474,10 @@
                 <button class="key zero" onclick="agregarDigito('0')">0</button>
             </div>
 
-            <div class="modal-actions">
+            <div class="modal-actions" id="mensajes">
                 <button class="btn" onclick="verificarPin()">✅ Confirmar</button>
                 <button class="btn btn-danger" onclick="cerrarModal()">❌ Cancelar</button>
+                
             </div>
         </div>
     </div>
@@ -470,6 +498,7 @@
         const statusText = document.getElementById('status-text');
         const pinModal = document.getElementById('pin-modal');
         const pinDisplay = document.getElementById('pin-display');
+        const modalNotification = document.getElementById('modal-notification');
         const fullscreenBtn = document.getElementById('fullscreen-btn');
         const limpiarBtn = document.getElementById('limpiar');
 
@@ -498,7 +527,7 @@
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().then(() => {
                     document.body.classList.add('fullscreen');
-                    fullscreenBtn.innerHTML = '⛷';
+                    fullscreenBtn.innerHTML = '❌';
                     fullscreenBtn.title = 'Salir de pantalla completa';
                 });
             } else {
@@ -579,11 +608,13 @@
             pinModal.style.display = 'flex';
             pinActual = '';
             actualizarDisplayPin();
+            ocultarNotificacionModal(); // Limpiar notificaciones anteriores
         }
 
         function cerrarModal() {
             pinModal.style.display = 'none';
             pinActual = '';
+            ocultarNotificacionModal();
             limpiarPantalla();
         }
 
@@ -609,11 +640,12 @@
 
         function verificarPin() {
             if (!pinActual) {
-                mostrarMensaje('Ingresa tu PIN', 'error');
+                mostrarNotificacionModal('⚠️ Ingresa tu PIN', 'error');
                 return;
             }
 
             actualizarEstado('Verificando PIN...', 'waiting');
+            mostrarNotificacionModal('🔄 Verificando PIN...', 'success');
 
             fetch('/verificar_pin/', {
                 method: 'POST',
@@ -631,6 +663,7 @@
                     const tipoMarcaje = data.tipo_marcaje.toUpperCase();
                     const icono = data.tipo_marcaje === 'ingreso' ? '🟢' : '🔴';
                     
+                    // Mostrar mensaje de éxito en la pantalla principal
                     mostrarMensaje(
                         `${icono} ${tipoMarcaje} #${data.numero_marcaje} registrado<br>
                          <strong>${data.usuario}</strong><br>
@@ -643,13 +676,17 @@
                     actualizarEstado(`${tipoMarcaje} #${data.numero_marcaje} registrado`, 'ready');
                     setTimeout(limpiarPantalla, 5000);
                 } else {
-                    mostrarMensaje(data.error, 'error');
+                    // Mostrar error dentro del modal
+                    mostrarNotificacionModal(`❌ ${data.error}`, 'error');
                     pinActual = '';
                     actualizarDisplayPin();
+                    actualizarEstado('Error en PIN - Intenta nuevamente', 'waiting');
                 }
             })
             .catch(error => {
-                mostrarMensaje('Error de conexión', 'error');
+                // Mostrar error de conexión dentro del modal
+                mostrarNotificacionModal('❌ Error de conexión', 'error');
+                actualizarEstado('Error de conexión', 'waiting');
             });
         }
 
@@ -660,6 +697,7 @@
             pinActual = '';
             codigoQRActual = '';
             mensajesDiv.innerHTML = '';
+            ocultarNotificacionModal(); // Limpiar notificaciones del modal
             actualizarEstado('Escanea tu código QR', 'ready');
             
             setTimeout(() => {
@@ -670,6 +708,21 @@
         function mostrarMensaje(mensaje, tipo) {
             const alertClass = tipo === 'success' ? 'alert-success' : 'alert-error';
             mensajesDiv.innerHTML = `<div class="alert ${alertClass}">${mensaje}</div>`;
+        }
+
+        function mostrarNotificacionModal(mensaje, tipo) {
+            modalNotification.className = `modal-notification ${tipo}`;
+            modalNotification.innerHTML = mensaje;
+            modalNotification.style.display = 'block';
+            
+            // Ocultar la notificación después de 3 segundos
+            setTimeout(() => {
+                modalNotification.style.display = 'none';
+            }, 3000);
+        }
+
+        function ocultarNotificacionModal() {
+            modalNotification.style.display = 'none';
         }
 
         function actualizarEstado(texto, estado) {
