@@ -147,6 +147,16 @@ try {
     );
   }
 
+  // ✅ 9. PROFILE ROUTES
+  try {
+    console.log("👤 Cargando Profile routes...");
+    const profileRoutes = await import("./routes/profile.routes.js");
+    app.use("/api/profile", profileRoutes.default);
+    console.log("✅ Profile routes cargadas");
+  } catch (profileError) {
+    console.log("⚠️ Profile routes no disponibles:", profileError.message);
+  }
+
 } catch (error) {
   console.error("❌ Error crítico cargando rutas:", error);
   console.error("❌ Stack trace:", error.stack);
