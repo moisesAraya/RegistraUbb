@@ -121,6 +121,8 @@ class Marcaje(models.Model):
     hora_salida = models.DateTimeField(blank=True, null=True)
     fecha = models.DateField()
     observacion = models.TextField(blank=True, null=True)
+    rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario', to_field='rut_usuario')
+    id_totem = models.ForeignKey('Totem', on_delete=models.CASCADE, db_column='id_totem')
     createdAt = models.DateTimeField(auto_now_add=True)
     updatedAt = models.DateTimeField(auto_now=True)
 
