@@ -21,6 +21,6 @@ python manage.py collectstatic --noinput --settings=mysite.settings
 echo "✅ Despliegue completado!"
 echo ""
 echo "Para iniciar el servidor ejecuta:"
-echo "gunicorn mysite.wsgi:application --bind 0.0.0.0:443 --workers 3 --env DJANGO_SETTINGS_MODULE=mysite.production_settings"
+echo "gunicorn mysite.wsgi:application --bind 0.0.0.0:443 --workers 3 --env DJANGO_SETTINGS_MODULE=mysite.settings"
 echo ""
-echo "🔗 Tu aplicación estará en: http://146.83.194.142:1782"
+echo "🔗 Tu aplicación estará en: http://146.83.194.142:1779"

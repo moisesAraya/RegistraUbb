@@ -188,7 +188,9 @@ def verificar_pin(request):
                     # Crear el marcaje
                     nuevo_marcaje = Marcaje.objects.create(
                         hora_ingreso=ahora,
-                        fecha=fecha_hoy
+                        fecha=fecha_hoy,
+                        rut_usuario=usuario,    
+                        id_totem=totem 
                     )
                     
                     # Crear el registro que conecta usuario, marcaje y totem
