@@ -191,13 +191,25 @@ class Registro_marcaje(models.Model):
 
 class Justificacion(models.Model):
     id_justificacion = models.AutoField(primary_key=True)
+    rut_usuario = models.CharField(max_length=255)
     descripcion = models.TextField()
-    estado = models.CharField(max_length=255)
+    estado = models.CharField(max_length=255, default='PENDIENTE')
+    fecha_justificacion = models.DateField()
+
+    # Campos de tracking de aprobaciones
+    observaciones_admin = models.TextField(null=True, blank=True)
+    aprobado_por = models.CharField(max_length=255, null=True, blank=True)
+    fecha_aprobacion = models.DateTimeField(null=True, blank=True)
+    rechazado_por = models.CharField(max_length=255, null=True, blank=True)
+    fecha_rechazo = models.DateTimeField(null=True, blank=True)
+
+    # timestamps equivalentes a Sequelize
     createdAt = models.DateTimeField(auto_now_add=True)
     updatedAt = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'Justificacions'
+
 
 
 class Asistencia(models.Model):
