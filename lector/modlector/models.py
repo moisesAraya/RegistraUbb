@@ -194,7 +194,7 @@ class Justificacion(models.Model):
     rut_usuario = models.CharField(max_length=255)
     descripcion = models.TextField()
     estado = models.CharField(max_length=255, default='PENDIENTE')
-    fecha_justificacion = models.DateField()
+    fecha_justificacion = models.DateField(null=True, blank=True)
 
     # Campos de tracking de aprobaciones
     observaciones_admin = models.TextField(null=True, blank=True)
