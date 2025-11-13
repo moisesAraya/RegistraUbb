@@ -11,25 +11,56 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-g-xo9*6zdqi0+39a!!*(kb$=$+d*bmt@grp1n4*b_h)#6z9c1q'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+# ==========================================
+# CONFIGURACIÓN MEJORADA PARA NGINX + SSL
+# ==========================================
 
+# Hosts permitidos - IMPORTANTE para producción
+ALLOWED_HOSTS = [
+    '146.83.194.142',
+    'localhost',
+    '127.0.0.1',
+    '0.0.0.0',
+]
+
+# ==========================================
+# CONFIGURACIÓN SSL DETRÁS DE NGINX
+# ==========================================
+
+# Configuración para proxy reverso SSL
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+
+# Configuraciones SSL para producción
+if not DEBUG:
+    # NO redirigir desde Django, Nginx ya lo hace
+    SECURE_SSL_REDIRECT = False  # Nginx maneja esto
+    
+    # Cookies seguras
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    
+    # Headers de seguridad
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 año
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    X_FRAME_OPTIONS = 'DENY'
 
 # Application definition
-
 INSTALLED_APPS = [
     'modlector',
     'django.contrib.admin',
@@ -71,11 +102,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'mysite.wsgi.application'
 
-
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
-
+# ==========================================
+# CONFIGURACIÓN DE BASE DE DATOS
+# ==========================================
 
 # Configuración de base de datos según el entorno
 if DEBUG:  # DESARROLLO - Base de datos local
@@ -89,8 +118,7 @@ if DEBUG:  # DESARROLLO - Base de datos local
             'PORT': '5432',
         }
     }
-    # URL del backend para desarrollo (puede ser localhost si tienes el backend corriendo local)
-    BACKEND_URL = "http://127.0.0.1:3000/api/"  # Cambia el puerto según tu backend local
+    BACKEND_URL = "http://127.0.0.1:3000/api/"
     
 else:  # PRODUCCIÓN - Base de datos remota
     DATABASES = {
@@ -103,13 +131,9 @@ else:  # PRODUCCIÓN - Base de datos remota
             'PORT': '1774',
         }
     }
-    # URL del backend para producción
-    BACKEND_URL = "http://146.83.194.142:1772"
-
+    BACKEND_URL = "https://146.83.194.142:1773"
 
 # Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
-
 AUTH_USER_MODEL = 'modlector.Usuario'
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -127,26 +151,19 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i18n/
-
 LANGUAGE_CODE = 'es-cl'
-
 TIME_ZONE = 'America/Santiago'
-
 USE_I18N = True
-
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
+# ==========================================
+# CONFIGURACIÓN DE ARCHIVOS ESTÁTICOS
+# ==========================================
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Directorios adicionales de archivos estáticos
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
@@ -156,69 +173,49 @@ STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 ]
 
-# Usar storage estándar en desarrollo, comprimido en producción
+# Configuración de almacenamiento estático
 if DEBUG:
     STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+    WHITENOISE_USE_FINDERS = True
+    WHITENOISE_AUTOREFRESH = True
 else:
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+    WHITENOISE_USE_FINDERS = False
+    WHITENOISE_AUTOREFRESH = False
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-
 # ==========================================
-# CONFIGURACIONES DE SEGURIDAD PARA PRODUCCIÓN
-# ==========================================
-
-import os
-
-# Solo aplicar configuraciones de seguridad en producción
-if not DEBUG:  # Cuando DEBUG=False (producción)
-    
-    # Configuraciones HTTPS
-    # USAR SOLO HTTP
-    SECURE_SSL_REDIRECT = False  # Redirigir HTTP a HTTPS
-    SECURE_HSTS_SECONDS = 0  # 1 año de HSTS
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-    
-    # Cookies seguras
-    SESSION_COOKIE_SECURE = False  # Cookies de sesión solo por HTTPS
-    CSRF_COOKIE_SECURE = False    # Cookies CSRF solo por HTTPS
-    
-    # Hosts permitidos (reemplaza con tu dominio real)
-    ALLOWED_HOSTS = [ 
-        '146.83.194.142',
-    ]
-    
-    # Configuración mejorada de WhiteNoise para producción
-    WHITENOISE_USE_FINDERS = False  # Desactivar en producción
-    WHITENOISE_AUTOREFRESH = False  # Desactivar en producción
-    
-else:  # Desarrollo (DEBUG=True)
-    
-    # En desarrollo, permitir localhost
-    ALLOWED_HOSTS = [
-        'localhost',
-        '127.0.0.1',
-        '0.0.0.0',
-    ]
-    
-    # Configuración de WhiteNoise para desarrollo
-    WHITENOISE_USE_FINDERS = True
-    WHITENOISE_AUTOREFRESH = True
-
-# ==========================================
-# SECRET_KEY MEJORADA
+# SECRET_KEY PARA PRODUCCIÓN
 # ==========================================
 
-# Para producción, usa una SECRET_KEY generada específicamente
-# Puedes generar una nueva en: https://djecrety.ir/
-# O usar: python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_secret_key())'
-
-# En desarrollo mantienes la actual, en producción debes cambiarla
 if not DEBUG:
-    # ⚠️ CAMBIAR ESTA SECRET_KEY EN PRODUCCIÓN ⚠️
     SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'tu-secret-key-super-segura-de-al-menos-50-caracteres-aqui')
+
+# ==========================================
+# LOGGING PARA PRODUCCIÓN
+# ==========================================
+
+if not DEBUG:
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'handlers': {
+            'file': {
+                'level': 'INFO',
+                'class': 'logging.FileHandler',
+                'filename': '/var/log/django/django.log',
+            },
+            'console': {
+                'level': 'INFO',
+                'class': 'logging.StreamHandler',
+            },
+        },
+        'loggers': {
+            'django': {
+                'handlers': ['file', 'console'],
+                'level': 'INFO',
+                'propagate': True,
+            },
+        },
+    }

@@ -3,7 +3,7 @@ import { sequelize } from "../config/dbconfig.js";
 
 const RegistroMarcaje = sequelize.define( "RegistroMarcaje", {
   rut_usuario: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(30),
     allowNull: false,
     primaryKey: true,
     references: {

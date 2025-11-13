@@ -104,8 +104,9 @@ try {
   try {
     console.log("👤 Cargando Usuario routes...");
     const usuarioRoutes = await import("./routes/usuario.routes.js");
-    app.use("/api/usuario", usuarioRoutes.default);
-    console.log("✅ Usuario routes cargadas");
+    app.use("/api/usuarios", usuarioRoutes.default); // Para reportes
+    app.use("/api/usuario", usuarioRoutes.default);  // Para gestión de usuarios
+    console.log("✅ Usuario routes cargadas en /api/usuarios y /api/usuario");
   } catch (usuarioError) {
     console.log("⚠️ Usuario routes no disponibles:", usuarioError.message);
   }
@@ -137,6 +138,7 @@ try {
     );
   }
 
+<<<<<<< HEAD
   // ✅ 8. TOTEMS ROUTES
   try {
     console.log("🏢 Cargando Totems routes...");
@@ -146,6 +148,16 @@ try {
   } catch (totemsError) {
     console.error("❌ Error detallado Totems routes:", totemsError);
     console.log("⚠️ Totems routes no disponibles:", totemsError.message);
+=======
+  // ✅ 9. PROFILE ROUTES
+  try {
+    console.log("👤 Cargando Profile routes...");
+    const profileRoutes = await import("./routes/profile.routes.js");
+    app.use("/api/profile", profileRoutes.default);
+    console.log("✅ Profile routes cargadas");
+  } catch (profileError) {
+    console.log("⚠️ Profile routes no disponibles:", profileError.message);
+>>>>>>> b500ab79e10fd81f98e656e08408daeae024b618
   }
 
 } catch (error) {
@@ -193,8 +205,13 @@ app.use((req, res) => {
       "GET /api/asistencia/*",
       "GET /api/reportes/*",
       "GET /api/justificaciones/*",
+<<<<<<< HEAD
       "GET /api/usuario/*",
       "GET /api/totems/*",
+=======
+      "GET /api/usuarios/*",
+      "GET /api/approvals/*",
+>>>>>>> b500ab79e10fd81f98e656e08408daeae024b618
     ],
   });
 });
@@ -205,3 +222,4 @@ initializeDatabase();
 export default app;
 
 console.log("🚀 [APP] ✅ Aplicación configurada correctamente");
+

@@ -20,6 +20,7 @@ import RegistroMarcaje from './entities/registro_marcaje.entity.js';
 // ============================================================
 // 🧩 Función: Inicializar Base de Datos
 // ============================================================
+
 async function initDatabase() {
   try {
     console.log('🚀 Iniciando conexión con la base de datos...');
@@ -32,39 +33,93 @@ async function initDatabase() {
 
     console.log('📋 Sincronizando tablas en orden lógico...');
 
-    // PASO 1: Tablas base
-    await Rol.sync();
-    console.log('✅ Tabla Rol sincronizada');
-    await Cargo.sync();
-    console.log('✅ Tabla Cargo sincronizada');
-    await Usuario.sync();
-    console.log('✅ Tabla Usuario sincronizada');
-    await QR.sync();
-    console.log('✅ Tabla QR sincronizada');
-    await Totem.sync();
-    console.log('✅ Tabla Totem sincronizada');
+    // PASO 1: Tablas base con manejo de errores individual
+    try {
+      await Rol.sync();
+      console.log('✅ Tabla Rol sincronizada');
+    } catch (error) {
+      console.error('❌ Error en Rol:', error.message);
+    }
+
+    try {
+      await Cargo.sync();
+      console.log('✅ Tabla Cargo sincronizada');
+    } catch (error) {
+      console.error('❌ Error en Cargo:', error.message);
+    }
+
+    try {
+      await Usuario.sync();
+      console.log('✅ Tabla Usuario sincronizada');
+    } catch (error) {
+      console.error('❌ Error en Usuario:', error.message);
+      console.error('❌ Detalles completos:', error);
+    }
+
+    try {
+      await QR.sync();
+      console.log('✅ Tabla QR sincronizada');
+    } catch (error) {
+      console.error('❌ Error en QR:', error.message);
+    }
+
+    try {
+      await Totem.sync();
+      console.log('✅ Tabla Totem sincronizada');
+    } catch (error) {
+      console.error('❌ Error en Totem:', error.message);
+    }
 
     // PASO 2: Tablas sin dependencias fuertes
-    await Justificacion.sync();
-    console.log('✅ Tabla Justificacion sincronizada');
-    await Marcaje.sync();
-    console.log('✅ Tabla Marcaje sincronizada');
-    await Asistencia.sync();
-    console.log('✅ Tabla Asistencia sincronizada');
+    try {
+      await Justificacion.sync();
+      console.log('✅ Tabla Justificacion sincronizada');
+    } catch (error) {
+      console.error('❌ Error en Justificacion:', error.message);
+    }
+
+    try {
+      await Marcaje.sync();
+      console.log('✅ Tabla Marcaje sincronizada');
+    } catch (error) {
+      console.error('❌ Error en Marcaje:', error.message);
+    }
+
+    try {
+      await Asistencia.sync();
+      console.log('✅ Tabla Asistencia sincronizada');
+    } catch (error) {
+      console.error('❌ Error en Asistencia:', error.message);
+    }
 
     // PASO 3: Tablas dependientes
-    await Motivo.sync();
-    console.log('✅ Tabla Motivo sincronizada');
-    await RegistroMarcaje.sync();
-    console.log('✅ Tabla RegistroMarcaje sincronizada');
-    await Notificacion.sync();
-    console.log('✅ Tabla Notificacion sincronizada');
+    try {
+      await Motivo.sync();
+      console.log('✅ Tabla Motivo sincronizada');
+    } catch (error) {
+      console.error('❌ Error en Motivo:', error.message);
+    }
 
-    console.log('🎉 Todas las tablas fueron sincronizadas correctamente.');
+    try {
+      await RegistroMarcaje.sync();
+      console.log('✅ Tabla RegistroMarcaje sincronizada');
+      console.log(RegistroMarcaje.rawAttributes.rut_usuario);
+    } catch (error) {
+      console.error('❌ Error en RegistroMarcaje:', error.message);
+    }
+
+    try {
+      await Notificacion.sync();
+      console.log('✅ Tabla Notificacion sincronizada');
+    } catch (error) {
+      console.error('❌ Error en Notificacion:', error.message);
+    }
+
+    console.log('🎉 Proceso de sincronización completado.');
   } catch (error) {
     console.error('❌ Error al conectar o sincronizar la base de datos:');
-    console.error(error.message);
-    process.exit(1); // Termina la app si falla la conexión
+    console.error('📋 Mensaje:', error.message);
+    console.error('📋 Stack completo:', error.stack);
   }
 }
 
