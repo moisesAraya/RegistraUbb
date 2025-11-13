@@ -104,8 +104,9 @@ try {
   try {
     console.log("👤 Cargando Usuario routes...");
     const usuarioRoutes = await import("./routes/usuario.routes.js");
-    app.use("/api/usuario", usuarioRoutes.default);
-    console.log("✅ Usuario routes cargadas");
+    app.use("/api/usuarios", usuarioRoutes.default); // Para reportes
+    app.use("/api/usuario", usuarioRoutes.default);  // Para gestión de usuarios
+    console.log("✅ Usuario routes cargadas en /api/usuarios y /api/usuario");
   } catch (usuarioError) {
     console.log("⚠️ Usuario routes no disponibles:", usuarioError.message);
   }
@@ -202,8 +203,8 @@ app.use((req, res) => {
       "GET /api/asistencia/*",
       "GET /api/reportes/*",
       "GET /api/justificaciones/*",
-      "GET /api/usuario/*",
-      "GET /api/approval/*",
+      "GET /api/usuarios/*",
+      "GET /api/approvals/*",
     ],
   });
 });
