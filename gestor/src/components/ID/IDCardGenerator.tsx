@@ -93,29 +93,32 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user }) => {
   };
 
   // ✅ Función para hacer requests API (igual que en QRCodeManager)
-  const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
-    const token = localStorage.getItem('token');
-    
-    const config: RequestInit = {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-        ...options.headers,
-      },
-    };
-    
-    console.log(`🌐 API Request: ${config.method || 'GET'} ${endpoint}`);
-    
-    try {
-      const response = await fetch(endpoint, config);
-      console.log(`📥 API Response: ${response.status} ${endpoint}`);
-      return response;
-    } catch (error) {
-      console.error(`❌ API Error: ${endpoint}`, error);
-      throw error;
-    }
+const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
+  const token = localStorage.getItem('token');
+  const baseURL = import.meta.env.VITE_API_URL; // ✅ lee tu .env
+  const fullURL = `${baseURL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+
+  const config: RequestInit = {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
+      ...options.headers,
+    },
   };
+
+  console.log(`🌐 API Request: ${config.method || 'GET'} ${fullURL}`);
+
+  try {
+    const response = await fetch(fullURL, config);
+    console.log(`📥 API Response: ${response.status} ${fullURL}`);
+    return response;
+  } catch (error) {
+    console.error(`❌ API Error: ${fullURL}`, error);
+    throw error;
+  }
+};
+
 
   // ✅ Cargar QR activo desde la base de datos
   const loadActiveQR = async () => {

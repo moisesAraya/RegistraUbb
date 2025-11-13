@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Context/AuthContext';
 import QRCode from 'qrcode';
 import { 
@@ -14,7 +14,6 @@ import {
   Copy,
   Shield,
   ShieldCheck,
-  Sparkles,
   Unlock
 } from 'lucide-react';
 
@@ -51,29 +50,32 @@ const QRCodeManager: React.FC = () => {
   };
 
   // ✅ Función para hacer requests API
-  const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
-    const token = localStorage.getItem('token');
-    
-    const config: RequestInit = {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-        ...options.headers,
-      },
-    };
-    
-    console.log(`🌐 API Request: ${config.method || 'GET'} ${endpoint}`);
-    
-    try {
-      const response = await fetch(endpoint, config);
-      console.log(`📥 API Response: ${response.status} ${endpoint}`);
-      return response;
-    } catch (error) {
-      console.error(`❌ API Error: ${endpoint}`, error);
-      throw error;
-    }
+const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
+  const token = localStorage.getItem('token');
+  const baseURL = import.meta.env.VITE_API_URL; // ✅ lee tu .env
+  const fullURL = `${baseURL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+
+  const config: RequestInit = {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
+      ...options.headers,
+    },
   };
+
+  console.log(`🌐 API Request: ${config.method || 'GET'} ${fullURL}`);
+
+  try {
+    const response = await fetch(fullURL, config);
+    console.log(`📥 API Response: ${response.status} ${fullURL}`);
+    return response;
+  } catch (error) {
+    console.error(`❌ API Error: ${fullURL}`, error);
+    throw error;
+  }
+};
+
 
   // ✅ Generar imagen QR desde hash
   const generateQRImage = async (hash: string) => {
@@ -104,7 +106,7 @@ const QRCodeManager: React.FC = () => {
     try {
       console.log('🧪 Probando conectividad API...');
       
-      const response = await makeApiRequest('/api/qr/test', {
+      const response = await makeApiRequest('/qr/test', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -134,7 +136,7 @@ const QRCodeManager: React.FC = () => {
         return;
       }
       
-      const response = await makeApiRequest('/api/qr/my-qr-codes', {
+      const response = await makeApiRequest('/qr/my-qr-codes', {
         method: 'GET'
       });
 
@@ -201,7 +203,7 @@ const QRCodeManager: React.FC = () => {
         return;
       }
       
-      const response = await makeApiRequest('/api/qr/generate-my-qr', {
+      const response = await makeApiRequest('/qr/generate-my-qr', {
         method: 'GET'
       });
 
@@ -264,7 +266,7 @@ const QRCodeManager: React.FC = () => {
     setError(null);
 
     try {
-      const response = await makeApiRequest('/api/qr/invalidate-my-qr', {
+      const response = await makeApiRequest('/qr/invalidate-my-qr', {
         method: 'DELETE'
       });
 
@@ -613,7 +615,7 @@ const QRCodeManager: React.FC = () => {
 
         {qrHistory.length > 0 ? (
           <div className="space-y-3">
-            {qrHistory.map((qr, index) => (
+            {qrHistory.map((qr) => (
               <div
                 key={qr.codigo_unico}
                 className={`

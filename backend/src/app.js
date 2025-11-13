@@ -18,7 +18,7 @@ console.log("🚀 [APP] Iniciando aplicación...");
 // ✅ CONFIGURACIÓN BÁSICA
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:3000"],
+    origin: ["http://localhost:5173", "http://localhost:3000", "https://146.83.194.142:1785", "https://146.83.194.142:17", "https://146.83.194.142:1782" ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
@@ -121,26 +121,46 @@ try {
     console.log("⚠️ Approval routes no disponibles:", approvalError.message);
   }
 
-  console.log("📊 Cargando Reportes routes...");
-  const reportesRoutes = await import("./routes/reportes.routes.js");
-  app.use("/api/reportes", reportesRoutes.default);
-  console.log("✅ Reportes routes cargadas");
-
+  // ✅ 7. REPORTES ROUTES - ENVOLVER EN TRY-CATCH
   try {
-    console.log(" Cargando Justificaciones routes...");
+    console.log("📊 Cargando Reportes routes...");
+    const reportesRoutes = await import("./routes/reportes.routes.js");
+    app.use("/api/reportes", reportesRoutes.default);
+    console.log("✅ Reportes routes cargadas");
+  } catch (reportesError) {
+    console.error("❌ Error detallado Reportes routes:", reportesError);
+    console.log("⚠️ Reportes routes no disponibles:", reportesError.message);
+  }
+
+  // ✅ 8. JUSTIFICACIONES ROUTES
+  try {
+    console.log("📝 Cargando Justificaciones routes...");
     const justificacionesRoutes = await import(
       "./routes/justificaciones.routes.js"
     );
     app.use("/api/justificaciones", justificacionesRoutes.default);
-    console.log(" Justificaciones routes cargadas");
+    console.log("✅ Justificaciones routes cargadas");
   } catch (justificacionesError) {
+    console.error("❌ Error detallado Justificaciones routes:", justificacionesError);
     console.log(
-      " Justificaciones routes no disponibles:",
+      "⚠️ Justificaciones routes no disponibles:",
       justificacionesError.message
     );
   }
+
+  // ✅ 9. PROFILE ROUTES
+  try {
+    console.log("👤 Cargando Profile routes...");
+    const profileRoutes = await import("./routes/profile.routes.js");
+    app.use("/api/profile", profileRoutes.default);
+    console.log("✅ Profile routes cargadas");
+  } catch (profileError) {
+    console.log("⚠️ Profile routes no disponibles:", profileError.message);
+  }
+
 } catch (error) {
-  console.error(" Error crítico cargando rutas:", error.message);
+  console.error("❌ Error crítico cargando rutas:", error);
+  console.error("❌ Stack trace:", error.stack);
 }
 
 const initializeDatabase = async () => {
@@ -195,3 +215,4 @@ initializeDatabase();
 export default app;
 
 console.log("🚀 [APP] ✅ Aplicación configurada correctamente");
+

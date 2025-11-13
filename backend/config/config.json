@@ -1,8 +1,8 @@
 {
   "development": {
-    "username": "maraya",
-    "password": "qdgpzkeer8",
-    "database": "registra",
+    "username": "postgres",
+    "password": "holiwis",
+    "database": "RegistraUbb",
     "host": "localhost",
     "port": 5432,
     "dialect": "postgres"
@@ -16,11 +16,11 @@
     "dialect": "postgres"
   },
   "production": {
-    "username": "maraya",
-    "password": "qdgpzkeer8",
-    "database": "registra",
-    "host": "localhost",
-    "port": 5432,
+    "username": "postgres",
+    "password": "andrea2025",
+    "database": "postgres",
+    "host": "146.83.194.142",
+    "port": 1774,
     "dialect": "postgres"
   }
 }

@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lector Código de Barras - RegistraUBB</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.2em;
+        }
+        .scanner-section {
+            text-align: center;
+            margin: 30px 0;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 3px dashed #007bff;
+        }
+        .scanner-icon {
+            font-size: 4em;
+            color: #007bff;
+            margin-bottom: 20px;
+        }
+        .qr-input {
+            font-size: 18px;
+            padding: 15px;
+            width: 100%;
+            max-width: 400px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            text-align: center;
+            background: white;
+            margin: 10px 0;
+        }
+        .qr-input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 10px rgba(0,123,255,0.25);
+        }
+        .usuario-info {
+            background: linear-gradient(135deg, #e8f4fd 0%, #d4edda 100%);
+            padding: 25px;
+            border-radius: 10px;
+            margin: 25px 0;
+            display: none;
+            border-left: 5px solid #28a745;
+        }
+        .usuario-info h3 {
+            color: #155724;
+            margin-top: 0;
+        }
+        .pin-section {
+            background: #fff3cd;
+            padding: 25px;
+            border-radius: 10px;
+            margin: 25px 0;
+            display: none;
+            text-align: center;
+            border-left: 5px solid #ffc107;
+        }
+        .pin-input {
+            font-size: 28px;
+            text-align: center;
+            padding: 15px;
+            width: 250px;
+            margin: 15px;
+            border: 3px solid #ffc107;
+            border-radius: 8px;
+            background: white;
+        }
+        .pin-input:focus {
+            outline: none;
+            border-color: #e0a800;
+            box-shadow: 0 0 15px rgba(255,193,7,0.3);
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+        .btn:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        .alert {
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            font-size: 16px;
+            animation: slideIn 0.3s ease;
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            border-left: 5px solid #28a745;
+        }
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            border-left: 5px solid #dc3545;
+        }
+        .hidden {
+            display: none;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-waiting {
+            background: #ffc107;
+            animation: pulse 2s infinite;
+        }
+        .status-ready {
+            background: #28a745;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #495057;
+        }
+        .instructions {
+            background: #e7f3ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Sistema de Asistencia</h1>
+            <p>Escanea tu código QR con el lector de código de barras</p>
+        </div>
+
+        <!-- Estado del sistema -->
+        <div class="instructions">
+            <p><span class="status-indicator status-waiting" id="status-indicator"></span>
+            <strong id="status-text">Sistema listo - Escanea tu código QR</strong></p>
+        </div>
+
+        <!-- Área de escaneo -->
+        <div class="scanner-section">
+            <div class="scanner-icon">📱</div>
+            <h3>Lector de Código de Barras</h3>
+            <p>El cursor debe estar en el campo de abajo. Escanea tu código QR.</p>
+            <input type="text" 
+                   id="qr-input" 
+                   class="qr-input" 
+                   placeholder="Escanea aquí tu código QR..." 
+                   autocomplete="off"
+                   autofocus>
+        </div>
+
+        <!-- Información del usuario -->
+        <div id="usuario-info" class="usuario-info">
+            <h3>👤 Usuario Identificado</h3>
+            <div class="info-row">
+                <span class="info-label">RUT:</span>
+                <span id="usuario-rut"></span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Nombre:</span>
+                <span id="usuario-nombre"></span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Cargo:</span>
+                <span id="usuario-cargo"></span>
+            </div>
+        </div>
+
+        <!-- Sección PIN -->
+        <div id="pin-section" class="pin-section">
+            <h3>🔐 Ingresa tu PIN de Seguridad</h3>
+            <input type="password" 
+                   id="pin-input" 
+                   class="pin-input" 
+                   placeholder="PIN" 
+                   maxlength="10"
+                   autocomplete="off">
+            <br>
+            <button id="verificar-pin" class="btn btn-success">✅ Verificar PIN</button>
+            <button id="cancelar" class="btn btn-danger">❌ Cancelar</button>
+        </div>
+
+        <!-- Mensajes -->
+        <div id="mensajes"></div>
+
+        <!-- Botones de control -->
+        <div style="text-align: center; margin-top: 30px;">
+            <button id="limpiar" class="btn btn-secondary">🔄 Limpiar Pantalla</button>
+        </div>
+    </div>
+
+    <script>
+        let codigoQRActual = '';
+        let timeoutId = null;
+
+        // Elementos del DOM
+        const qrInput = document.getElementById('qr-input');
+        const usuarioInfo = document.getElementById('usuario-info');
+        const pinSection = document.getElementById('pin-section');
+        const pinInput = document.getElementById('pin-input');
+        const verificarPinBtn = document.getElementById('verificar-pin');
+        const cancelarBtn = document.getElementById('cancelar');
+        const limpiarBtn = document.getElementById('limpiar');
+        const mensajesDiv = document.getElementById('mensajes');
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
+
+        // Event listeners
+        qrInput.addEventListener('input', manejarEscaneoQR);
+        qrInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                procesarCodigoQR();
+            }
+        });
+        
+        verificarPinBtn.addEventListener('click', verificarPin);
+        cancelarBtn.addEventListener('click', cancelar);
+        limpiarBtn.addEventListener('click', limpiarPantalla);
+        
+        pinInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                verificarPin();
+            }
+        });
+
+        // Mantener el foco en el input del QR
+        setInterval(() => {
+            if (!pinSection.style.display || pinSection.style.display === 'none') {
+                if (document.activeElement !== qrInput) {
+                    qrInput.focus();
+                }
+            }
+        }, 1000);
+
+        function manejarEscaneoQR() {
+            const codigo = qrInput.value.trim();
+            
+            // Limpiar timeout anterior
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+            
+            // Si hay contenido, procesar después de un breve delay
+            if (codigo.length > 0) {
+                timeoutId = setTimeout(() => {
+                    procesarCodigoQR();
+                }, 100);
+            }
+        }
+
+        function procesarCodigoQR() {
+            const codigo = qrInput.value.trim();
+            
+            if (!codigo) {
+                mostrarMensaje('Por favor escanea un código QR válido', 'error');
+                return;
+            }
+
+            codigoQRActual = codigo;
+            actualizarEstado('Procesando código...', 'waiting');
+            
+            fetch('/procesar_qr/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ codigo_qr: codigo })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    mostrarUsuario(data.usuario);
+                    actualizarEstado('Ingresa tu PIN', 'ready');
+                } else {
+                    mostrarMensaje(data.error, 'error');
+                    actualizarEstado('Error - Escanea nuevamente', 'waiting');
+                    setTimeout(() => {
+                        limpiarPantalla();
+                    }, 3000);
+                }
+            })
+            .catch(error => {
+                mostrarMensaje('Error de conexión. Intenta nuevamente.', 'error');
+                actualizarEstado('Error de conexión', 'waiting');
+                setTimeout(() => {
+                    limpiarPantalla();
+                }, 3000);
+            });
+        }
+
+        function mostrarUsuario(usuario) {
+            document.getElementById('usuario-rut').textContent = usuario.rut;
+            document.getElementById('usuario-nombre').textContent = usuario.nombre;
+            document.getElementById('usuario-cargo').textContent = usuario.cargo;
+            
+            usuarioInfo.style.display = 'block';
+            pinSection.style.display = 'block';
+            
+            // Cambiar foco al PIN
+            setTimeout(() => {
+                pinInput.focus();
+            }, 100);
+        }
+
+        function verificarPin() {
+            const pin = pinInput.value.trim();
+            
+            if (!pin) {
+                mostrarMensaje('Por favor ingresa tu PIN', 'error');
+                pinInput.focus();
+                return;
+            }
+
+            actualizarEstado('Verificando PIN...', 'waiting');
+
+            fetch('/verificar_pin/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    codigo_qr: codigoQRActual,
+                    pin: pin
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const tipoMarcaje = data.tipo_marcaje.toUpperCase();
+                    const icono = data.tipo_marcaje === 'ingreso' ? '🟢' : '🔴';
+                    
+                    mostrarMensaje(
+                        `${icono} ${tipoMarcaje} registrado correctamente<br>
+                         <strong>${data.usuario}</strong><br>
+                         Hora: ${data.hora}`,
+                        'success'
+                    );
+                    
+                    actualizarEstado(`${tipoMarcaje} registrado exitosamente`, 'ready');
+                    setTimeout(() => {
+                        limpiarPantalla();
+                    }, 4000);
+                } else {
+                    mostrarMensaje(data.error, 'error');
+                    pinInput.value = '';
+                    pinInput.focus();
+                    actualizarEstado('PIN incorrecto - Intenta nuevamente', 'waiting');
+                }
+            })
+            .catch(error => {
+                mostrarMensaje('Error de conexión. Intenta nuevamente.', 'error');
+                actualizarEstado('Error de conexión', 'waiting');
+            });
+        }
+
+        function cancelar() {
+            limpiarPantalla();
+        }
+
+        function limpiarPantalla() {
+            usuarioInfo.style.display = 'none';
+            pinSection.style.display = 'none';
+            qrInput.value = '';
+            pinInput.value = '';
+            codigoQRActual = '';
+            mensajesDiv.innerHTML = '';
+            actualizarEstado('Sistema listo - Escanea tu código QR', 'ready');
+            
+            setTimeout(() => {
+                qrInput.focus();
+            }, 100);
+        }
+
+        function mostrarMensaje(mensaje, tipo) {
+            const alertClass = tipo === 'success' ? 'alert-success' : 'alert-error';
+            mensajesDiv.innerHTML = `<div class="alert ${alertClass}">${mensaje}</div>`;
+        }
+
+        function actualizarEstado(texto, estado) {
+            statusText.textContent = texto;
+            statusIndicator.className = `status-indicator status-${estado}`;
+        }
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', function() {
+            qrInput.focus();
+            actualizarEstado('Sistema listo - Escanea tu código QR', 'ready');
+        });
+
+        // Prevenir que se pierda el foco del input principal
+        document.addEventListener('click', function(e) {
+            if (!pinSection.style.display || pinSection.style.display === 'none') {
+                if (e.target !== qrInput && !e.target.matches('.btn')) {
+                    setTimeout(() => qrInput.focus(), 100);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
