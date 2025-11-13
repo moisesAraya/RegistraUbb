@@ -128,6 +128,43 @@ class Marcaje(models.Model):
 
     class Meta:
         db_table = 'Marcajes'
+    
+    def crear_asistencia_si_completo(self):
+        """
+        Crea un registro de asistencia cuando el marcaje tiene entrada y salida.
+        Calcula las horas diarias y determina si tuvo colación basado en las horas trabajadas.
+        """
+        # Solo crear asistencia si hay entrada Y salida
+        if self.hora_ingreso and self.hora_salida:
+            # Verificar que no exista ya una asistencia para este marcaje
+            if not hasattr(self, 'asistencia_set') or not self.asistencia_set.exists():
+                # Calcular las horas trabajadas
+                diferencia = self.hora_salida - self.hora_ingreso
+                horas_trabajadas = diferencia.total_seconds() / 3600  # Convertir a horas
+                
+                # Determinar colación basado en las horas trabajadas
+                # Si trabajó 5 horas o más, NO tuvo colación (False)
+                # Si trabajó menos de 5 horas, SÍ tuvo colación (True)
+                tuvo_colacion = horas_trabajadas < 5.0
+                
+                # Crear el registro de asistencia
+                Asistencia.objects.create(
+                    id_marcaje=self,
+                    horas_diarias=round(horas_trabajadas, 2),  # Redondear a 2 decimales
+                    colacion=tuvo_colacion,
+                    observacion=f"Asistencia generada automáticamente. Horas trabajadas: {round(horas_trabajadas, 2)}"
+                )
+    
+    def save(self, *args, **kwargs):
+        """
+        Override del método save para crear asistencia automáticamente
+        cuando se complete un marcaje (se agregue hora de salida)
+        """
+        # Guardar el marcaje primero
+        super().save(*args, **kwargs)
+        
+        # Intentar crear asistencia si está completo
+        self.crear_asistencia_si_completo()
 
 
 class Registro_marcaje(models.Model):
