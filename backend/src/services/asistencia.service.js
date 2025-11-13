@@ -81,19 +81,24 @@ export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio =
             const registro = registrosMarcaje.find(r => r.id_marcaje === marcaje.id_marcaje);
             
             // Calcular horas trabajadas
+            // Calcular horas trabajadas
             let horasTrabajadas = 0;
+
             if (marcaje.hora_ingreso && marcaje.hora_salida) {
-                const [horaIng, minIng] = marcaje.hora_ingreso.split(':').map(Number);
-                const [horaSal, minSal] = marcaje.hora_salida.split(':').map(Number);
-                
-                const minutosIngreso = horaIng * 60 + minIng;
-                let minutosSalida = horaSal * 60 + minSal;
-                
+                const ingresoDate = new Date(marcaje.hora_ingreso);
+                const salidaDate = new Date(marcaje.hora_salida);
+
+                const minutosIngreso = ingresoDate.getHours() * 60 + ingresoDate.getMinutes();
+                let minutosSalida = salidaDate.getHours() * 60 + salidaDate.getMinutes();
+
+                // Caso en que la salida pasa después de medianoche
                 if (minutosSalida < minutosIngreso) {
                     minutosSalida += 24 * 60;
                 }
-                
+
                 horasTrabajadas = (minutosSalida - minutosIngreso) / 60;
+
+                // Límite entre 0 y 14 horas
                 horasTrabajadas = Math.max(0, Math.min(14, horasTrabajadas));
             }
 
@@ -278,25 +283,30 @@ export async function getEstadisticasAsistenciaService(rutUsuario) {
         // Calcular horas trabajadas
         const horasReales = marcajes.reduce((total, marcaje) => {
             if (marcaje.hora_ingreso && marcaje.hora_salida) {
-                const [horaIng, minIng] = marcaje.hora_ingreso.split(':').map(Number);
-                const [horaSal, minSal] = marcaje.hora_salida.split(':').map(Number);
-                
-                const minutosIngreso = horaIng * 60 + minIng;
-                let minutosSalida = horaSal * 60 + minSal;
-                
+
+                const ingresoDate = new Date(marcaje.hora_ingreso);
+                const salidaDate = new Date(marcaje.hora_salida);
+
+                const minutosIngreso = ingresoDate.getHours() * 60 + ingresoDate.getMinutes();
+                let minutosSalida = salidaDate.getHours() * 60 + salidaDate.getMinutes();
+
+                // Caso en que sale después de medianoche
                 if (minutosSalida < minutosIngreso) {
                     minutosSalida += 24 * 60;
                 }
-                
+
                 const horas = (minutosSalida - minutosIngreso) / 60;
+
                 return total + Math.max(0, Math.min(14, horas));
             }
+
             return total;
         }, 0);
 
         const diasTrabajados = marcajes.length;
         const horasEsperadas = diasTrabajados * horasObjetivo;
-        const porcentajeCumplimiento = horasEsperadas > 0 ? (horasReales / horasEsperadas) * 100 : 0;
+        const porcentajeCumplimiento =
+            horasEsperadas > 0 ? (horasReales / horasEsperadas) * 100 : 0;
 
         // Tendencia semanal (últimas 4 semanas)
         const tendenciaSemanal = [];
