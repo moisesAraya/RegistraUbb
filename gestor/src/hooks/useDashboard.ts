@@ -3,9 +3,12 @@ import { useAuth } from '../components/Context/AuthContext';
 
 interface PersonalStats {
   today_hours: number;
-  week_hours: number;
-  month_hours: number;
+  total_hours_month: number;
+  days_worked_month: number;
+  avg_hours_per_day: number;
   attendance_rate: number;
+  week_hours?: number; // Mantenido para compatibilidad
+  month_hours?: number; // Mantenido para compatibilidad
   pending_justifications: number;
   recent_activities: Array<{
     date: string;
@@ -16,6 +19,19 @@ interface PersonalStats {
   }>;
 }
 
+interface WeeklyProgress {
+  hours_this_week: number;
+  target_weekly_hours: number;
+  progress_percentage: number;
+  hours_remaining: number;
+  days_worked_this_week: number;
+  avg_daily_hours: number;
+  days_to_complete: number;
+  week_start: string;
+  week_end: string;
+  status: 'completed' | 'on_track' | 'behind' | 'needs_attention';
+}
+
 interface AttendanceAnalytics {
   attendance_by_period: {
     today: number;
@@ -23,9 +39,9 @@ interface AttendanceAnalytics {
     this_month: number;
   };
   weekly_trends: Array<{
-    day_name: string;
-    unique_users: number;
-    total_records: number;
+    week: string;
+    hours: number;
+    days: number;
   }>;
 }
 
@@ -45,6 +61,72 @@ interface DashboardData {
   personal_basic_stats: PersonalStats;
   attendance_analytics: AttendanceAnalytics;
   organization_overview: OrganizationOverview;
+  weekly_progress?: WeeklyProgress;
+  productivity_metrics?: {
+    efficiency_score: number;
+    consistency_score: number;
+    punctuality_score: number;
+    avg_hours_per_day: number;
+    total_productive_hours: number;
+    work_days_count: number;
+    productivity_trend: string;
+    improvement_suggestions: string[];
+  };
+  comparative_analytics?: {
+    month_over_month: {
+      hours_change: number;
+      hours_percentage_change: number;
+      trend: string;
+    };
+    performance_vs_target: {
+      target_hours_monthly: number;
+      actual_hours: number;
+      achievement_percentage: number;
+      gap_analysis: number;
+    };
+  };
+  predictions_insights?: {
+    monthly_projection: {
+      projected_total: number;
+      likelihood_to_meet_target: string;
+    };
+    behavioral_insights: string[];
+    recommendations: string[];
+  };
+  health_wellness?: {
+    work_life_balance: {
+      score: number;
+      status: string;
+      recommendations: string[];
+    };
+    stress_indicators: {
+      estimated_stress_level: number;
+      status: string;
+    };
+    wellness_score: number;
+  };
+  achievements_goals?: {
+    completed_goals: number;
+    achievement_percentage: number;
+    unlocked_achievements: Array<{
+      id: string;
+      name: string;
+      description: string;
+      unlocked: boolean;
+    }>;
+    upcoming_goals: Array<{
+      id: string;
+      name: string;
+      description: string;
+      progress: number;
+    }>;
+    monthly_challenges: string[];
+    lifetime_stats: {
+      total_hours_worked: number;
+      total_days_worked: number;
+      average_daily_hours: number;
+    };
+  };
   metadata: {
     generated_at: string;
     user_rut: string;
@@ -140,13 +222,17 @@ export function useDashboard() {
 
       // ✅ MAPEAR DATOS DESDE LA ESTRUCTURA CORRECTA
       const mappedData: DashboardData = {
-        personal_basic_stats: data?.personal_basic_stats || {
-          today_hours: 0,
-          week_hours: 0,
-          month_hours: 0,
-          attendance_rate: 0,
-          pending_justifications: 0,
-          recent_activities: []
+        personal_basic_stats: {
+          today_hours: data?.personal_basic_stats?.today_hours || 0,
+          total_hours_month: data?.personal_basic_stats?.total_hours_month || 0,
+          days_worked_month: data?.personal_basic_stats?.days_worked_month || 0,
+          avg_hours_per_day: data?.personal_basic_stats?.avg_hours_per_day || 0,
+          attendance_rate: data?.personal_basic_stats?.attendance_rate || 0,
+          // Compatibilidad con campos antiguos
+          week_hours: data?.personal_basic_stats?.week_hours || 0,
+          month_hours: data?.personal_basic_stats?.month_hours || data?.personal_basic_stats?.total_hours_month || 0,
+          pending_justifications: data?.personal_basic_stats?.pending_justifications || 0,
+          recent_activities: data?.personal_basic_stats?.recent_activities || []
         },
         attendance_analytics: data?.attendance_analytics || {
           attendance_by_period: {
@@ -160,6 +246,18 @@ export function useDashboard() {
           total_active_users: 0,
           users_by_role: [],
           qr_code_stats: { active: 0, inactive: 0 }
+        },
+        weekly_progress: data?.weekly_progress || {
+          hours_this_week: 0,
+          target_weekly_hours: 40,
+          progress_percentage: 0,
+          hours_remaining: 40,
+          days_worked_this_week: 0,
+          avg_daily_hours: 0,
+          days_to_complete: 0,
+          week_start: '',
+          week_end: '',
+          status: 'needs_attention'
         },
         metadata: data?.metadata || {
           generated_at: new Date().toISOString(),

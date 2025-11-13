@@ -13,7 +13,7 @@ import Login from '../Auth/LoginForm';
 import ReportsSection from '../Reports/ReportsSection';
 import JustificationManager from '../Justifications/JustificationManager';
 import UserManagement from '../Admin/UserManagement';
-import ApprovalManager from '../Admin/ApprovalManager';
+import TotemManagement from '../Admin/TotemManagement';
 import AdminDashboard from '../Dashboard/AdminDashboard';
 import ProfilePage from '../Profile/ProfilePage';
 import HelpPage from '../Help/HelpPage';
@@ -103,8 +103,8 @@ const AppRoutes: React.FC = () => {
                     <UserManagement />
                   } />
                   
-                  <Route path="/approvals" element={
-                    <ApprovalManager />
+                  <Route path="/totems" element={
+                    <TotemManagement />
                   } />
                   
                   <Route path="/settings" element={

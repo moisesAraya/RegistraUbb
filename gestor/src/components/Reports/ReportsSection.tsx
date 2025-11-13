@@ -240,27 +240,45 @@ export default function ReportsSection() {
       const asistenciasPorFecha = new Map<string, any>();
       asistencias.forEach((a: any) => asistenciasPorFecha.set(a.fecha, a));
 
+      // Verificar si es administrador (id_rol === 1)
+      const esAdministrador = p.usuario?.id_rol === 1;
+      const nombreCargo = p.usuario?.cargo?.nombre_cargo || 'Administrador';
+
       const dataRow: any[] = [nombreCompleto.trim()];
 
-      fechasOrdenadas.forEach((fecha) => {
-        const asistencia = asistenciasPorFecha.get(fecha);
+      if (esAdministrador) {
+        // Para administradores, mostrar mensaje especial en lugar de horas
+        fechasOrdenadas.forEach(() => {
+          dataRow.push(`NO REGISTRA ASISTENCIA: ${nombreCargo}`);
+          dataRow.push("");
+          dataRow.push("");
+          dataRow.push("");
+        });
         
-        if (asistencia) {
-          dataRow.push(asistencia.manana?.entrada || "X");
-          dataRow.push(asistencia.manana?.salida || "X");
-          dataRow.push(asistencia.tarde?.entrada || "X");
-          dataRow.push(asistencia.tarde?.salida || "X");
-        } else {
-          dataRow.push("X");
-          dataRow.push("X");
-          dataRow.push("X");
-          dataRow.push("X");
-        }
-      });
+        // Total especial para admin
+        dataRow.push(`NO REGISTRA ASISTENCIA: ${nombreCargo}`);
+      } else {
+        // Para usuarios regulares, mostrar asistencias normalmente
+        fechasOrdenadas.forEach((fecha) => {
+          const asistencia = asistenciasPorFecha.get(fecha);
+          
+          if (asistencia) {
+            dataRow.push(asistencia.manana?.entrada || "X");
+            dataRow.push(asistencia.manana?.salida || "X");
+            dataRow.push(asistencia.tarde?.entrada || "X");
+            dataRow.push(asistencia.tarde?.salida || "X");
+          } else {
+            dataRow.push("X");
+            dataRow.push("X");
+            dataRow.push("X");
+            dataRow.push("X");
+          }
+        });
 
-      // Total de horas
-      const totalHoras = p.reporte?.resumen_basico?.horasTotales || 0;
-      dataRow.push(totalHoras);
+        // Total de horas para usuarios regulares
+        const totalHoras = p.reporte?.resumen_basico?.horasTotales || 0;
+        dataRow.push(totalHoras);
+      }
 
       const row = sheet.addRow(dataRow);
 
@@ -277,6 +295,12 @@ export default function ReportsSection() {
         // Colorear las X en rojo
         if (cell.value === "X") {
           cell.font = { color: { argb: "FFFF0000" }, bold: true };
+        }
+
+        // Colorear mensaje de administrador en azul
+        if (typeof cell.value === 'string' && cell.value.includes('NO REGISTRA ASISTENCIA:')) {
+          cell.font = { color: { argb: "FF0066CC" }, bold: true, size: 10 };
+          cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
         }
 
         // Primera columna (nombre) en negrita
@@ -315,6 +339,10 @@ export default function ReportsSection() {
         : usuarioSeleccionado;
     }
 
+    // Verificar si el usuario es administrador
+    const esAdministrador = user?.id_rol === 1;
+    const nombreCargo = 'Administrador';
+
     const periodo = (reporteActual?.periodo as any)?.nombre_periodo || reporteActual?.periodo?.nombre_mes || "Sin período";
 
     sheet.mergeCells("A1:H1");
@@ -327,8 +355,25 @@ export default function ReportsSection() {
     sheet.getCell("A2").alignment = { horizontal: "center" };
 
     sheet.addRow([]);
+
+    if (esAdministrador) {
+      // Para administradores, mostrar mensaje especial
+      sheet.mergeCells("A4:H4");
+      sheet.getCell("A4").value = `NO REGISTRA ASISTENCIA: ${nombreCargo}`;
+      sheet.getCell("A4").alignment = { horizontal: "center", vertical: "middle" };
+      sheet.getCell("A4").font = { bold: true, size: 14, color: { argb: "FF0066CC" } };
+      
+      sheet.mergeCells("A5:H5");
+      sheet.getCell("A5").value = "Los administradores no registran asistencia en el sistema.";
+      sheet.getCell("A5").alignment = { horizontal: "center", vertical: "middle" };
+      sheet.getCell("A5").font = { size: 12, color: { argb: "FF666666" } };
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      saveAs(new Blob([buffer]), `ReportePersonal_${nombreUsuario.replace(/\s+/g, '_')}_${periodo.replace(/\s+/g, '_')}.xlsx`);
+      return;
+    }
     
-    // Encabezados
+    // Encabezados (solo para usuarios no administradores)
     sheet.addRow(["Fecha", "Día", "Mañana Entrada", "Mañana Salida", "Tarde Entrada", "Tarde Salida", "Horas Totales", "Estado"]);
     const headerRow = sheet.getRow(4);
     headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
@@ -430,15 +475,29 @@ export default function ReportsSection() {
       const nombreCompleto = p.usuario
         ? `${p.usuario.nombres || ''} ${p.usuario.apellidos || ''}`
         : "Sin nombre";
-      const resumen = p.reporte?.resumen_basico;
       
-      return [
-        p.rut_usuario || "N/A",
-        nombreCompleto.trim(),
-        resumen?.horasTotales || 0,
-        resumen?.diasTrabajados || 0,
-        resumen?.promedioHorasDia || 0,
-      ];
+      // Verificar si es administrador (id_rol === 1)
+      const esAdministrador = p.usuario?.id_rol === 1;
+      const nombreCargo = p.usuario?.cargo?.nombre_cargo || 'Administrador';
+      
+      if (esAdministrador) {
+        return [
+          p.rut_usuario || "N/A",
+          nombreCompleto.trim(),
+          `NO REGISTRA ASISTENCIA: ${nombreCargo}`,
+          `NO REGISTRA ASISTENCIA: ${nombreCargo}`,
+          `NO REGISTRA ASISTENCIA: ${nombreCargo}`,
+        ];
+      } else {
+        const resumen = p.reporte?.resumen_basico;
+        return [
+          p.rut_usuario || "N/A",
+          nombreCompleto.trim(),
+          resumen?.horasTotales || 0,
+          resumen?.diasTrabajados || 0,
+          resumen?.promedioHorasDia || 0,
+        ];
+      }
     });
 
     autoTable(doc, {
@@ -458,6 +517,7 @@ export default function ReportsSection() {
     
     // Determinar el nombre del usuario según contexto
     let nombreUsuario = "";
+    
     if (usuarioSeleccionado === 'mi-reporte' || !isAdmin) {
       nombreUsuario = user?.nombres || user?.rut_usuario || "Usuario";
     } else {
@@ -467,12 +527,28 @@ export default function ReportsSection() {
         : usuarioSeleccionado;
     }
     
+    // Verificar si el usuario objetivo es administrador
+    // Solo podemos verificar si es el usuario actual (del contexto de auth)
+    const esAdministrador = user?.id_rol === 1;
+    const nombreCargo = 'Administrador';
+    
     const periodo = (reporteActual?.periodo as any)?.nombre_periodo || reporteActual?.periodo?.nombre_mes || "Sin período";
 
     doc.setFontSize(18);
     doc.text(`Reporte de ${nombreUsuario}`, 105, 20, { align: "center" });
     doc.setFontSize(12);
     doc.text(`Período: ${periodo}`, 105, 30, { align: "center" });
+
+    if (esAdministrador) {
+      // Para administradores, mostrar mensaje especial
+      doc.setFontSize(14);
+      doc.text(`NO REGISTRA ASISTENCIA: ${nombreCargo}`, 105, 60, { align: "center" });
+      doc.setFontSize(10);
+      doc.text("Los administradores no registran asistencia en el sistema.", 105, 80, { align: "center" });
+      
+      doc.save(`ReportePersonal_${nombreUsuario.replace(/\s+/g, '_')}_${periodo.replace(/\s+/g, '_')}.pdf`);
+      return;
+    }
 
     const registros = reporteActual?.asistencias_detalle || [];
     const tableData = registros.map((r: any) => [

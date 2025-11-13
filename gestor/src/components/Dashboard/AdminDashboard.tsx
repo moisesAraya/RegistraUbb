@@ -1,17 +1,44 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  BarChart3, AlertCircle, Users, RefreshCw, Wifi, WifiOff, Activity, Shield
+  AlertCircle, Users, RefreshCw, Clock, TrendingUp, Calendar,
+  Shield, CheckCircle, XCircle, AlertTriangle, BarChart3, FileText
 } from 'lucide-react';
 import { useAuth } from '../Context/AuthContext';
-import { useDashboard } from '../../hooks/useDashboard';
-import { MetricsCards } from './MetricsCards';
-import { Charts } from './Charts';
 
 const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
-  const { dashboardData, realTimeData, isLoading, error, refetch } = useDashboard();
+  const [stats, setStats] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   console.log('👑 [ADMIN-DASHBOARD] Renderizando para:', user?.nombres, 'Rol:', user?.id_rol);
+
+  useEffect(() => {
+    fetchAdminStats();
+  }, []);
+
+  const fetchAdminStats = async () => {
+    try {
+      setIsLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/dashboard`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Error al cargar estadísticas');
+      
+      const data = await response.json();
+      console.log('📊 [ADMIN-DASHBOARD] Datos recibidos:', data);
+      setStats(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -29,7 +56,7 @@ const AdminDashboard: React.FC = () => {
     );
   }
 
-  if (error && !dashboardData) {
+  if (error && !stats) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4">
         <div className="max-w-7xl mx-auto">
@@ -38,9 +65,8 @@ const AdminDashboard: React.FC = () => {
               <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-slate-900 mb-2">Error al cargar dashboard administrativo</h3>
               <p className="text-slate-600 mb-4">{error}</p>
-              <p className="text-slate-500 text-sm mb-4">Usuario: {user?.rut_usuario}</p>
               <button
-                onClick={refetch}
+                onClick={fetchAdminStats}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Intentar de nuevo
@@ -55,128 +81,261 @@ const AdminDashboard: React.FC = () => {
   const userName = user ? `${user.nombres} ${user.apellidos}` : 'Administrator';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         
-        {/* Header administrativo */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* Header Administrativo */}
+        <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900 flex items-center">
-                <Shield className="h-7 w-7 text-red-600 mr-3" />
-                Dashboard Administrativo - RegistraUBB
+              <h1 className="text-3xl font-bold text-slate-900 flex items-center">
+                <Shield className="h-8 w-8 text-blue-600 mr-3" />
+                Panel de Administración
               </h1>
-              <p className="text-slate-600 mt-1">
-                Panel de control - {userName}
+              <p className="text-slate-600 mt-2">
+                Sistema de Registro de Horas - RegistraUBB
               </p>
-              <p className="text-slate-500 text-sm">
-                RUT: {user?.rut_usuario} | Rol: {user?.id_rol === 1 ? 'Desarrollador' : 'Administrador'}
+              <p className="text-slate-500 text-sm mt-1">
+                Administrador: {userName}
               </p>
             </div>
             
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                {realTimeData ? (
-                  <Wifi className="h-4 w-4 text-green-500" />
-                ) : (
-                  <WifiOff className="h-4 w-4 text-red-500" />
-                )}
-                <span className="text-sm text-slate-600">
-                  {realTimeData ? 'Sistema operativo' : 'Sistema degradado'}
-                </span>
-              </div>
+            <button
+              onClick={fetchAdminStats}
+              disabled={isLoading}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <span>Actualizar</span>
+            </button>
+          </div>
+        </div>
 
-              <button
-                onClick={refetch}
-                disabled={isLoading}
-                className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                <span className="text-sm">Actualizar</span>
-              </button>
+        {/* Resumen General - 4 Cards principales */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Total Usuarios */}
+          <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600">Total Usuarios</p>
+                <p className="text-3xl font-bold text-slate-900 mt-2">
+                  {stats?.organization_overview?.total_active_users || 0}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">Académicos registrados</p>
+              </div>
+              <div className="bg-blue-100 rounded-full p-3">
+                <Users className="h-8 w-8 text-blue-600" />
+              </div>
             </div>
           </div>
 
-          {/* Banner administrativo */}
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <div className="text-sm text-red-800 flex items-center">
-              <Shield className="h-4 w-4 mr-2" />
+          {/* Horas Totales Mes */}
+          <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500">
+            <div className="flex items-center justify-between">
               <div>
-                <p><strong>Panel Administrativo:</strong> {dashboardData ? '✅ Operativo' : '❌ Degradado'}</p>
-                <p><strong>Estadísticas globales:</strong> Horas: {dashboardData?.personal_basic_stats?.week_hours || 0}h | Asistencia: {dashboardData?.personal_basic_stats?.attendance_rate || 0}%</p>
-                {error && <p><strong>Error:</strong> {error}</p>}
+                <p className="text-sm font-medium text-slate-600">Horas Este Mes</p>
+                <p className="text-3xl font-bold text-slate-900 mt-2">
+                  {stats?.organization_overview?.total_hours_month || 0}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">Horas trabajadas totales</p>
+              </div>
+              <div className="bg-green-100 rounded-full p-3">
+                <Clock className="h-8 w-8 text-green-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Registros Hoy */}
+          <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-purple-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600">Registros Hoy</p>
+                <p className="text-3xl font-bold text-slate-900 mt-2">
+                  {stats?.attendance_analytics?.attendance_by_period?.today || 0}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">Marcajes realizados</p>
+              </div>
+              <div className="bg-purple-100 rounded-full p-3">
+                <CheckCircle className="h-8 w-8 text-purple-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Promedio Semanal */}
+          <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-orange-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600">Promedio Semanal</p>
+                <p className="text-3xl font-bold text-slate-900 mt-2">
+                  {stats?.organization_overview?.average_weekly_hours || 0}h
+                </p>
+                <p className="text-xs text-slate-500 mt-1">Por usuario</p>
+              </div>
+              <div className="bg-orange-100 rounded-full p-3">
+                <TrendingUp className="h-8 w-8 text-orange-600" />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Contenido administrativo completo */}
-        {dashboardData && (
-          <div className="space-y-6">
-            {/* MetricsCards administrativos */}
-            <MetricsCards 
-              personalStats={dashboardData.personal_basic_stats}
-              attendanceAnalytics={dashboardData.attendance_analytics}
-              realTimeData={realTimeData}
-            />
+        {/* Fila de 2 columnas: Estadísticas y Estado del Sistema */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          {/* Estadísticas de Asistencia */}
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
+              <BarChart3 className="h-5 w-5 text-blue-600 mr-2" />
+              Estadísticas de Asistencia
+            </h3>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <Calendar className="h-5 w-5 text-blue-600" />
+                  <span className="text-sm font-medium text-slate-700">Hoy</span>
+                </div>
+                <span className="text-lg font-bold text-blue-600">
+                  {stats?.attendance_analytics?.attendance_by_period?.today || 0} registros
+                </span>
+              </div>
 
-            {/* Charts administrativos */}
-            <Charts 
-              weeklyTrends={dashboardData.attendance_analytics?.weekly_trends}
-              attendanceByPeriod={dashboardData.attendance_analytics?.attendance_by_period}
-              personalStats={dashboardData.personal_basic_stats}
-            />
+              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <Calendar className="h-5 w-5 text-green-600" />
+                  <span className="text-sm font-medium text-slate-700">Esta Semana</span>
+                </div>
+                <span className="text-lg font-bold text-green-600">
+                  {stats?.attendance_analytics?.attendance_by_period?.this_week || 0} registros
+                </span>
+              </div>
 
-            {/* Vista organizacional completa */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
-                <Users className="h-5 w-5 text-purple-600 mr-2" />
-                Vista General de la Organización
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-600">
-                    {dashboardData.organization_overview?.total_active_users || 0}
-                  </p>
-                  <p className="text-sm text-slate-600">Usuarios Activos</p>
+              <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <Calendar className="h-5 w-5 text-purple-600" />
+                  <span className="text-sm font-medium text-slate-700">Este Mes</span>
                 </div>
-                
-                <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <p className="text-2xl font-bold text-green-600">
-                    {dashboardData.organization_overview?.qr_code_stats?.active || 0}
-                  </p>
-                  <p className="text-sm text-slate-600">QR Codes Activos</p>
-                </div>
-                
-                <div className="text-center p-4 bg-purple-50 rounded-lg">
-                  <p className="text-2xl font-bold text-purple-600">
-                    {dashboardData.attendance_analytics?.attendance_by_period?.this_month || 0}
-                  </p>
-                  <p className="text-sm text-slate-600">Registros Este Mes</p>
-                </div>
+                <span className="text-lg font-bold text-purple-600">
+                  {stats?.attendance_analytics?.attendance_by_period?.this_month || 0} registros
+                </span>
               </div>
             </div>
           </div>
-        )}
 
-        {/* Footer administrativo */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+          {/* Estado del Sistema */}
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
+              <Shield className="h-5 w-5 text-green-600 mr-2" />
+              Estado del Sistema
+            </h3>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  <span className="text-sm text-slate-700">Sistema Operativo</span>
+                </div>
+                <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-1 rounded">
+                  ACTIVO
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  <span className="text-sm text-slate-700">QR Codes Activos</span>
+                </div>
+                <span className="text-sm font-bold text-slate-900">
+                  {stats?.organization_overview?.qr_code_stats?.active || 0}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                  <span className="text-sm text-slate-700">Totems Disponibles</span>
+                </div>
+                <span className="text-sm font-bold text-slate-900">
+                  {stats?.organization_overview?.totems_count || 0}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <Clock className="h-5 w-5 text-blue-500" />
+                  <span className="text-sm text-slate-700">Última Actualización</span>
+                </div>
+                <span className="text-xs text-slate-600">
+                  {new Date().toLocaleTimeString('es-CL')}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Accesos Rápidos */}
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">
+            Accesos Rápidos
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <a
+              href="/users"
+              className="flex items-center space-x-3 p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors group"
+            >
+              <Users className="h-6 w-6 text-blue-600 group-hover:scale-110 transition-transform" />
+              <div>
+                <p className="font-medium text-slate-900">Gestión Usuarios</p>
+                <p className="text-xs text-slate-600">Administrar académicos</p>
+              </div>
+            </a>
+
+            <a
+              href="/totems"
+              className="flex items-center space-x-3 p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors group"
+            >
+              <Shield className="h-6 w-6 text-green-600 group-hover:scale-110 transition-transform" />
+              <div>
+                <p className="font-medium text-slate-900">Gestión Totems</p>
+                <p className="text-xs text-slate-600">Configurar totems</p>
+              </div>
+            </a>
+
+            <a
+              href="/reports"
+              className="flex items-center space-x-3 p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors group"
+            >
+              <FileText className="h-6 w-6 text-purple-600 group-hover:scale-110 transition-transform" />
+              <div>
+                <p className="font-medium text-slate-900">Reportes</p>
+                <p className="text-xs text-slate-600">Generar informes</p>
+              </div>
+            </a>
+
+            <a
+              href="/settings"
+              className="flex items-center space-x-3 p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors group"
+            >
+              <Shield className="h-6 w-6 text-orange-600 group-hover:scale-110 transition-transform" />
+              <div>
+                <p className="font-medium text-slate-900">Configuración</p>
+                <p className="text-xs text-slate-600">Ajustes del sistema</p>
+              </div>
+            </a>
+          </div>
+        </div>
+
+        {/* Footer con información */}
+        <div className="bg-white rounded-xl shadow-md p-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-sm text-slate-600">
             <div className="flex items-center space-x-4">
               <span>Última actualización: {new Date().toLocaleString('es-CL')}</span>
-              {realTimeData && (
-                <span className="flex items-center space-x-1">
-                  <Activity className="h-3 w-3" />
-                  <span>Usuarios conectados: {realTimeData.currently_active}</span>
-                </span>
-              )}
             </div>
             
             <div className="flex items-center space-x-4">
-              <span>Panel Administrativo - RegistraUBB</span>
+              <span>RegistraUBB v2.0</span>
               <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">
-                ADMIN
+                ADMINISTRADOR
               </span>
             </div>
           </div>

@@ -3,22 +3,16 @@ import { useAuth } from '../Context/AuthContext';
 import { useDashboard } from '../../hooks/useDashboard';
 import {
   Home,
-  Users,
-  Calendar,
   Clock,
   FileText,
   Settings,
   LogOut,
   User,
-  Building2,
   QrCode,
-  CheckCircle,
   ChevronRight,
   Award,
   BarChart3,
   Shield,
-  Sparkles,
-  Activity,
   CreditCard
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -83,47 +77,54 @@ const Sidebar: React.FC<SidebarProps> = ({
     return roleInfo[id_rol] || roleInfo[3];
   };
 
-  // Menú base para todos los usuarios
-  const baseMenuItems: MenuItem[] = [
-    {
-      id: 'dashboard',
-      label: 'Dashboard',
-      icon: <Home className="h-5 w-5" />,
-    },
-    {
-      id: 'my-qr-code',
-      label: 'Mi Código QR',
-      icon: <QrCode className="h-5 w-5" />,
-    },
-    {
-      id: 'id-card',
-      label: 'Mi Tarjeta ID',
-      icon: <CreditCard className="h-5 w-5" />,
+  // Menú base solo para académicos y usuarios regulares
+  const getBaseMenuItems = (userRole: string): MenuItem[] => {
+    if (userRole === 'admin') {
+      return [
+        {
+          id: 'dashboard',
+          label: 'Dashboard',
+          icon: <Home className="h-5 w-5" />,
+        }
+      ];
     }
-  ];
+    
+    return [
+      {
+        id: 'dashboard',
+        label: 'Dashboard',
+        icon: <Home className="h-5 w-5" />,
+      },
+      {
+        id: 'my-qr-code',
+        label: 'Mi Código QR',
+        icon: <QrCode className="h-5 w-5" />,
+      },
+      {
+        id: 'id-card',
+        label: 'Mi Tarjeta ID',
+        icon: <CreditCard className="h-5 w-5" />,
+      }
+    ];
+  };
 
   // Menús específicos por rol
   const roleSpecificItems: { [key: string]: MenuItem[] } = {
     admin: [
-      {
-        id: 'attendance',
-        label: 'Mi Asistencia',
-        icon: <Clock className="h-5 w-5" />,
-      },
       {
         id: 'users',
         label: 'Gestión Usuarios',
         icon: <User className="h-5 w-5" />,
       },
       {
+        id: 'totems',
+        label: 'Gestión Totems',
+        icon: <Settings className="h-5 w-5" />,
+      },
+      {
         id: 'reports',
         label: 'Reportes',
         icon: <BarChart3 className="h-5 w-5" />,
-      },
-      {
-        id: 'approvals',
-        label: 'Aprobaciones',
-        icon: <CheckCircle className="h-5 w-5" />,
       },
       {
         id: 'settings',
@@ -153,17 +154,22 @@ const Sidebar: React.FC<SidebarProps> = ({
         id: 'attendance',
         label: 'Mi Asistencia',
         icon: <Clock className="h-5 w-5" />,
+      },
+      {
+        id: 'justifications',
+        label: 'Justificaciones',
+        icon: <FileText className="h-5 w-5" />,
       }
     ]
   };
 
   const getMenuItems = (): MenuItem[] => {
-    if (!user) return baseMenuItems;
+    if (!user) return getBaseMenuItems('usuario');
 
     const userRole = getRoleName(user.id_rol);
     const roleItems = roleSpecificItems[userRole] || [];
     
-    return [...baseMenuItems, ...roleItems];
+    return [...getBaseMenuItems(userRole), ...roleItems];
   };
 
   const handleLogout = async () => {
@@ -183,9 +189,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     else if (path === '/reports') onTabChange('reports');
     else if (path === '/users') onTabChange('users');
     else if (path === '/justifications') onTabChange('justifications');
-    else if (path === '/approvals') onTabChange('approvals');
     else if (path === '/settings') onTabChange('settings');
     else if (path === '/id-card') onTabChange('id-card');
+    else if (path === '/totems') onTabChange('totems');
   }, [location.pathname, onTabChange]);
 
   // ✅ Función para manejar navegación
@@ -214,8 +220,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       case 'justifications':
         navigate('/justifications');
         break;
-      case 'approvals':
-        navigate('/approvals');
+      case 'totems':
+        navigate('/totems');
         break;
       case 'settings':
         navigate('/settings');

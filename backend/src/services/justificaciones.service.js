@@ -16,7 +16,7 @@ export async function crearJustificacion(rut_usuario, datosJustificacion) {
         const nuevaJustificacion = await Justificacion.create({
             ...datosJustificacion,
             rut_usuario,
-            estado_aprobacion: 'pendiente',
+            estado_aprobacion: 'aprobada', // ✅ AUTO-APROBADO: No requiere autorización admin
             fecha_solicitud: new Date(),
             documento_adjunto: datosJustificacion.documento_adjunto || null
         });
@@ -120,12 +120,12 @@ export async function actualizarJustificacion(id_justificacion, rut_usuario, dat
             where: {
                 id_justificacion,
                 rut_usuario,
-                estado_aprobacion: 'pendiente'
+                // ✅ Permitir modificar justificaciones sin restricción de estado
             }
         });
 
         if (!justificacion) {
-            throw new Error('Justificación no encontrada o no se puede modificar');
+            throw new Error('Justificación no encontrada');
         }
 
         await justificacion.update(datosActualizacion);
@@ -149,12 +149,12 @@ export async function cancelarJustificacion(id_justificacion, rut_usuario) {
             where: {
                 id_justificacion,
                 rut_usuario,
-                estado_aprobacion: 'pendiente'
+                // ✅ Permitir cancelar justificaciones sin restricción de estado
             }
         });
 
         if (!justificacion) {
-            throw new Error('Justificación no encontrada o no se puede cancelar');
+            throw new Error('Justificación no encontrada');
         }
 
         await justificacion.update({
@@ -173,17 +173,10 @@ export async function cancelarJustificacion(id_justificacion, rut_usuario) {
     }
 }
 
-// ✅ OBTENER MOTIVOS DISPONIBLES
+// ✅ OBTENER MOTIVOS DISPONIBLES (SOLO AUSENCIA)
 export async function getMotivosJustificacion() {
     return [
-        { id: 'enfermedad', label: 'Enfermedad', requiere_documento: true },
-        { id: 'cita_medica', label: 'Cita Médica', requiere_documento: true },
-        { id: 'asunto_personal', label: 'Asunto Personal', requiere_documento: false },
-        { id: 'tramite_legal', label: 'Trámite Legal', requiere_documento: true },
-        { id: 'emergencia_familiar', label: 'Emergencia Familiar', requiere_documento: false },
-        { id: 'capacitacion', label: 'Capacitación', requiere_documento: true },
-        { id: 'licencia_medica', label: 'Licencia Médica', requiere_documento: true },
-        { id: 'otro', label: 'Otro', requiere_documento: false }
+        { id: 'ausencia', label: 'Ausencia', requiere_documento: false, descripcion: 'Registrar día de ausencia con motivo' }
     ];
 }
 

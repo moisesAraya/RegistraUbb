@@ -72,16 +72,12 @@ export async function getReportePersonalMensual(rut_usuario, mes, anio, fecha_in
             order: [['fecha_justificacion', 'DESC']]
         });
 
-        // Agrupar marcajes por fecha y organizarlos en pares
         const marcajesPorFecha = agruparMarcajesPorFecha(marcajes);
         
-        // Generar detalle de asistencias con estructura de mañana/tarde
         const asistencias_detalle = procesarAsistenciasDetalle(marcajesPorFecha);
 
-        // Calcular resumen
         const resumen = calcularResumenAsistencias(asistencias_detalle);
 
-        // Calcular métricas avanzadas
         const metricas = calcularMetricasAvanzadas(asistencias_detalle, justificaciones);
 
         return {
