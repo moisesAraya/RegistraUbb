@@ -191,16 +191,18 @@ class Registro_marcaje(models.Model):
 
 class Justificacion(models.Model):
     id_justificacion = models.AutoField(primary_key=True)
-    rut_usuario = models.CharField(max_length=255)
+    rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario', to_field='rut_usuario')
     descripcion = models.TextField()
     estado = models.CharField(max_length=255, default='PENDIENTE')
     fecha_justificacion = models.DateField()
 
     # Campos de tracking de aprobaciones
     observaciones_admin = models.TextField(null=True, blank=True)
-    aprobado_por = models.CharField(max_length=255, null=True, blank=True)
+    aprobado_por = models.ForeignKey('Usuario', on_delete=models.SET_NULL, null=True, blank=True, 
+                                   related_name='justificaciones_aprobadas', db_column='aprobado_por', to_field='rut_usuario')
     fecha_aprobacion = models.DateTimeField(null=True, blank=True)
-    rechazado_por = models.CharField(max_length=255, null=True, blank=True)
+    rechazado_por = models.ForeignKey('Usuario', on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name='justificaciones_rechazadas', db_column='rechazado_por', to_field='rut_usuario')
     fecha_rechazo = models.DateTimeField(null=True, blank=True)
 
     # timestamps equivalentes a Sequelize
@@ -209,6 +211,9 @@ class Justificacion(models.Model):
 
     class Meta:
         db_table = 'Justificacions'
+    
+    def __str__(self):
+        return f"Justificacion {self.id_justificacion} - {self.rut_usuario.rut_usuario} ({self.estado})"
 
 
 
