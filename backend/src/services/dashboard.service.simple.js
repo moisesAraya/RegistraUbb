@@ -2,8 +2,6 @@
 
 import { Op } from 'sequelize';
 import Usuario from '../entities/usuario.entity.js';
-import QR from '../entities/qr.entity.js';
-import Totem from '../entities/totem.entity.js';
 
 // ✅ IMPORTAR EL SERVICIO REAL
 let getAsistenciaUsuarioService, getEstadisticasAsistenciaService;
@@ -283,113 +281,21 @@ async function getOrganizationOverview() {
     console.log('🏢 [ORGANIZATION] Obteniendo overview organizacional...');
     
     try {
-        // Total de usuarios
-        const totalUsers = await Usuario.count();
-
-        // Total de QR codes activos
-        const totalQRsActivos = await QR.count({
-            where: { estado_qr: true }
+        const totalUsers = await Usuario.count({
+            where: { activo: true }
         });
-
-        // Total de QR codes (todos)
-        const totalQRs = await QR.count();
-
-        // Total de totems
-        const totalTotems = await Totem.count();
-
-        console.log('🏢 [ORGANIZATION] Total usuarios activos:', totalUsers);
-        console.log('🏢 [ORGANIZATION] QR codes activos:', totalQRsActivos, 'de', totalQRs);
-        console.log('🏢 [ORGANIZATION] Total totems:', totalTotems);
-
-        // Calcular horas totales del mes actual de forma más simple
-        const now = new Date();
-        const mes = now.getMonth() + 1;
-        const anio = now.getFullYear();
         
-        let totalHoursMonth = 0;
-        let averageWeeklyHours = 0;
-        
-        // Simplificado: solo calcular si hay pocos usuarios
-        if (totalUsers > 0 && totalUsers <= 20) {
-            try {
-                const usuarios = await Usuario.findAll({
-                    attributes: ['rut_usuario']
-                });
-
-                let totalHorasSemanales = 0;
-                let usuariosConDatos = 0;
-                const startOfWeek = getStartOfWeek(now);
-                const endOfWeek = new Date(startOfWeek);
-                endOfWeek.setDate(endOfWeek.getDate() + 6);
-                endOfWeek.setHours(23, 59, 59, 999);
-
-                for (const usuario of usuarios) {
-                    try {
-                        const asistenciaData = await getAsistenciaUsuarioService(usuario.rut_usuario, mes, anio);
-                        if (asistenciaData && asistenciaData.asistencias) {
-                            const horasMes = asistenciaData.asistencias.reduce((sum, a) => 
-                                sum + parseFloat(a.horasTrabajadas || 0), 0);
-                            totalHoursMonth += horasMes;
-
-                            const thisWeekRecords = asistenciaData.asistencias.filter(a => {
-                                const recordDate = new Date(a.fecha);
-                                return recordDate >= startOfWeek && recordDate <= endOfWeek;
-                            });
-
-                            const horasSemana = thisWeekRecords.reduce((sum, a) => 
-                                sum + parseFloat(a.horasTrabajadas || 0), 0);
-                            
-                            if (horasSemana > 0) {
-                                totalHorasSemanales += horasSemana;
-                                usuariosConDatos++;
-                            }
-                        }
-                    } catch (err) {
-                        console.error(`Error procesando usuario ${usuario.rut_usuario}:`, err.message);
-                        continue;
-                    }
-                }
-
-                averageWeeklyHours = usuariosConDatos > 0 ? 
-                    Math.round((totalHorasSemanales / usuariosConDatos) * 10) / 10 : 0;
-
-                console.log('🏢 [ORGANIZATION] Horas mes:', totalHoursMonth, 'Promedio semanal:', averageWeeklyHours);
-
-            } catch (err) {
-                console.error('⚠️ [ORGANIZATION] Error calculando estadísticas detalladas:', err.message);
-            }
-        } else {
-            console.log('🏢 [ORGANIZATION] Demasiados usuarios, omitiendo cálculo detallado');
-        }
-        
-        const result = {
+        return {
             total_active_users: totalUsers,
-            total_hours_month: Math.round(totalHoursMonth * 10) / 10,
-            average_weekly_hours: averageWeeklyHours,
-            qr_code_stats: {
-                active: totalQRsActivos,
-                total: totalQRs
-            },
-            totems_count: totalTotems,
             system_status: 'operational',
             last_updated: new Date().toISOString()
         };
-
-        console.log('✅ [ORGANIZATION] Overview generado:', result);
-        return result;
         
     } catch (error) {
-        console.error('❌ [ORGANIZATION] Error crítico:', error);
+        console.error('❌ [ORGANIZATION] Error:', error);
         return {
             total_active_users: 0,
-            total_hours_month: 0,
-            average_weekly_hours: 0,
-            qr_code_stats: {
-                active: 0,
-                total: 0
-            },
-            totems_count: 0,
-            system_status: 'error',
+            system_status: 'unknown',
             last_updated: new Date().toISOString()
         };
     }
@@ -439,11 +345,6 @@ export async function getRealTimeData(rut_usuario) {
 export async function getAdvancedAnalytics(rut_usuario) {
     const baseMetrics = await getSimpleMetrics(rut_usuario);
     return baseMetrics;
-}
-
-// ✅ FUNCIÓN PRINCIPAL ESPERADA POR EL CONTROLADOR
-export async function getCompleteMetrics(rut_usuario) {
-    return await getSimpleMetrics(rut_usuario);
 }
 
 export async function getDebugInfo(rut_usuario) {

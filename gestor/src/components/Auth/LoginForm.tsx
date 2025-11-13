@@ -85,13 +85,10 @@ const LoginForm: React.FC = () => {
 
     setLoading(true);
     setError(null);
-    setSuccess(null);
+    setSuccess(null);
 
-    try {
-      // **[CORRECCIÓN CLAVE]** Enviar el RUT sin formato (sin puntos ni guion)
-      const unformattedRut = stripRutFormat(rut.trim());
-
-      const loginData = {
+    try {
+      const unformattedRut = stripRutFormat(rut.trim());      const loginData = {
         rut_usuario: unformattedRut, // Usar el RUT sin formato
         password: password.trim()
       };
@@ -106,16 +103,12 @@ const LoginForm: React.FC = () => {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify(loginData),
-      });
+        body: JSON.stringify(loginData),
+      });
 
-      console.log('📥 Response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Error response:', errorText);
-        
-        try {
+      if (!response.ok) {
+        const errorText = await response.text();
+        try {
           const errorData = JSON.parse(errorText);
           throw new Error(errorData.message || `HTTP ${response.status}`);
         } catch (parseError) {
@@ -123,25 +116,16 @@ const LoginForm: React.FC = () => {
         }
       }
 
-      const responseData = await response.json();
-      console.log('✅ Login response:', responseData);
+      const responseData = await response.json();
 
-      // ✅ Verificar estructura de la respuesta
-      if (responseData.success && responseData.data) {
+      if (responseData.success && responseData.data) {
         const { user, token } = responseData.data;
         
-        if (!user || !token) {
-          console.error('❌ Datos incompletos:', { user: !!user, token: !!token });
-          throw new Error('Datos de autenticación incompletos');
-        }
+        if (!user || !token) {
+          throw new Error('Datos de autenticación incompletos');
+        }
 
-        console.log('✅ Token recibido:', token.substring(0, 50) + '...');
-        
-        // ✅ GUARDAR TOKEN MANUALMENTE PRIMERO
-        localStorage.setItem('token', token);
-        console.log('💾 Token guardado en localStorage');
-        
-        // ✅ VERIFICAR QUE SE GUARDÓ
+        localStorage.setItem('token', token);        // ✅ VERIFICAR QUE SE GUARDÓ
         const savedToken = localStorage.getItem('token');
         if (!savedToken) {
           throw new Error('Error guardando el token');
@@ -156,37 +140,26 @@ const LoginForm: React.FC = () => {
           email: user.email,
           id_rol: user.id_rol,
           id_cargo: user.id_cargo
-        };
-        
-        localStorage.setItem('user', JSON.stringify(userData));
-        console.log('👤 Usuario guardado en localStorage');
+        };
+        
+        localStorage.setItem('user', JSON.stringify(userData));
 
-        setSuccess('Login exitoso. Redirigiendo...');
-        
-        // ✅ ACTUALIZAR CONTEXTO SI EXISTE LA FUNCIÓN
-        if (login && typeof login === 'function') {
-          console.log('🔄 Actualizando contexto de autenticación...');
-          login(userData, token);
-        } else {
-          console.log('⚠️ Función login no disponible en contexto, usando localStorage');
-        }
-        
-        // ✅ REDIRECCIONAR DESPUÉS DE UN PEQUEÑO DELAY
-        setTimeout(() => {
-          console.log('🔄 Redirigiendo al dashboard...');
-          navigate('/dashboard');
-        }, 1500);
-        
-      } else {
-        console.error('❌ Respuesta inválida:', responseData);
-        setError(responseData.message || 'Error en el login');
-      }
+        setSuccess('Login exitoso. Redirigiendo...');
+        
+        if (login && typeof login === 'function') {
+          login(userData, token);
+        }
+        
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1500);
+        
+      } else {
+        setError(responseData.message || 'Error en el login');
+      }
 
-    } catch (err: any) {
-      console.error('=== ERROR FRONTEND ===');
-      console.error('Error:', err);
-      
-      if (err.message.includes('Failed to fetch') || err.message.includes('fetch')) {
+    } catch (err: any) {
+      if (err.message.includes('Failed to fetch') || err.message.includes('fetch')) {
         setError('Error de conexión. Verifica que el servidor esté ejecutándose.');
       } else {
         setError(err.message || 'Error inesperado');
@@ -214,68 +187,26 @@ const LoginForm: React.FC = () => {
           <p className="text-gray-600">Accede a tu cuenta para continuar</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          {/* Debug info */}
-          <div className="mb-4 p-3 bg-gray-100 rounded text-xs">
-            <strong>Debug:</strong><br />
-            API: {API_BASE_URL}<br />
-            RUT (Formatted): "{rut}"<br />
-            RUT (Unformatted): "{stripRutFormat(rut)}"<br /> {/* Muestra el RUT sin formato para debug */}
-            Pass Length: {password.length}<br />
-            Token en localStorage: {localStorage.getItem('token') ? '✅' : '❌'}
-          </div>
+        <div className="bg-white rounded-2xl shadow-xl p-8">
+          {error && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <AlertCircle className="h-5 w-5 text-red-600 mr-2 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-red-800 break-words">{error}</div>
+              </div>
+            </div>
+          )}
 
-          {/* Mensajes de estado */}
-          {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex items-start">
-                <AlertCircle className="h-5 w-5 text-red-600 mr-2 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-red-800 break-words">{error}</div>
-              </div>
-            </div>
-          )}
+          {success && (
+            <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+                <p className="text-sm text-green-800">{success}</p>
+              </div>
+            </div>
+          )}
 
-          {success && (
-            <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center">
-                <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
-                <p className="text-sm text-green-800">{success}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Usuarios de ejemplo */}
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Usuarios de prueba:</h3>
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => fillExampleUser('10.399.995-2', '99952')}
-                className="w-full text-left p-2 text-xs bg-white border border-gray-200 rounded hover:bg-gray-50 transition-colors"
-              >
-                <div className="font-medium text-blue-600">Administrador</div>
-                <div className="text-gray-500">10.399.995-2 / 99952</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => fillExampleUser('13.308.258-1', '82581')}
-                className="w-full text-left p-2 text-xs bg-white border border-gray-200 rounded hover:bg-gray-50 transition-colors"
-              >
-                <div className="font-medium text-green-600">Académico</div>
-                <div className="text-gray-500">13.308.258-1 / 82581</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => fillExampleUser('14.273.436-2', '34362')}
-                className="w-full text-left p-2 text-xs bg-white border border-gray-200 rounded hover:bg-gray-50 transition-colors"
-              >
-                <div className="font-medium text-purple-600">Académico</div>
-                <div className="text-gray-500">14.273.436-2 / 34362</div>
-              </button>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label htmlFor="rut" className="block text-sm font-medium text-gray-700 mb-2">
                 RUT
@@ -340,15 +271,6 @@ const LoginForm: React.FC = () => {
               )}
             </button>
           </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              ¿Problemas para acceder?{' '}
-              <a href="#" className="text-blue-600 hover:text-blue-500 font-medium">
-                Contacta al administrador
-              </a>
-            </p>
-          </div>
         </div>
 
         <div className="text-center mt-8">

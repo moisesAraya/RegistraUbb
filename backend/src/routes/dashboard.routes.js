@@ -6,6 +6,36 @@ const router = Router();
 
 console.log('📊 [DASHBOARD-ROUTES] Configurando rutas...');
 
+// ✅ RUTA PRINCIPAL - Alias de basic-stats
+router.get('/', authenticateToken, async (req, res) => {
+    console.log('📊 [DASHBOARD] Ruta principal llamada para:', req.user?.rut_usuario);
+    
+    try {
+        // Importar dinámicamente el servicio
+        const { getCompleteMetrics } = await import('../services/dashboard.service.js');
+        
+        const rut_usuario = req.user?.rut_usuario;
+        if (!rut_usuario) {
+            return res.status(400).json({
+                success: false,
+                error: 'RUT de usuario no encontrado'
+            });
+        }
+
+        const metrics = await getCompleteMetrics(rut_usuario);
+        
+        return res.status(200).json(metrics);
+
+    } catch (error) {
+        console.error('❌ [DASHBOARD] Error:', error.message);
+        return res.status(500).json({
+            success: false,
+            error: 'Error obteniendo estadísticas',
+            details: error.message
+        });
+    }
+});
+
 // ✅ RUTA BASIC-STATS - LA QUE ESTÁ FALTANDO
 router.get('/basic-stats', authenticateToken, async (req, res) => {
     console.log('📊 [DASHBOARD] basic-stats llamada para:', req.user?.rut_usuario);

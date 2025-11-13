@@ -111,17 +111,7 @@ try {
     console.log("⚠️ Usuario routes no disponibles:", usuarioError.message);
   }
 
-  // ✅ 6. APPROVAL ROUTES
-  try {
-    console.log("✅ Cargando Approval routes...");
-    const approvalRoutes = await import("./routes/approval.routes.js");
-    app.use("/api/approvals", approvalRoutes.default);
-    console.log("✅ Approval routes cargadas");
-  } catch (approvalError) {
-    console.log("⚠️ Approval routes no disponibles:", approvalError.message);
-  }
-
-  // ✅ 7. REPORTES ROUTES - ENVOLVER EN TRY-CATCH
+  // ✅ 6. REPORTES ROUTES - ENVOLVER EN TRY-CATCH
   try {
     console.log("📊 Cargando Reportes routes...");
     const reportesRoutes = await import("./routes/reportes.routes.js");
@@ -132,7 +122,7 @@ try {
     console.log("⚠️ Reportes routes no disponibles:", reportesError.message);
   }
 
-  // ✅ 8. JUSTIFICACIONES ROUTES
+  // ✅ 7. JUSTIFICACIONES ROUTES
   try {
     console.log("📝 Cargando Justificaciones routes...");
     const justificacionesRoutes = await import(
@@ -148,6 +138,17 @@ try {
     );
   }
 
+<<<<<<< HEAD
+  // ✅ 8. TOTEMS ROUTES
+  try {
+    console.log("🏢 Cargando Totems routes...");
+    const totemsRoutes = await import("./routes/totem.routes.js");
+    app.use("/api/totems", totemsRoutes.default);
+    console.log("✅ Totems routes cargadas");
+  } catch (totemsError) {
+    console.error("❌ Error detallado Totems routes:", totemsError);
+    console.log("⚠️ Totems routes no disponibles:", totemsError.message);
+=======
   // ✅ 9. PROFILE ROUTES
   try {
     console.log("👤 Cargando Profile routes...");
@@ -156,6 +157,7 @@ try {
     console.log("✅ Profile routes cargadas");
   } catch (profileError) {
     console.log("⚠️ Profile routes no disponibles:", profileError.message);
+>>>>>>> b500ab79e10fd81f98e656e08408daeae024b618
   }
 
 } catch (error) {
@@ -203,8 +205,13 @@ app.use((req, res) => {
       "GET /api/asistencia/*",
       "GET /api/reportes/*",
       "GET /api/justificaciones/*",
+<<<<<<< HEAD
+      "GET /api/usuario/*",
+      "GET /api/totems/*",
+=======
       "GET /api/usuarios/*",
       "GET /api/approvals/*",
+>>>>>>> b500ab79e10fd81f98e656e08408daeae024b618
     ],
   });
 });

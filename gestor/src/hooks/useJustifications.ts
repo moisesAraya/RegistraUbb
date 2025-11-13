@@ -8,7 +8,7 @@ interface Justificacion {
   motivo: string;
   descripcion: string;
   tipo_justificacion: string;
-  estado_aprobacion: 'pendiente' | 'aprobada' | 'rechazada' | 'cancelada';
+  estado_aprobacion: 'aprobada' | 'cancelada'; // ✅ Solo estados necesarios - auto-aprobación
   fecha_solicitud: string;
   fecha_respuesta?: string;
   rut_aprobador?: string;
@@ -18,9 +18,8 @@ interface Justificacion {
 
 interface EstadisticasJustificaciones {
   total: number;
-  pendientes: number;
-  aprobadas: number;
-  rechazadas: number;
+  aprobadas: number; // ✅ Solo mostrar aprobadas
+  canceladas: number; // ✅ Y canceladas por el usuario
 }
 
 interface MotivoJustificacion {

@@ -32,13 +32,13 @@ const JustificationManager: React.FC = () => {
   const [justificacionEditando, setJustificacionEditando] = useState<any>(null);
   const [filtroEstado, setFiltroEstado] = useState<string>('');
 
-  // ✅ FORMULARIO DE NUEVA/EDITAR JUSTIFICACIÓN
+  // ✅ FORMULARIO DE NUEVA AUSENCIA (SIMPLIFICADO)
   const FormularioJustificacion = () => {
     const [formData, setFormData] = useState({
       fecha_justificacion: justificacionEditando?.fecha_justificacion?.split('T')[0] || '',
-      motivo: justificacionEditando?.motivo || '',
+      motivo: 'ausencia',
       descripcion: justificacionEditando?.descripcion || '',
-      tipo_justificacion: justificacionEditando?.tipo_justificacion || 'ausencia'
+      tipo_justificacion: 'ausencia'
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -70,7 +70,7 @@ const JustificationManager: React.FC = () => {
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
           <h3 className="text-lg font-semibold mb-4">
-            {justificacionEditando ? 'Editar Justificación' : 'Nueva Justificación'}
+            {justificacionEditando ? 'Editar Ausencia' : 'Registrar Ausencia'}
           </h3>
           
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -91,41 +91,21 @@ const JustificationManager: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Motivo
+                Motivo de la Ausencia
               </label>
-              <select
-                required
-                value={formData.motivo}
-                onChange={(e) => setFormData({...formData, motivo: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Seleccionar motivo...</option>
-                {motivos.map((motivo) => (
-                  <option key={motivo.id} value={motivo.id}>
-                    {motivo.label}
-                  </option>
-                ))}
-              </select>
+              <p className="text-sm text-gray-600 mb-2">
+                Registrando ausencia para el día seleccionado
+              </p>
+              <input
+                type="hidden"
+                value="ausencia"
+                name="motivo"
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipo
-              </label>
-              <select
-                value={formData.tipo_justificacion}
-                onChange={(e) => setFormData({...formData, tipo_justificacion: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="ausencia">Ausencia</option>
-                <option value="retraso">Retraso</option>
-                <option value="salida_temprana">Salida Temprana</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Descripción
+                Descripción del motivo
               </label>
               <textarea
                 required
@@ -211,7 +191,7 @@ const JustificationManager: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Mis Justificaciones</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Mis Ausencias</h1>
           <p className="text-gray-600">Gestiona tus solicitudes de justificación de asistencia</p>
         </div>
         <button
@@ -219,7 +199,7 @@ const JustificationManager: React.FC = () => {
           className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus className="w-4 h-4" />
-          <span>Nueva Justificación</span>
+          <span>Registrar Ausencia</span>
         </button>
       </div>
 
