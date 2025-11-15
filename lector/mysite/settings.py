@@ -23,25 +23,31 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-g-xo9*6zdqi0+39a!!*(kb$=$+d*bmt@grp1n4*b_h)#6z9c1q'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = True  # Cambiar a True temporalmente para depurar
 
-<<<<<<< HEAD
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['146.83.194.142', 'localhost', '127.0.0.1', '0.0.0.0', '*']
 
+# Configuraciones CSRF para HTTP
 CSRF_TRUSTED_ORIGINS = [
-    'https://146.83.194.142',
-    'https://146.83.194.142:1779',
+    'http://146.83.194.142',
+    'http://146.83.194.142:80',
+    'http://146.83.194.142:1778',
+    'http://localhost',
+    'http://localhost:8000',
+    'http://127.0.0.1',
+    'http://127.0.0.1:8000',
 ]
-=======
-ALLOWED_HOSTS = ['146.83.194.142', 'localhost', '127.0.0.1']
 
-# Remover configuraciones HTTPS
-# CSRF_TRUSTED_ORIGINS = [
-#     'https://146.83.194.142',
-#     'https://146.83.194.142:1779',
-# ]
->>>>>>> a483ff9a50efbd784ab6eabf95488bc5be16bb85
+# Configuraciones CSRF más permisivas
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
 
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
 
 # Application definition
 
@@ -59,7 +65,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'modlector.middleware.FaviconMiddleware',
     'django.middleware.security.SecurityMiddleware',
-   # 'whitenoise.middleware.WhiteNoiseMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Activar WhiteNoise
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -98,11 +104,11 @@ if DEBUG:  # DESARROLLO - Base de datos local
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'RegistraUbb',
+            'NAME': 'postgres',
             'USER': 'postgres',
-            'PASSWORD': 'holiwis',
-            'HOST': 'localhost',
-            'PORT': '5432',
+            'PASSWORD': 'andrea2025',
+            'HOST': '146.83.194.142',
+            'PORT': '1774',
         }
     }
     # URL del backend para desarrollo (puede ser localhost si tienes el backend corriendo local)
@@ -120,11 +126,7 @@ else:  # PRODUCCIÓN - Base de datos remota
         }
     }
     # URL del backend para producción
-<<<<<<< HEAD
-    BACKEND_URL = "https://146.83.194.142:1776/api/"
-=======
     BACKEND_URL = "http://146.83.194.142:1772/api/"
->>>>>>> a483ff9a50efbd784ab6eabf95488bc5be16bb85
 
 
 # Password validation
@@ -176,12 +178,12 @@ STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 ]
 
-# Usar storage estándar en desarrollo, comprimido en producción
-if DEBUG:
-    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
-else:
-    #STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+# Configuración de archivos estáticos simplificada
+STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+
+# Configuraciones de WhiteNoise para servir archivos estáticos
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = True
 
 
 # Default primary key field type
@@ -198,76 +200,18 @@ import os
 
 ENABLE_BACKEND_SYNC = False
 
-# Solo aplicar configuraciones de seguridad en producción
-if not DEBUG:  # Cuando DEBUG=False (producción)
-    
-<<<<<<< HEAD
-    # Configuraciones HTTPS
-    # USAR SOLO HTTP
-    SECURE_SSL_REDIRECT = True  # Redirigir HTTP a HTTPS
-    SECURE_HSTS_SECONDS = 31536000  # 1 año de HSTS
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-    
-    # Cookies seguras
-    SESSION_COOKIE_SECURE = True  # Cookies de sesión solo por HTTPS
-    CSRF_COOKIE_SECURE = True    # Cookies CSRF solo por HTTPS
+# Configuraciones de seguridad para HTTP
+SECURE_SSL_REDIRECT = False
+SECURE_HSTS_SECONDS = 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False  
+SECURE_HSTS_PRELOAD = False
 
-    # Headers adicionales de seguridad
-=======
-    # Configuraciones HTTP (sin SSL)
-    SECURE_SSL_REDIRECT = False
-    SECURE_HSTS_SECONDS = 0
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
-    SECURE_HSTS_PRELOAD = False
-    
-    # Cookies no seguras para HTTP
-    SESSION_COOKIE_SECURE = False
-    CSRF_COOKIE_SECURE = False
+# Headers de seguridad básicos
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
+X_FRAME_OPTIONS = 'SAMEORIGIN'  # Cambiar de DENY a SAMEORIGIN para evitar problemas
 
-    # Headers de seguridad básicos
->>>>>>> a483ff9a50efbd784ab6eabf95488bc5be16bb85
-    SECURE_CONTENT_TYPE_NOSNIFF = True
-    SECURE_BROWSER_XSS_FILTER = True
-    X_FRAME_OPTIONS = 'DENY'
-
-<<<<<<< HEAD
-    # Proxy configuración
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    USE_TZ = True
-
-    # Hosts permitidos (reemplaza con tu dominio real)
-    ALLOWED_HOSTS = [ 
-        '146.83.194.142',
-=======
-    # Sin configuración de proxy SSL
-    # SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
-    USE_TZ = True
-
-    # Hosts permitidos
-    ALLOWED_HOSTS = [ 
-        '146.83.194.142',
-        'localhost',
-        '127.0.0.1',
->>>>>>> a483ff9a50efbd784ab6eabf95488bc5be16bb85
-    ]
-    
-    # Configuración mejorada de WhiteNoise para producción
-    WHITENOISE_USE_FINDERS = False  # Desactivar en producción
-    WHITENOISE_AUTOREFRESH = False  # Desactivar en producción
-    
-else:  # Desarrollo (DEBUG=True)
-    
-    # En desarrollo, permitir localhost
-    ALLOWED_HOSTS = [
-        'localhost',
-        '127.0.0.1',
-        '0.0.0.0',
-    ]
-    
-    # Configuración de WhiteNoise para desarrollo
-    WHITENOISE_USE_FINDERS = True
-    WHITENOISE_AUTOREFRESH = True
+USE_TZ = True
 
 # ==========================================
 # SECRET_KEY MEJORADA
@@ -280,8 +224,4 @@ else:  # Desarrollo (DEBUG=True)
 # En desarrollo mantienes la actual, en producción debes cambiarla
 if not DEBUG:
     # ⚠️ CAMBIAR ESTA SECRET_KEY EN PRODUCCIÓN ⚠️
-<<<<<<< HEAD
     SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'tu-secret-key-super-segura-de-al-menos-50-caracteres-aqui')
-=======
-    SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'tu-secret-key-super-segura-de-al-menos-50-caracteres-aqui')
->>>>>>> a483ff9a50efbd784ab6eabf95488bc5be16bb85
