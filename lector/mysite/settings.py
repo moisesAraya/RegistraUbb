@@ -161,31 +161,3 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 if not DEBUG:
     SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'tu-secret-key-super-segura-de-al-menos-50-caracteres-aqui')
-
-# ==========================================
-# LOGGING PARA PRODUCCIÓN
-# ==========================================
-
-if not DEBUG:
-    LOGGING = {
-        'version': 1,
-        'disable_existing_loggers': False,
-        'handlers': {
-            'file': {
-                'level': 'INFO',
-                'class': 'logging.FileHandler',
-                'filename': '/var/log/django/django.log',
-            },
-            'console': {
-                'level': 'INFO',
-                'class': 'logging.StreamHandler',
-            },
-        },
-        'loggers': {
-            'django': {
-                'handlers': ['file', 'console'],
-                'level': 'INFO',
-                'propagate': True,
-            },
-        },
-    }
