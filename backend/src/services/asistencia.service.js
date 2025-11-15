@@ -107,8 +107,10 @@ export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio =
         const asistencias = Object.values(marcajesPorDia).map(dia => {
             // Ordenar registros por hora
             dia.registros.sort((a, b) => {
-                const horaA = a.hora.split(':').map(Number);
-                const horaB = b.hora.split(':').map(Number);
+                const horaAStr = formatTimeToString(a.hora) || '00:00:00';
+                const horaBStr = formatTimeToString(b.hora) || '00:00:00';
+                const horaA = horaAStr.split(':').map(Number);
+                const horaB = horaBStr.split(':').map(Number);
                 return (horaA[0] * 60 + horaA[1]) - (horaB[0] * 60 + horaB[1]);
             });
 
@@ -305,8 +307,10 @@ export async function getEstadisticasAsistenciaService(rutUsuario, mes = null, a
         // ✅ CALCULAR HORAS POR DÍA
         const diasConHoras = Object.values(marcajesPorDia).map(dia => {
             dia.registros.sort((a, b) => {
-                const horaA = a.hora.split(':').map(Number);
-                const horaB = b.hora.split(':').map(Number);
+                const horaAStr = formatTimeToString(a.hora) || '00:00:00';
+                const horaBStr = formatTimeToString(b.hora) || '00:00:00';
+                const horaA = horaAStr.split(':').map(Number);
+                const horaB = horaBStr.split(':').map(Number);
                 return (horaA[0] * 60 + horaA[1]) - (horaB[0] * 60 + horaB[1]);
             });
 
@@ -396,7 +400,8 @@ export async function getEstadisticasAsistenciaService(rutUsuario, mes = null, a
         const horasIngreso = diasConHoras
             .filter(d => d.horaIngreso)
             .map(d => {
-                const [hora, minuto] = d.horaIngreso.split(':').map(Number);
+                const horaStr = formatTimeToString(d.horaIngreso) || '00:00:00';
+                const [hora, minuto] = horaStr.split(':').map(Number);
                 return hora * 60 + minuto;
             });
 

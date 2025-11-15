@@ -184,7 +184,8 @@ function procesarAsistenciasDetalle(marcajesPorFecha) {
             
             // Si la salida del primer marcaje es después de las 14:00, considerar que no hubo colación
             if (primerMarcaje.hora_salida) {
-                const horaSalida = primerMarcaje.hora_salida.split(':')[0];
+                const horaSalidaStr = formatTimeToString(primerMarcaje.hora_salida) || '00:00:00';
+                const horaSalida = horaSalidaStr.split(':')[0];
                 
                 if (parseInt(horaSalida) >= 14) {
                     // Salida tardía, probablemente no hubo colación
@@ -256,8 +257,10 @@ function calcularHorasEntreMarcajes(entrada, salida) {
     }
     
     try {
-        const [horaEnt, minEnt, segEnt = 0] = entrada.split(':').map(Number);
-        const [horaSal, minSal, segSal = 0] = salida.split(':').map(Number);
+        const entradaStr = formatTimeToString(entrada) || '00:00:00';
+        const salidaStr = formatTimeToString(salida) || '00:00:00';
+        const [horaEnt, minEnt, segEnt = 0] = entradaStr.split(':').map(Number);
+        const [horaSal, minSal, segSal = 0] = salidaStr.split(':').map(Number);
         
         const minutosEntrada = horaEnt * 60 + minEnt + segEnt / 60;
         let minutosSalida = horaSal * 60 + minSal + segSal / 60;
@@ -383,7 +386,8 @@ function calcularMetricasAvanzadas(asistencias, justificaciones) {
     const llegadasTempranas = asistencias.filter(a => {
         const horaIngreso = a.horaIngreso || a.hora_ingreso;
         if (!horaIngreso) return false;
-        const hora = parseInt(horaIngreso.split(':')[0]);
+        const horaStr = formatTimeToString(horaIngreso) || '00:00:00';
+        const hora = parseInt(horaStr.split(':')[0]);
         return hora <= 8;
     }).length;
     
