@@ -18,7 +18,9 @@ console.log("🚀 [APP] Iniciando aplicación...");
 // ✅ CONFIGURACIÓN BÁSICA
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:3000", "https://146.83.194.142:1785", "https://146.83.194.142:17", "https://146.83.194.142:1782" ],
+    origin: ["http://localhost:5173", "http://localhost:3000", "https://146.83.194.142:1785", "https://146.83.194.142:17", "https://146.83.194.142:1782", 
+      "http://146.83.194.142:1784", "http://146.83.194.142:1778"
+     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
