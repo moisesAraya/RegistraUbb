@@ -104,11 +104,11 @@ if DEBUG:  # DESARROLLO - Base de datos local
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'RegistraUbb',
+            'NAME': 'postgres',
             'USER': 'postgres',
-            'PASSWORD': 'holiwis',
-            'HOST': 'localhost',
-            'PORT': '5432',
+            'PASSWORD': 'andrea2025',
+            'HOST': '146.83.194.142',
+            'PORT': '1774',
         }
     }
     # URL del backend para desarrollo (puede ser localhost si tienes el backend corriendo local)
