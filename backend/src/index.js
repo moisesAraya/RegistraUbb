@@ -1,8 +1,6 @@
 import app from './app.js';
 import { sequelize } from './config/dbconfig.js';
 import { setupRelations } from './entities/relations.js';
-import https from 'https';
-import fs from 'fs';
 
 // Entidades (modelos Sequelize)
 import Rol from './entities/rol.entity.js';
@@ -124,36 +122,15 @@ async function initDatabase() {
 }
 
 // ============================================================
-// 🌐 Función: Iniciar Servidor (HTTP/HTTPS según entorno)
+// 🌐 Función: Iniciar Servidor HTTP
 // ============================================================
 function startServer() {
-  const isProd = process.env.NODE_ENV === 'production';
-  const PORT = process.env.PORT || (isProd ? 443 : 3000);
+  const PORT = process.env.PORT || 3000;
   const HOST = process.env.HOST || '0.0.0.0';
 
-  if (isProd) {
-    try {
-      const options = {
-        key: fs.readFileSync('/etc/ssl/registraubb/server.key'),
-        cert: fs.readFileSync('/etc/ssl/registraubb/server.crt'),
-      };
-
-      https.createServer(options, app).listen(PORT, HOST, () => {
-        console.log('🔐 Certificados SSL cargados correctamente.');
-        console.log(`🚀 Servidor HTTPS corriendo en https://146.83.194.142:${PORT}`);
-      });
-    } catch (error) {
-      console.error('❌ Error al cargar certificados SSL:', error.message);
-      console.log('➡️ Iniciando servidor HTTP de respaldo...');
-      app.listen(PORT, HOST, () => {
-        console.log(`🚧 Servidor HTTP corriendo en http://${HOST}:${PORT}`);
-      });
-    }
-  } else {
-    app.listen(PORT, HOST, () => {
-      console.log(`🧪 Servidor de desarrollo corriendo en http://localhost:${PORT}`);
-    });
-  }
+  app.listen(PORT, HOST, () => {
+    console.log(`🚀 Servidor HTTP corriendo en http://${HOST}:${PORT}`);
+  });
 }
 
 // ============================================================
