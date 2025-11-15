@@ -23,14 +23,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-g-xo9*6zdqi0+39a!!*(kb$=$+d*bmt@grp1n4*b_h)#6z9c1q'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['146.83.194.142', 'localhost', '127.0.0.1']
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://146.83.194.142',
-    'https://146.83.194.142:1779',
-]
+# Remover configuraciones HTTPS
+# CSRF_TRUSTED_ORIGINS = [
+#     'https://146.83.194.142',
+#     'https://146.83.194.142:1779',
+# ]
 
 
 # Application definition
@@ -110,7 +111,7 @@ else:  # PRODUCCIÓN - Base de datos remota
         }
     }
     # URL del backend para producción
-    BACKEND_URL = "https://146.83.194.142:1776/api/"
+    BACKEND_URL = "http://146.83.194.142:1772/api/"
 
 
 # Password validation
@@ -187,29 +188,30 @@ ENABLE_BACKEND_SYNC = False
 # Solo aplicar configuraciones de seguridad en producción
 if not DEBUG:  # Cuando DEBUG=False (producción)
     
-    # Configuraciones HTTPS
-    # USAR SOLO HTTP
-    SECURE_SSL_REDIRECT = True  # Redirigir HTTP a HTTPS
-    SECURE_HSTS_SECONDS = 31536000  # 1 año de HSTS
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
+    # Configuraciones HTTP (sin SSL)
+    SECURE_SSL_REDIRECT = False
+    SECURE_HSTS_SECONDS = 0
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
     
-    # Cookies seguras
-    SESSION_COOKIE_SECURE = True  # Cookies de sesión solo por HTTPS
-    CSRF_COOKIE_SECURE = True    # Cookies CSRF solo por HTTPS
+    # Cookies no seguras para HTTP
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
 
-    # Headers adicionales de seguridad
+    # Headers de seguridad básicos
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_BROWSER_XSS_FILTER = True
     X_FRAME_OPTIONS = 'DENY'
 
-    # Proxy configuración
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    # Sin configuración de proxy SSL
+    # SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
     USE_TZ = True
 
-    # Hosts permitidos (reemplaza con tu dominio real)
+    # Hosts permitidos
     ALLOWED_HOSTS = [ 
         '146.83.194.142',
+        'localhost',
+        '127.0.0.1',
     ]
     
     # Configuración mejorada de WhiteNoise para producción
