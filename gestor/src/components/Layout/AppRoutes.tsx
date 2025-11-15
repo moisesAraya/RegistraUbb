@@ -17,6 +17,7 @@ import TotemManagement from '../Admin/TotemManagement';
 import AdminDashboard from '../Dashboard/AdminDashboard';
 import ProfilePage from '../Profile/ProfilePage';
 import HelpPage from '../Help/HelpPage';
+import AttendanceCalendar from '../Dashboard/Calendar';
 
 const AppRoutes: React.FC = () => {
   const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
@@ -87,6 +88,11 @@ const AppRoutes: React.FC = () => {
               
               <Route path="/attendance" element={
                 <AttendanceList records={[]} />
+              } />
+
+              {/* 📅 Nueva ruta del Calendario */}
+              <Route path="/calendar" element={
+                <AttendanceCalendar />
               } />
               
               <Route path="/reports" element={

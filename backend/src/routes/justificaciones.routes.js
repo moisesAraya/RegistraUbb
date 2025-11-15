@@ -1,41 +1,37 @@
 "use strict";
 
 import express from 'express';
+import { authorizationMiddleware } from '../middlewares/autorization.middleware.js';
 import {
     crearJustificacionController,
     getJustificacionesController,
-    getDetalleJustificacionController,
-    actualizarJustificacionController,
-    cancelarJustificacionController,
-    getMotivosController
+    getMotivosController,
+    eliminarJustificacionController
 } from '../controllers/justificaciones.controller.js';
-import { authenticateToken } from '../middlewares/authentication.middleware.js';
 
 const router = express.Router();
 
-console.log('📋 [JUSTIFICACIONES-ROUTES] Configurando rutas de justificaciones...');
+console.log('📋 [JUSTIFICACIONES-ROUTES] Inicializando rutas...');
 
-// ✅ TODAS LAS RUTAS REQUIEREN AUTENTICACIÓN
-router.use(authenticateToken);
+// Aplicar middleware de autenticación
+router.use(authorizationMiddleware);
 
-// ✅ RUTAS DE JUSTIFICACIONES
-router.post('/', crearJustificacionController);
-router.get('/', getJustificacionesController);
+// 🏷️ Obtener motivos disponibles
 router.get('/motivos', getMotivosController);
-router.get('/:id', getDetalleJustificacionController);
-router.put('/:id', actualizarJustificacionController);
-router.delete('/:id', cancelarJustificacionController);
 
-// ✅ RUTA DE PRUEBA
-router.get('/test', (req, res) => {
-    console.log('📋 [JUSTIFICACIONES-ROUTES] Test OK');
-    res.json({
-        success: true,
-        message: 'Justificaciones API funcionando',
-        user: req.user?.rut_usuario || 'no-auth',
-        timestamp: new Date().toISOString()
-    });
-});
+// 📋 Obtener justificaciones del usuario
+router.get('/', getJustificacionesController);
+
+// ✅ Crear nueva justificación
+router.post('/', crearJustificacionController);
+
+// 🗑️ Eliminar justificación
+router.delete('/:id', eliminarJustificacionController);
+
+console.log('✅ [JUSTIFICACIONES-ROUTES] Rutas configuradas:');
+console.log('   🏷️ GET /justificaciones/motivos');
+console.log('   📋 GET /justificaciones');
+console.log('   ✅ POST /justificaciones');
+console.log('   🗑️ DELETE /justificaciones/:id');
 
 export default router;
-console.log('📋 [JUSTIFICACIONES-ROUTES] ✅ Rutas de justificaciones configuradas');

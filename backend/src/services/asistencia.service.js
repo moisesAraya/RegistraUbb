@@ -4,13 +4,11 @@ import { Op } from 'sequelize';
 import Usuario from '../entities/usuario.entity.js';
 import Marcaje from '../entities/marcaje.entity.js';
 import RegistroMarcaje from '../entities/registro_marcaje.entity.js';
-import Asistencia from '../entities/asistencia.entity.js';
-import Justificacion from '../entities/justificacion.entity.js';
 
 console.log('🎯 [ASISTENCIA-SERVICE] ✅ SERVICE CARGADO ✅');
 
 /**
- * 📅 SERVICIO - OBTENER ASISTENCIA DEL USUARIO CON DATOS MEJORADOS
+ * 📅 SERVICIO - OBTENER ASISTENCIA DEL USUARIO (CORREGIDO)
  */
 export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio = null) {
     try {
@@ -30,16 +28,25 @@ export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio =
 
         // Buscar registros de marcaje del usuario
         const registrosMarcaje = await RegistroMarcaje.findAll({
-            where: { rut_usuario: rutUsuario }
+            where: { rut_usuario: rutUsuario },
+            include: [{
+                model: Marcaje,
+                as: 'marcaje',
+                where: {
+                    fecha: {
+                        [Op.between]: [
+                            startDate.toISOString().split('T')[0],
+                            endDate.toISOString().split('T')[0]
+                        ]
+                    }
+                },
+                required: true
+            }],
+            order: [[{ model: Marcaje, as: 'marcaje' }, 'fecha', 'DESC']]
         });
 
         if (registrosMarcaje.length === 0) {
-            console.log('⚠️ [ASISTENCIA-SERVICE] No hay registros de marcaje para:', rutUsuario);
-            
-            // Generar datos de ejemplo para Tatiana si no hay registros
-            if (rutUsuario === '13308258-1') {
-                return generarDatosEjemploTatiana(targetMes, targetAnio, startDate, endDate);
-            }
+            console.log('⚠️ [ASISTENCIA-SERVICE] No hay registros de marcaje');
             
             return {
                 asistencias: [],
@@ -47,8 +54,7 @@ export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio =
                     diasTrabajados: 0,
                     horasTotales: 0,
                     horasPromedio: 0,
-                    ausentismos: 0,
-                    llegadasTarde: 0
+                    faltas: 0
                 },
                 periodo: {
                     mes: targetMes,
@@ -59,86 +65,138 @@ export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio =
             };
         }
 
-        // Buscar marcajes correspondientes
-        const marcajeIds = registrosMarcaje.map(r => r.id_marcaje);
-        const marcajes = await Marcaje.findAll({
-            where: {
-                id_marcaje: { [Op.in]: marcajeIds },
-                fecha: {
-                    [Op.between]: [
-                        startDate.toISOString().split('T')[0],
-                        endDate.toISOString().split('T')[0]
-                    ]
-                }
-            },
-            order: [['fecha', 'DESC']]
+        // ✅ AGRUPAR MARCAJES POR FECHA (múltiples registros del mismo día)
+        const marcajesPorDia = {};
+        
+        registrosMarcaje.forEach(registro => {
+            const marcaje = registro.marcaje;
+            const fecha = marcaje.fecha;
+            
+            if (!marcajesPorDia[fecha]) {
+                marcajesPorDia[fecha] = {
+                    fecha: fecha,
+                    registros: [],
+                    observaciones: []
+                };
+            }
+            
+            // Agregar hora de ingreso si existe
+            if (marcaje.hora_ingreso) {
+                marcajesPorDia[fecha].registros.push({
+                    tipo: 'ingreso',
+                    hora: marcaje.hora_ingreso
+                });
+            }
+            
+            // Agregar hora de salida si existe
+            if (marcaje.hora_salida) {
+                marcajesPorDia[fecha].registros.push({
+                    tipo: 'salida',
+                    hora: marcaje.hora_salida
+                });
+            }
+            
+            if (marcaje.observacion) {
+                marcajesPorDia[fecha].observaciones.push(marcaje.observacion);
+            }
         });
 
-        console.log('📅 [ASISTENCIA-SERVICE] Marcajes encontrados:', marcajes.length);
+        console.log('📅 [ASISTENCIA-SERVICE] Días con marcajes:', Object.keys(marcajesPorDia).length);
 
-        // Procesar asistencias
-        const asistencias = marcajes.map(marcaje => {
-            const registro = registrosMarcaje.find(r => r.id_marcaje === marcaje.id_marcaje);
+        // ✅ PROCESAR CADA DÍA Y CALCULAR HORAS TRABAJADAS
+        const asistencias = Object.values(marcajesPorDia).map(dia => {
+            // Ordenar registros por hora
+            dia.registros.sort((a, b) => {
+                const horaA = a.hora.split(':').map(Number);
+                const horaB = b.hora.split(':').map(Number);
+                return (horaA[0] * 60 + horaA[1]) - (horaB[0] * 60 + horaB[1]);
+            });
+
+            // Separar entradas y salidas
+            const entradas = dia.registros.filter(r => r.tipo === 'ingreso');
+            const salidas = dia.registros.filter(r => r.tipo === 'salida');
+
+            // Primera entrada del día
+            const primeraEntrada = entradas.length > 0 ? entradas[0].hora : null;
             
-            // Calcular horas trabajadas
-            // Calcular horas trabajadas
+            // Última salida del día
+            const ultimaSalida = salidas.length > 0 ? salidas[salidas.length - 1].hora : null;
+
+            // ✅ CALCULAR HORAS TRABAJADAS CORRECTAMENTE
             let horasTrabajadas = 0;
 
-            if (marcaje.hora_ingreso && marcaje.hora_salida) {
-                const ingresoDate = new Date(marcaje.hora_ingreso);
-                const salidaDate = new Date(marcaje.hora_salida);
-
-                const minutosIngreso = ingresoDate.getHours() * 60 + ingresoDate.getMinutes();
-                let minutosSalida = salidaDate.getHours() * 60 + salidaDate.getMinutes();
-
-                // Caso en que la salida pasa después de medianoche
-                if (minutosSalida < minutosIngreso) {
-                    minutosSalida += 24 * 60;
+            if (entradas.length > 0 && salidas.length > 0) {
+                // Emparejar entradas con salidas
+                const pares = Math.min(entradas.length, salidas.length);
+                
+                for (let i = 0; i < pares; i++) {
+                    const entrada = entradas[i].hora;
+                    const salida = salidas[i].hora;
+                    
+                    const [hE, mE] = entrada.split(':').map(Number);
+                    const [hS, mS] = salida.split(':').map(Number);
+                    
+                    const minutosEntrada = hE * 60 + mE;
+                    const minutosSalida = hS * 60 + mS;
+                    
+                    // Calcular diferencia en minutos
+                    let diff = minutosSalida - minutosEntrada;
+                    
+                    // Si la salida es antes que la entrada, asumimos que cruzó medianoche
+                    if (diff < 0) {
+                        diff += 24 * 60;
+                    }
+                    
+                    horasTrabajadas += diff / 60;
                 }
-
-                horasTrabajadas = (minutosSalida - minutosIngreso) / 60;
-
-                // Límite entre 0 y 14 horas
-                horasTrabajadas = Math.max(0, Math.min(14, horasTrabajadas));
+            } else if (entradas.length > 0 && !ultimaSalida) {
+                // Solo entrada, sin salida - considerar 0 horas
+                horasTrabajadas = 0;
             }
+
+            // Limitar horas trabajadas a un rango razonable (0-14 horas)
+            horasTrabajadas = Math.max(0, Math.min(14, horasTrabajadas));
 
             // Determinar estado
             let estado = 'presente';
-            if (!marcaje.hora_ingreso) {
-                estado = 'ausente';
-            } else if (marcaje.hora_ingreso > '09:00:00') {
-                estado = 'tarde';
+            if (entradas.length === 0) {
+                estado = 'falta';
             }
 
             return {
-                id: marcaje.id_marcaje,
-                fecha: marcaje.fecha,
-                horaIngreso: marcaje.hora_ingreso,
-                horaSalida: marcaje.hora_salida,
+                fecha: dia.fecha,
+                horaIngreso: primeraEntrada,
+                horaSalida: ultimaSalida,
                 horasTrabajadas: Math.round(horasTrabajadas * 100) / 100,
                 estado: estado,
-                observacion: marcaje.observacion,
-                tipoMarcaje: registro?.tipo_marcaje || 'qr',
-                ubicacion: registro?.ubicacion || 'Campus'
+                observacion: dia.observaciones.length > 0 ? dia.observaciones.join(' | ') : null,
+                tipoMarcaje: 'qr',
+                ubicacion: 'Campus',
+                detalleRegistros: {
+                    totalEntradas: entradas.length,
+                    totalSalidas: salidas.length,
+                    registros: dia.registros
+                }
             };
         });
 
-        // Calcular resumen
-        const diasTrabajados = asistencias.filter(a => a.estado !== 'ausente').length;
+        // Ordenar por fecha descendente
+        asistencias.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+
+        // ✅ CALCULAR RESUMEN CORRECTO
+        const diasTrabajados = asistencias.filter(a => a.estado === 'presente' && a.horasTrabajadas > 0).length;
         const horasTotales = asistencias.reduce((sum, a) => sum + a.horasTrabajadas, 0);
         const horasPromedio = diasTrabajados > 0 ? horasTotales / diasTrabajados : 0;
-        const ausentismos = asistencias.filter(a => a.estado === 'ausente').length;
-        const llegadasTarde = asistencias.filter(a => a.estado === 'tarde').length;
+        const faltas = asistencias.filter(a => a.estado === 'falta').length;
 
         const resumen = {
             diasTrabajados,
             horasTotales: Math.round(horasTotales * 100) / 100,
             horasPromedio: Math.round(horasPromedio * 100) / 100,
-            ausentismos,
-            llegadasTarde
+            faltas
         };
 
-        console.log('✅ [ASISTENCIA-SERVICE] Procesadas:', asistencias.length, 'asistencias');
+        console.log('✅ [ASISTENCIA-SERVICE] Resumen:', resumen);
 
         return {
             asistencias,
@@ -156,80 +214,10 @@ export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio =
         throw new Error(`Error obteniendo asistencia: ${error.message}`);
     }
 }
-
 /**
- * 🎭 GENERAR DATOS DE EJEMPLO PARA TATIANA
+ * 📊 SERVICIO - OBTENER ESTADÍSTICAS DE ASISTENCIA (CORREGIDO)
  */
-function generarDatosEjemploTatiana(mes, anio, startDate, endDate) {
-    console.log('🎭 [EJEMPLO] Generando datos de ejemplo para Tatiana...');
-    
-    const asistencias = [];
-    const diasDelMes = endDate.getDate();
-    
-    for (let dia = 1; dia <= Math.min(diasDelMes, 20); dia++) {
-        const fecha = new Date(anio, mes - 1, dia);
-        const diaSemana = fecha.getDay();
-        
-        // Solo días laborables (lunes a viernes)
-        if (diaSemana >= 1 && diaSemana <= 5) {
-            const horaIngreso = `0${8 + Math.floor(Math.random() * 2)}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')}:00`;
-            const horaSalida = `1${7 + Math.floor(Math.random() * 2)}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')}:00`;
-            
-            const [horaIng, minIng] = horaIngreso.split(':').map(Number);
-            const [horaSal, minSal] = horaSalida.split(':').map(Number);
-            const minutosIngreso = horaIng * 60 + minIng;
-            const minutosSalida = horaSal * 60 + minSal;
-            const horasTrabajadas = (minutosSalida - minutosIngreso) / 60;
-            
-            let estado = 'presente';
-            if (horaIngreso > '09:00:00') estado = 'tarde';
-            
-            asistencias.push({
-                id: `ejemplo-${dia}`,
-                fecha: fecha.toISOString().split('T')[0],
-                horaIngreso,
-                horaSalida,
-                horasTrabajadas: Math.round(horasTrabajadas * 100) / 100,
-                estado,
-                observacion: 'Registro automático',
-                tipoMarcaje: 'qr',
-                ubicacion: 'Campus Central'
-            });
-        }
-    }
-    
-    // Calcular resumen
-    const diasTrabajados = asistencias.length;
-    const horasTotales = asistencias.reduce((sum, a) => sum + a.horasTrabajadas, 0);
-    const horasPromedio = diasTrabajados > 0 ? horasTotales / diasTrabajados : 0;
-    const llegadasTarde = asistencias.filter(a => a.estado === 'tarde').length;
-    
-    const resumen = {
-        diasTrabajados,
-        horasTotales: Math.round(horasTotales * 100) / 100,
-        horasPromedio: Math.round(horasPromedio * 100) / 100,
-        ausentismos: 0,
-        llegadasTarde
-    };
-    
-    console.log('🎭 [EJEMPLO] Generadas:', asistencias.length, 'asistencias de ejemplo');
-    
-    return {
-        asistencias: asistencias.reverse(), // Más recientes primero
-        resumen,
-        periodo: {
-            mes,
-            anio,
-            fechaInicio: startDate.toISOString().split('T')[0],
-            fechaFin: endDate.toISOString().split('T')[0]
-        }
-    };
-}
-
-/**
- * 📊 SERVICIO - OBTENER ESTADÍSTICAS DE ASISTENCIA MEJORADAS
- */
-export async function getEstadisticasAsistenciaService(rutUsuario) {
+export async function getEstadisticasAsistenciaService(rutUsuario, mes = null, anio = null) {
     try {
         console.log('📊 [ESTADISTICAS-SERVICE] === OBTENIENDO ESTADÍSTICAS ===');
         console.log('📊 [ESTADISTICAS-SERVICE] Usuario:', rutUsuario);
@@ -243,25 +231,39 @@ export async function getEstadisticasAsistenciaService(rutUsuario) {
             throw new Error('Usuario no encontrado');
         }
 
-        const horasObjetivo = usuario.horas_atrabajar || 8.5;
+        // ✅ HORAS OBJETIVO: 44 horas semanales
+        const horasObjetivoSemanal = 44;
+        const horasObjetivoDiario = 8; // Promedio esperado por día
 
-        // Si es Tatiana y no hay datos reales, generar ejemplo
-        if (rutUsuario === '13308258-1') {
-            return generarEstadisticasEjemploTatiana(horasObjetivo);
-        }
+        // Calcular rango de fechas (mes actual o especificado)
+        const now = new Date();
+        const targetAnio = anio ? parseInt(anio) : now.getFullYear();
+        const targetMes = mes ? parseInt(mes) : now.getMonth() + 1;
+        
+        const startDate = new Date(targetAnio, targetMes - 1, 1);
+        const endDate = new Date(targetAnio, targetMes, 0);
 
-        // Calcular estadísticas de los últimos 30 días
-        const fechaLimite = new Date();
-        fechaLimite.setDate(fechaLimite.getDate() - 30);
-
-        // Buscar registros recientes
+        // Buscar registros del mes
         const registrosMarcaje = await RegistroMarcaje.findAll({
-            where: { rut_usuario: rutUsuario }
+            where: { rut_usuario: rutUsuario },
+            include: [{
+                model: Marcaje,
+                as: 'marcaje',
+                where: {
+                    fecha: {
+                        [Op.between]: [
+                            startDate.toISOString().split('T')[0],
+                            endDate.toISOString().split('T')[0]
+                        ]
+                    }
+                },
+                required: true
+            }]
         });
 
         if (registrosMarcaje.length === 0) {
             return {
-                horasObjetivo,
+                horasObjetivo: horasObjetivoDiario,
                 horasReales: 0,
                 porcentajeCumplimiento: 0,
                 tendenciaSemanal: [],
@@ -270,97 +272,131 @@ export async function getEstadisticasAsistenciaService(rutUsuario) {
             };
         }
 
-        // Buscar marcajes recientes
-        const marcajeIds = registrosMarcaje.map(r => r.id_marcaje);
-        const marcajes = await Marcaje.findAll({
-            where: {
-                id_marcaje: { [Op.in]: marcajeIds },
-                fecha: { [Op.gte]: fechaLimite.toISOString().split('T')[0] }
-            },
-            order: [['fecha', 'DESC']]
+        // ✅ AGRUPAR POR DÍA (igual que en getAsistenciaUsuarioService)
+        const marcajesPorDia = {};
+        
+        registrosMarcaje.forEach(registro => {
+            const marcaje = registro.marcaje;
+            const fecha = marcaje.fecha;
+            
+            if (!marcajesPorDia[fecha]) {
+                marcajesPorDia[fecha] = {
+                    fecha: fecha,
+                    registros: [],
+                    observaciones: []
+                };
+            }
+            
+            if (marcaje.hora_ingreso) {
+                marcajesPorDia[fecha].registros.push({
+                    tipo: 'ingreso',
+                    hora: marcaje.hora_ingreso
+                });
+            }
+            
+            if (marcaje.hora_salida) {
+                marcajesPorDia[fecha].registros.push({
+                    tipo: 'salida',
+                    hora: marcaje.hora_salida
+                });
+            }
         });
 
-        // Calcular horas trabajadas
-        const horasReales = marcajes.reduce((total, marcaje) => {
-            if (marcaje.hora_ingreso && marcaje.hora_salida) {
-
-                const ingresoDate = new Date(marcaje.hora_ingreso);
-                const salidaDate = new Date(marcaje.hora_salida);
-
-                const minutosIngreso = ingresoDate.getHours() * 60 + ingresoDate.getMinutes();
-                let minutosSalida = salidaDate.getHours() * 60 + salidaDate.getMinutes();
-
-                // Caso en que sale después de medianoche
-                if (minutosSalida < minutosIngreso) {
-                    minutosSalida += 24 * 60;
-                }
-
-                const horas = (minutosSalida - minutosIngreso) / 60;
-
-                return total + Math.max(0, Math.min(14, horas));
-            }
-
-            return total;
-        }, 0);
-
-        const diasTrabajados = marcajes.length;
-        const horasEsperadas = diasTrabajados * horasObjetivo;
-        const porcentajeCumplimiento =
-            horasEsperadas > 0 ? (horasReales / horasEsperadas) * 100 : 0;
-
-        // Tendencia semanal (últimas 4 semanas)
-        const tendenciaSemanal = [];
-        for (let i = 3; i >= 0; i--) {
-            const inicioSemana = new Date();
-            inicioSemana.setDate(inicioSemana.getDate() - (i * 7 + 7));
-            const finSemana = new Date();
-            finSemana.setDate(finSemana.getDate() - (i * 7));
-
-            const marcajesSemana = marcajes.filter(m => {
-                const fechaMarcaje = new Date(m.fecha);
-                return fechaMarcaje >= inicioSemana && fechaMarcaje < finSemana;
+        // ✅ CALCULAR HORAS POR DÍA
+        const diasConHoras = Object.values(marcajesPorDia).map(dia => {
+            dia.registros.sort((a, b) => {
+                const horaA = a.hora.split(':').map(Number);
+                const horaB = b.hora.split(':').map(Number);
+                return (horaA[0] * 60 + horaA[1]) - (horaB[0] * 60 + horaB[1]);
             });
 
-            const horasSemana = marcajesSemana.reduce((total, m) => {
-                if (m.hora_ingreso && m.hora_salida) {
-                    const [horaIng, minIng] = m.hora_ingreso.split(':').map(Number);
-                    const [horaSal, minSal] = m.hora_salida.split(':').map(Number);
-                    const minutosIngreso = horaIng * 60 + minIng;
-                    let minutosSalida = horaSal * 60 + minSal;
-                    if (minutosSalida < minutosIngreso) minutosSalida += 24 * 60;
-                    const horas = (minutosSalida - minutosIngreso) / 60;
-                    return total + Math.max(0, Math.min(14, horas));
+            const entradas = dia.registros.filter(r => r.tipo === 'ingreso');
+            const salidas = dia.registros.filter(r => r.tipo === 'salida');
+
+            let horasTrabajadas = 0;
+
+            if (entradas.length > 0 && salidas.length > 0) {
+                const pares = Math.min(entradas.length, salidas.length);
+                
+                for (let i = 0; i < pares; i++) {
+                    const entrada = entradas[i].hora;
+                    const salida = salidas[i].hora;
+                    
+                    const [hE, mE] = entrada.split(':').map(Number);
+                    const [hS, mS] = salida.split(':').map(Number);
+                    
+                    const minutosEntrada = hE * 60 + mE;
+                    const minutosSalida = hS * 60 + mS;
+                    
+                    let diff = minutosSalida - minutosEntrada;
+                    if (diff < 0) diff += 24 * 60;
+                    
+                    horasTrabajadas += diff / 60;
                 }
-                return total;
-            }, 0);
+            }
+
+            horasTrabajadas = Math.max(0, Math.min(14, horasTrabajadas));
+
+            return {
+                fecha: dia.fecha,
+                horas: Math.round(horasTrabajadas * 100) / 100,
+                horaIngreso: entradas.length > 0 ? entradas[0].hora : null
+            };
+        });
+
+        // ✅ CALCULAR HORAS TOTALES DEL MES
+        const horasReales = diasConHoras.reduce((sum, d) => sum + d.horas, 0);
+
+        // ✅ CALCULAR SEMANAS DEL MES PARA OBJETIVO
+        const diasDelMes = endDate.getDate();
+        const diasLaborables = Math.floor(diasDelMes / 7) * 5; // Aproximación de días laborables
+        const semanasCompletas = Math.floor(diasDelMes / 7);
+        const horasObjetivoMes = semanasCompletas * horasObjetivoSemanal;
+
+        // ✅ PORCENTAJE DE CUMPLIMIENTO CORRECTO
+        const porcentajeCumplimiento = horasObjetivoMes > 0 ? 
+            (horasReales / horasObjetivoMes) * 100 : 0;
+
+        // ✅ TENDENCIA SEMANAL (últimas 4 semanas)
+        const tendenciaSemanal = [];
+        const fechaActual = new Date();
+        
+        for (let i = 3; i >= 0; i--) {
+            const inicioSemana = new Date(fechaActual);
+            inicioSemana.setDate(inicioSemana.getDate() - (i * 7 + 7));
+            
+            const finSemana = new Date(fechaActual);
+            finSemana.setDate(finSemana.getDate() - (i * 7));
+
+            const diasSemana = diasConHoras.filter(d => {
+                const fechaDia = new Date(d.fecha);
+                return fechaDia >= inicioSemana && fechaDia < finSemana;
+            });
+
+            const horasSemana = diasSemana.reduce((sum, d) => sum + d.horas, 0);
 
             tendenciaSemanal.push({
                 semana: `Semana ${4 - i}`,
                 horas: Math.round(horasSemana * 100) / 100,
-                dias: marcajesSemana.length
+                dias: diasSemana.length
             });
         }
 
-        // Días más productivos
-        const diasConHoras = marcajes.map(m => {
-            let horas = 0;
-            if (m.hora_ingreso && m.hora_salida) {
-                const [horaIng, minIng] = m.hora_ingreso.split(':').map(Number);
-                const [horaSal, minSal] = m.hora_salida.split(':').map(Number);
-                const minutosIngreso = horaIng * 60 + minIng;
-                let minutosSalida = horaSal * 60 + minSal;
-                if (minutosSalida < minutosIngreso) minutosSalida += 24 * 60;
-                horas = (minutosSalida - minutosIngreso) / 60;
-                horas = Math.max(0, Math.min(14, horas));
-            }
-            return { fecha: m.fecha, horas, horaIngreso: m.hora_ingreso };
-        }).sort((a, b) => b.horas - a.horas).slice(0, 5);
+        // ✅ DÍAS MÁS PRODUCTIVOS
+        const diasMasProductivos = [...diasConHoras]
+            .sort((a, b) => b.horas - a.horas)
+            .slice(0, 5)
+            .map(d => ({
+                fecha: d.fecha,
+                horas: d.horas,
+                horaIngreso: d.horaIngreso || '00:00'
+            }));
 
-        // Promedio hora de ingreso
-        const horasIngreso = marcajes
-            .filter(m => m.hora_ingreso)
-            .map(m => {
-                const [hora, minuto] = m.hora_ingreso.split(':').map(Number);
+        // ✅ PROMEDIO HORA DE INGRESO
+        const horasIngreso = diasConHoras
+            .filter(d => d.horaIngreso)
+            .map(d => {
+                const [hora, minuto] = d.horaIngreso.split(':').map(Number);
                 return hora * 60 + minuto;
             });
 
@@ -371,14 +407,14 @@ export async function getEstadisticasAsistenciaService(rutUsuario) {
         const minutoPromedio = Math.floor(promedioMinutos % 60);
         const promedioHoraIngreso = `${horaPromedio.toString().padStart(2, '0')}:${minutoPromedio.toString().padStart(2, '0')}`;
 
-        console.log('✅ [ESTADISTICAS-SERVICE] Procesadas');
+        console.log('✅ [ESTADISTICAS-SERVICE] Procesadas correctamente');
 
         return {
-            horasObjetivo,
+            horasObjetivo: horasObjetivoDiario,
             horasReales: Math.round(horasReales * 100) / 100,
             porcentajeCumplimiento: Math.round(porcentajeCumplimiento * 100) / 100,
             tendenciaSemanal,
-            diasMasProductivos: diasConHoras,
+            diasMasProductivos,
             promedioHoraIngreso
         };
 
@@ -389,55 +425,20 @@ export async function getEstadisticasAsistenciaService(rutUsuario) {
 }
 
 /**
- * 🎭 GENERAR ESTADÍSTICAS DE EJEMPLO PARA TATIANA
- */
-function generarEstadisticasEjemploTatiana(horasObjetivo) {
-    console.log('🎭 [ESTADISTICAS-EJEMPLO] Generando para Tatiana...');
-    
-    const horasReales = 168.5;
-    const porcentajeCumplimiento = (horasReales / (horasObjetivo * 20)) * 100;
-    
-    const tendenciaSemanal = [
-        { semana: 'Semana 1', horas: 42.5, dias: 5 },
-        { semana: 'Semana 2', horas: 41.0, dias: 5 },
-        { semana: 'Semana 3', horas: 43.5, dias: 5 },
-        { semana: 'Semana 4', horas: 41.5, dias: 5 }
-    ];
-    
-    const diasMasProductivos = [
-        { fecha: '2025-10-15', horas: 9.5, horaIngreso: '08:00:00' },
-        { fecha: '2025-10-14', horas: 9.0, horaIngreso: '08:15:00' },
-        { fecha: '2025-10-11', horas: 8.8, horaIngreso: '08:30:00' },
-        { fecha: '2025-10-10', horas: 8.5, horaIngreso: '08:20:00' },
-        { fecha: '2025-10-09', horas: 8.3, horaIngreso: '08:45:00' }
-    ];
-    
-    return {
-        horasObjetivo,
-        horasReales,
-        porcentajeCumplimiento: Math.round(porcentajeCumplimiento * 100) / 100,
-        tendenciaSemanal,
-        diasMasProductivos,
-        promedioHoraIngreso: '08:22'
-    };
-}
-
-/**
  * 📝 SERVICIO - CREAR JUSTIFICACIÓN
  */
 export async function crearJustificacionService(rutUsuario, datosJustificacion) {
     try {
         console.log('📝 [JUSTIFICACION-SERVICE] === CREANDO ===');
-        console.log('📝 [JUSTIFICACION-SERVICE] Usuario:', rutUsuario);
 
         const { fecha, motivo, descripcion, tipo } = datosJustificacion;
 
-        // Validar datos
         if (!fecha || !motivo || !descripcion) {
             throw new Error('Fecha, motivo y descripción son requeridos');
         }
 
-        // Verificar si ya existe una justificación para esta fecha
+        const Justificacion = (await import('../entities/justificacion.entity.js')).default;
+
         const justificacionExistente = await Justificacion.findOne({
             where: {
                 rut_usuario: rutUsuario,
@@ -449,7 +450,6 @@ export async function crearJustificacionService(rutUsuario, datosJustificacion) 
             throw new Error('Ya existe una justificación para esta fecha');
         }
 
-        // Crear nueva justificación
         const nuevaJustificacion = await Justificacion.create({
             rut_usuario: rutUsuario,
             fecha: fecha,
@@ -481,7 +481,8 @@ export async function crearJustificacionService(rutUsuario, datosJustificacion) 
 export async function getJustificacionesUsuarioService(rutUsuario) {
     try {
         console.log('📋 [JUSTIFICACIONES-SERVICE] === OBTENIENDO ===');
-        console.log('📋 [JUSTIFICACIONES-SERVICE] Usuario:', rutUsuario);
+
+        const Justificacion = (await import('../entities/justificacion.entity.js')).default;
 
         const justificaciones = await Justificacion.findAll({
             where: { rut_usuario: rutUsuario },
@@ -490,7 +491,7 @@ export async function getJustificacionesUsuarioService(rutUsuario) {
 
         console.log('📋 [JUSTIFICACIONES-SERVICE] Encontradas:', justificaciones.length);
 
-        const justificacionesFormateadas = justificaciones.map(j => ({
+        return justificaciones.map(j => ({
             id: j.id_justificacion,
             fecha: j.fecha,
             motivo: j.motivo,
@@ -502,62 +503,9 @@ export async function getJustificacionesUsuarioService(rutUsuario) {
             comentarioAdmin: j.comentario_admin
         }));
 
-        return justificacionesFormateadas;
-
     } catch (error) {
         console.error('❌ [JUSTIFICACIONES-SERVICE] Error:', error);
         throw new Error(`Error obteniendo justificaciones: ${error.message}`);
     }
 }
 
-/**
- * 📝 SERVICIO - REGISTRAR MARCAJE MANUAL
- */
-export async function registrarMarcajeManualService(rutUsuario, datosMarcaje) {
-    try {
-        console.log('📝 [MARCAJE-MANUAL-SERVICE] === REGISTRANDO ===');
-        console.log('📝 [MARCAJE-MANUAL-SERVICE] Usuario:', rutUsuario);
-        console.log('📝 [MARCAJE-MANUAL-SERVICE] Datos:', datosMarcaje);
-
-        const { activityType, location, notes } = datosMarcaje;
-
-        if (!activityType) {
-            throw new Error('Tipo de actividad requerido');
-        }
-
-        const fechaActual = new Date().toISOString().split('T')[0];
-        const horaActual = new Date().toTimeString().split(' ')[0];
-
-        // Para Tatiana, simular el registro
-        if (rutUsuario === '13308258-1') {
-            console.log('🎭 [MARCAJE-MANUAL-SERVICE] Simulando marcaje para Tatiana...');
-            return {
-                id: `manual-${Date.now()}`,
-                fecha: fechaActual,
-                horaIngreso: horaActual,
-                horaSalida: null,
-                accion: 'ingreso',
-                tipo: activityType,
-                ubicacion: location || 'Campus Central',
-                observacion: notes || 'Marcaje manual'
-            };
-        }
-
-        // Lógica real para otros usuarios
-        // [Implementar según sea necesario]
-
-        return {
-            id: `marcaje-${Date.now()}`,
-            fecha: fechaActual,
-            hora: horaActual,
-            tipo: activityType,
-            ubicacion: location
-        };
-
-    } catch (error) {
-        console.error('❌ [MARCAJE-MANUAL-SERVICE] Error:', error);
-        throw new Error(`Error registrando marcaje manual: ${error.message}`);
-    }
-}
-
-console.log('🎯 [ASISTENCIA-SERVICE] ✅ TODOS LOS SERVICES LISTOS CON EJEMPLOS ✅');

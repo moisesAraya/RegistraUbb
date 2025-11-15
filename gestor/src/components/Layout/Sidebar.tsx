@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Context/AuthContext';
 import { useDashboard } from '../../hooks/useDashboard';
 import {
@@ -13,7 +13,8 @@ import {
   Award,
   BarChart3,
   Shield,
-  CreditCard
+  CreditCard,
+  Calendar
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -43,6 +44,35 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [fotoPerfilUrl, setFotoPerfilUrl] = useState<string | null>(null);
+
+  // ✅ OBTENER FOTO DE PERFIL DESDE MINIO
+  useEffect(() => {
+    if (!user?.rut_usuario) return;
+
+    const fetchFotoPerfil = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/minio/foto-perfil-url/${user.rut_usuario}`,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+        const json = await res.json();
+        if (json.success && json.foto_url) {
+          setFotoPerfilUrl(json.foto_url);
+        } else {
+          setFotoPerfilUrl(null);
+        }
+      } catch (error) {
+        console.error('Error cargando foto de perfil:', error);
+        setFotoPerfilUrl(null);
+      }
+    };
+
+    fetchFotoPerfil();
+  }, [user?.rut_usuario]);
 
   const getRoleName = (id_rol: number): string => {
     const roles: { [key: number]: string } = {
@@ -77,7 +107,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     return roleInfo[id_rol] || roleInfo[3];
   };
 
-  // Menú base solo para académicos y usuarios regulares
   const getBaseMenuItems = (userRole: string): MenuItem[] => {
     if (userRole === 'admin') {
       return [
@@ -108,7 +137,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     ];
   };
 
-  // Menús específicos por rol
   const roleSpecificItems: { [key: string]: MenuItem[] } = {
     admin: [
       {
@@ -139,6 +167,11 @@ const Sidebar: React.FC<SidebarProps> = ({
         icon: <Clock className="h-5 w-5" />,
       },
       {
+        id: 'calendar',
+        label: 'Calendario',
+        icon: <Calendar className="h-5 w-5" />,
+      },
+      {
         id: 'my-reports',
         label: 'Mis Reportes',
         icon: <BarChart3 className="h-5 w-5" />,
@@ -156,6 +189,11 @@ const Sidebar: React.FC<SidebarProps> = ({
         icon: <Clock className="h-5 w-5" />,
       },
       {
+        id: 'calendar',
+        label: 'Calendario',
+        icon: <Calendar className="h-5 w-5" />,
+      },
+      {
         id: 'justifications',
         label: 'Justificaciones',
         icon: <FileText className="h-5 w-5" />,
@@ -165,10 +203,8 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const getMenuItems = (): MenuItem[] => {
     if (!user) return getBaseMenuItems('usuario');
-
     const userRole = getRoleName(user.id_rol);
     const roleItems = roleSpecificItems[userRole] || [];
-    
     return [...getBaseMenuItems(userRole), ...roleItems];
   };
 
@@ -180,12 +216,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  // ✅ Actualizar tab activo basado en la ruta
   React.useEffect(() => {
     const path = location.pathname;
     if (path === '/dashboard') onTabChange('dashboard');
     else if (path === '/qr') onTabChange('my-qr-code');
     else if (path === '/attendance') onTabChange('attendance');
+    else if (path === '/calendar') onTabChange('calendar');
     else if (path === '/reports') onTabChange('reports');
     else if (path === '/users') onTabChange('users');
     else if (path === '/justifications') onTabChange('justifications');
@@ -194,12 +230,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     else if (path === '/totems') onTabChange('totems');
   }, [location.pathname, onTabChange]);
 
-  // ✅ Función para manejar navegación
   const handleTabClick = (tabId: string) => {
     onTabChange(tabId);
     onClose();
     
-    // Navegar a la ruta correspondiente
     switch (tabId) {
       case 'dashboard':
         navigate('/dashboard');
@@ -209,6 +243,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         break;
       case 'attendance':
         navigate('/attendance');
+        break;
+      case 'calendar':
+        navigate('/calendar');
         break;
       case 'reports':
       case 'my-reports':
@@ -239,8 +276,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   const nombreCompleto = user ? `${user.nombres || ''} ${user.apellidos || ''}`.trim() : '';
   const initials = user ? `${user.nombres?.charAt(0) || ''}${user.apellidos?.charAt(0) || ''}`.toUpperCase() : 'U';
 
-  if (!user) return null;
+  // ✅ DATOS REALES DEL DASHBOARD
+  const attendanceRate = dashboardData?.personal_basic_stats?.attendance_rate || 0;
+  const weekHours = dashboardData?.personal_basic_stats?.week_hours || 0;
 
+  if (!user) return null;
   return (
     <>
       {/* Overlay para móviles */}
@@ -251,7 +291,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
       
-      {/* Sidebar - ✅ ARREGLADO CON FLEX COLUMN */}
+      {/* Sidebar */}
       <aside className={`
         fixed top-0 left-0 z-50 h-full w-80 bg-white border-r border-slate-200 shadow-xl transform transition-all duration-300 ease-in-out
         lg:translate-x-0 lg:static lg:z-auto
@@ -259,15 +299,24 @@ const Sidebar: React.FC<SidebarProps> = ({
         flex flex-col
       `}>
         
-        {/* Header del sidebar - Solo info del usuario */}
+        {/* Header del sidebar - Info del usuario con foto */}
         <div className="bg-gradient-to-br from-slate-50 to-slate-100 border-b border-slate-200 p-6 mt-16 lg:mt-0 flex-shrink-0">
-          {/* User info */}
           <div className="flex items-center space-x-4">
-            <div className={`w-14 h-14 bg-gradient-to-r ${roleInfo.color} rounded-xl flex items-center justify-center text-white shadow-lg`}>
-              <div className="text-xl font-bold">
-                {initials}
+            {/* ✅ FOTO DE PERFIL DESDE MINIO */}
+            {fotoPerfilUrl ? (
+              <img
+                src={fotoPerfilUrl}
+                alt="Foto de perfil"
+                className="w-14 h-14 rounded-xl object-cover shadow-lg border-2 border-white"
+              />
+            ) : (
+              <div className={`w-14 h-14 bg-gradient-to-r ${roleInfo.color} rounded-xl flex items-center justify-center text-white shadow-lg`}>
+                <div className="text-xl font-bold">
+                  {initials}
+                </div>
               </div>
-            </div>
+            )}
+            
             <div className="flex-1 min-w-0">
               <p className="text-lg font-bold text-slate-900 truncate">
                 {nombreCompleto}
@@ -288,7 +337,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Navigation - ✅ FLEX-1 PARA OCUPAR ESPACIO DISPONIBLE */}
+        {/* Navigation */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
             <div className="mb-4">
@@ -359,18 +408,18 @@ const Sidebar: React.FC<SidebarProps> = ({
           </nav>
         </div>
 
-        {/* Footer con stats - ✅ FIJO EN LA PARTE INFERIOR */}
+        {/* ✅ FOOTER CON DATOS REALES DEL DASHBOARD */}
         <div className="px-4 py-4 border-t border-slate-200 bg-slate-50 flex-shrink-0">
           <div className="grid grid-cols-2 gap-3 text-center">
             <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-200">
               <div className="text-lg font-bold text-blue-600">
-                {dashboardData?.personal_basic_stats?.attendance_rate || 94}%
+                {Math.round(attendanceRate)}%
               </div>
               <div className="text-xs text-slate-500">Asistencia</div>
             </div>
             <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-200">
               <div className="text-lg font-bold text-green-600">
-                {dashboardData?.personal_basic_stats?.week_hours || 38}h
+                {Math.round(weekHours * 10) / 10}h
               </div>
               <div className="text-xs text-slate-500">Esta semana</div>
             </div>

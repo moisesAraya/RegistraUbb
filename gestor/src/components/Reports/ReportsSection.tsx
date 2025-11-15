@@ -735,17 +735,7 @@ export default function ReportsSection() {
                   </optgroup>
                 </select>
               </div>
-            ) : (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800 font-medium flex items-center">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Visualizando: <span className="font-bold ml-1">Mi reporte personal</span>
-                </p>
-                <p className="text-xs text-blue-600 mt-1">
-                  {user?.nombres} {user?.apellidos} ({user?.rut_usuario})
-                </p>
-              </div>
-            )}
+            ) : null}
           </div>
 
           {/* Botones de exportación */}

@@ -25,6 +25,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [showNotificaciones, setShowNotificaciones] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [fotoPerfilUrl, setFotoPerfilUrl] = useState<string | null>(null);
 
   // Obtener notificaciones reales del backend
   useEffect(() => {
@@ -66,6 +67,27 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
     };
     fetchLogo();
   }, []);
+
+  // Obtener foto de perfil desde el backend / MinIO (si está habilitado)
+  useEffect(() => {
+    if (import.meta.env.VITE_ENABLE_MINIO === 'true') {
+      const fetchFotoPerfil = async () => {
+        try {
+          const res = await fetch(
+            `${import.meta.env.VITE_API_URL}/profile/foto-perfil-url/${user.rut_usuario}`
+          );
+          const json = await res.json();
+          setFotoPerfilUrl(json.success && json.foto_url ? json.foto_url : null);
+        } catch {
+          setFotoPerfilUrl(null);
+        }
+      };
+
+      fetchFotoPerfil();
+    } else {
+      setFotoPerfilUrl(null);
+    }
+  }, [user.rut_usuario]);
 
   const getRoleLabel = (id_rol: number) => {
     const roles = {
@@ -118,7 +140,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
               ) : (
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-md">
                   <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
                   </svg>
                 </div>
               )}
@@ -152,12 +174,21 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
                     Notificaciones
                   </div>
                   {notificaciones.length === 0 && (
-                    <div className="px-4 py-4 text-slate-500 text-sm">No tienes notificaciones.</div>
+                    <div className="px-4 py-4 text-slate-500 text-sm">
+                      No tienes notificaciones.
+                    </div>
                   )}
                   {notificaciones.map((n) => (
-                    <div key={n.id} className={`px-4 py-2 text-sm border-b last:border-b-0 ${n.leida ? 'bg-white' : 'bg-blue-50'}`}>
+                    <div
+                      key={n.id}
+                      className={`px-4 py-2 text-sm border-b last:border-b-0 ${
+                        n.leida ? 'bg-white' : 'bg-blue-50'
+                      }`}
+                    >
                       <div className="font-medium">{n.mensaje}</div>
-                      <div className="text-xs text-slate-400">{new Date(n.fecha).toLocaleString()}</div>
+                      <div className="text-xs text-slate-400">
+                        {new Date(n.fecha).toLocaleString()}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -171,10 +202,12 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
                   {nombreCompleto}
                 </p>
                 <div className="flex items-center justify-end space-x-2">
-                  <span className={`
-                    inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border
-                    ${getRoleColor(user.id_rol)}
-                  `}>
+                  <span
+                    className={`
+                      inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border
+                      ${getRoleColor(user.id_rol)}
+                    `}
+                  >
                     {getRoleLabel(user.id_rol)}
                   </span>
                 </div>
@@ -185,17 +218,44 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                   className="flex items-center space-x-2 p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-200"
                 >
-                  <div className="w-8 h-8 bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-md">
-                    {getInitials(user.nombres, user.apellidos)}
-                  </div>
-                  <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                  {fotoPerfilUrl ? (
+                    <img
+                      src={fotoPerfilUrl}
+                      alt="Foto de perfil"
+                      className="w-8 h-8 rounded-lg object-cover shadow-md border border-slate-200"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-md">
+                      {getInitials(user.nombres, user.apellidos)}
+                    </div>
+                  )}
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform duration-200 ${
+                      isUserMenuOpen ? 'rotate-180' : ''
+                    }`}
+                  />
                 </button>
                 {/* Dropdown Menu */}
                 {isUserMenuOpen && (
                   <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-2xl border border-slate-200 py-2 z-50">
-                    <div className="px-4 py-3 border-b border-slate-100">
-                      <p className="text-sm font-semibold text-slate-900">{nombreCompleto}</p>
-                      <p className="text-xs text-slate-500">{user.email || user.rut_usuario}</p>
+                    <div className="px-4 py-3 border-b border-slate-100 flex items-center space-x-3">
+                      {fotoPerfilUrl ? (
+                        <img
+                          src={fotoPerfilUrl}
+                          alt="Foto de perfil"
+                          className="w-10 h-10 rounded-lg object-cover shadow-md border border-slate-200"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg flex items-center justify-center text-white text-lg font-bold shadow-md">
+                          {getInitials(user.nombres, user.apellidos)}
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{nombreCompleto}</p>
+                        <p className="text-xs text-slate-500">
+                          {user.email || user.rut_usuario}
+                        </p>
+                      </div>
                     </div>
                     <div className="py-1">
                       <Link to="/perfil">
@@ -218,7 +278,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
                       </Link>
                     </div>
                     <div className="border-t border-slate-100 py-1">
-                      <button 
+                      <button
                         onClick={() => {
                           setIsUserMenuOpen(false);
                           onLogout();
@@ -239,7 +299,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
               <div className="w-8 h-8 bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-md">
                 {getInitials(user.nombres, user.apellidos)}
               </div>
-              <button 
+              <button
                 onClick={onLogout}
                 className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-200"
               >
@@ -251,8 +311,8 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
       </div>
       {/* Click outside to close dropdown */}
       {(isUserMenuOpen || showNotificaciones) && (
-        <div 
-          className="fixed inset-0 z-40" 
+        <div
+          className="fixed inset-0 z-40"
           onClick={() => {
             setIsUserMenuOpen(false);
             setShowNotificaciones(false);

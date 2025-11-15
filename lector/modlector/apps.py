@@ -6,4 +6,5 @@ class ModlectorConfig(AppConfig):
     name = 'modlector'
 
     def ready(self):
-        import modlector.signals
+        #import modlector.signals
+        pass

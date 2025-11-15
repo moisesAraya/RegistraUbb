@@ -1,3 +1,23 @@
+// Endpoint para obtener la URL de la foto de perfil
+export async function getProfilePhotoUrlController(req, res) {
+  try {
+    const { rut_usuario } = req.params;
+    if (!rut_usuario) {
+      return res.status(400).json({ success: false, message: "Falta rut_usuario" });
+    }
+    const usuario = await Usuario.findOne({ where: { rut_usuario } });
+    if (!usuario) {
+      return res.status(404).json({ success: false, message: "Usuario no encontrado" });
+    }
+    return res.status(200).json({
+      success: true,
+      foto_url: usuario.foto_url || null
+    });
+  } catch (error) {
+    console.error("💥 Error en getProfilePhotoUrlController:", error);
+    res.status(500).json({ success: false, message: "Error interno del servidor" });
+  }
+}
 import multer from "multer";
 import { uploadProfileImage } from "../services/minio.service.js";
 import Usuario from "../entities/usuario.entity.js";

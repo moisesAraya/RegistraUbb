@@ -95,8 +95,11 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user }) => {
   // ✅ Función para hacer requests API (igual que en QRCodeManager)
 const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
   const token = localStorage.getItem('token');
-  const baseURL = import.meta.env.VITE_API_URL; // ✅ lee tu .env
-  const fullURL = `${baseURL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+  let baseURL = import.meta.env.VITE_API_URL;
+  // Elimina cualquier / final en baseURL y cualquier / inicial en endpoint
+  baseURL = baseURL.replace(/\/+$/, '');
+  endpoint = endpoint.replace(/^\/+/, '');
+  const fullURL = `${baseURL}/${endpoint}`;
 
   const config: RequestInit = {
     ...options,
@@ -128,7 +131,7 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
     try {
       console.log('🔍 Cargando QR activo desde la base de datos...');
       
-      const response = await makeApiRequest('/api/qr/my-qr-codes', {
+      const response = await makeApiRequest('/qr/my-qr-codes', {
         method: 'GET'
       });
 
@@ -392,24 +395,28 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
     }
   }, [realQRData, selectedTheme, user]);
 
-  // Cargar foto de perfil
+  // Cargar foto de perfil desde el nuevo endpoint
   useEffect(() => {
-    const fetchFotoPerfil = async () => {
-      try {
-        const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/minio/foto-perfil-url?rut=${user.rut_usuario}`
-        );
-        const json = await res.json();
-        if (json.success && json.url) {
-          setFotoPerfilUrl(json.url);
-        } else {
+    if (import.meta.env.VITE_ENABLE_MINIO === 'true') {
+      const fetchFotoPerfil = async () => {
+        try {
+          const res = await fetch(
+            `${import.meta.env.VITE_API_URL}/api/profile/foto-perfil-url/${user.rut_usuario}`
+          );
+          const json = await res.json();
+          if (json.success && json.foto_url) {
+            setFotoPerfilUrl(json.foto_url);
+          } else {
+            setFotoPerfilUrl(null);
+          }
+        } catch {
           setFotoPerfilUrl(null);
         }
-      } catch {
-        setFotoPerfilUrl(null);
-      }
-    };
-    fetchFotoPerfil();
+      };
+      fetchFotoPerfil();
+    } else {
+      setFotoPerfilUrl(null);
+    }
   }, [user.rut_usuario]);
 
   return (

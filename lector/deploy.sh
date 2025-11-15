@@ -1,42 +1,26 @@
 #!/bin/bash
-# filepath: c:\Users\andre\Documents\Universidad\PROYECTO DE TITULO\RegistraUBB\RegistraUbb\lector\deploy.sh
-echo "🚀 Desplegando Django con SSL en servidor..."
+# deploy.sh - Script de despliegue simple para servidor SSH
 
-# Ir al directorio del proyecto
-cd /root/RegistraUbb/lector
+echo "🚀 Desplegando Django en servidor..."
 
-# Activar entorno virtual
-source venv/bin/activate
+# Configurar variables de entorno
+export DJANGO_SETTINGS_MODULE=mysite.settings
 
-# Crear directorios necesarios
-echo "📁 Creando directorios necesarios..."
-sudo mkdir -p /var/log/django
-sudo chown $USER:$USER /var/log/django
-
-# Instalar/actualizar dependencias
+# Instalar dependencias
 echo "📦 Instalando dependencias..."
 pip install -r requirements.txt
 
-# Recolectar archivos estáticos
-echo "📁 Recolectando archivos estáticos..."
-python manage.py collectstatic --noinput
-
 # Ejecutar migraciones
 echo "🗃️ Ejecutando migraciones..."
-python manage.py migrate
+python manage.py migrate --settings=mysite.settings
 
-# Verificar configuración de Django
-echo "🔍 Verificando configuración..."
-python manage.py check --deploy
-
-# Reiniciar servicios
-echo "🔄 Reiniciando servicios..."
-sudo systemctl reload nginx
-sudo pkill -f gunicorn || true
+# Recolectar archivos estáticos
+echo "📁 Recolectando archivos estáticos..."
+python manage.py collectstatic --noinput --settings=mysite.settings
 
 echo "✅ Despliegue completado!"
 echo ""
-echo "Para iniciar Gunicorn ejecuta:"
-echo "bash start_gunicorn.sh"
+echo "Para iniciar el servidor ejecuta:"
+echo "gunicorn mysite.wsgi:application --bind 0.0.0.0:443 --workers 3 --env DJANGO_SETTINGS_MODULE=mysite.settings"
 echo ""
-echo "🔗 Tu aplicación estará en: https://146.83.194.142"
+echo "🔗 Tu aplicación estará en: http://146.83.194.142:1779"

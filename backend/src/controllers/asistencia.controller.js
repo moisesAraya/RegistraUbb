@@ -13,6 +13,10 @@ import {
   getDebugInfo 
 } from '../services/dashboard.service.js';
 
+import Marcaje from '../entities/marcaje.entity.js';
+import RegistroMarcaje from '../entities/registro_marcaje.entity.js';
+import Totem from '../entities/totem.entity.js';
+
 console.log('👤 [ASISTENCIA-CTRL] ✅ CONTROLLER CARGADO ✅');
 console.log('🚀 [DASHBOARD-CONTROLLER] Controller cargado y conectado con service real');
 
@@ -234,6 +238,53 @@ export async function marcar(req, res) {
         console.error('❌ [MARCAR] Error:', err);
         res.status(500).json({ ok: false, error: err.message });
     }
+}
+
+/**
+ * 🖊️ CONTROLLER - INGRESO MANUAL DE ASISTENCIA (sin confirmación)
+ */
+export async function createManualEntryController(req, res) {
+  try {
+    const rutUsuario = req.user?.rut_usuario;
+    const { fecha, hora_ingreso, hora_salida, observacion, id_totem } = req.body;
+
+    if (!rutUsuario) return res.status(400).json({ success: false, error: 'RUT de usuario requerido' });
+    if (!hora_ingreso) return res.status(400).json({ success: false, error: 'hora_ingreso es requerida' });
+
+    // Fecha por defecto: hoy
+    const fechaRegistro = fecha || new Date().toISOString().split('T')[0];
+
+    // Buscar o crear un totem para ingresos manuales si no se proporciona
+    let totemId = id_totem;
+    if (!totemId) {
+      const [totem, created] = await Totem.findOrCreate({
+        where: { ubicacion: 'INGRESO_MANUAL' },
+        defaults: { descripcion: 'Totem virtual para ingresos manuales' }
+      });
+      totemId = totem.id_totem;
+    }
+
+    // Crear marcaje
+    const nuevoMarcaje = await Marcaje.create({
+      hora_ingreso,
+      hora_salida: hora_salida || null,
+      fecha: fechaRegistro,
+      observacion: observacion || 'Ingreso manual'
+    });
+
+    // Crear registro de marcaje
+    await RegistroMarcaje.create({
+      rut_usuario: rutUsuario,
+      id_marcaje: nuevoMarcaje.id_marcaje,
+      id_totem: totemId,
+      fecha_registro: fechaRegistro
+    });
+
+    return res.status(201).json({ success: true, message: 'Ingreso manual registrado', data: { marcaje: nuevoMarcaje } });
+  } catch (error) {
+    console.error('❌ [MANUAL-ENTRY] Error:', error);
+    return res.status(500).json({ success: false, error: 'Error registrando ingreso manual', message: error.message });
+  }
 }
 
 /**

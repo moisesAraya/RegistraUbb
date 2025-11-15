@@ -10,16 +10,15 @@ interface ReportePersonal {
   resumen_basico: {
     horasTotales: number;
     diasTrabajados: number;
-    ausentismos: number;
+    faltas: number;
     promedioHorasDia: number;
   };
   asistencias_detalle: any[];
   justificaciones: any[];
   metricas_avanzadas: {
     promedio_horas_dia: number;
-    puntualidad: {
+      puntualidad: {
       llegadas_tempranas: number;
-      llegadas_tarde: number;
       puntualidad_score: number;
     };
     consistencia: {
@@ -49,13 +48,13 @@ interface ReportePersonal {
 
 interface ReporteComparativo {
   periodo_analizado: string;
-  reportes_mensuales: Array<{
+    reportes_mensuales: Array<{
     mes: number;
     anio: number;
     nombre_mes: string;
     horas_totales: number;
     dias_trabajados: number;
-    ausentismos: number;
+    faltas: number;
     justificaciones: number;
     porcentaje_asistencia: number;
   }>;

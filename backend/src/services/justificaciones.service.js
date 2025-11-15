@@ -1,95 +1,173 @@
 "use strict";
 
-import { Op } from 'sequelize';
 import Justificacion from '../entities/justificacion.entity.js';
-import Usuario from '../entities/usuario.entity.js';
+import { Op } from 'sequelize';
 
 /**
  * 📋 SERVICIO DE JUSTIFICACIONES
  */
 
-// ✅ CREAR NUEVA JUSTIFICACIÓN
+// ✅ OBTENER MOTIVOS DISPONIBLES
+export async function getMotivosJustificacion() {
+    console.log('📋 [JUSTIFICACIONES-SERVICE] Obteniendo motivos...');
+    
+    return [
+        { 
+            id: 'congreso', 
+            nombre: 'Congreso/Conferencia',
+            descripcion: 'Asistencia a congresos, seminarios o conferencias académicas',
+            es_justificada: true,
+            horas_compensadas: 8.0
+        },
+        { 
+            id: 'charla', 
+            nombre: 'Charla/Capacitación',
+            descripcion: 'Charlas, talleres o capacitaciones relacionadas con el trabajo',
+            es_justificada: true,
+            horas_compensadas: 8.0
+        },
+        { 
+            id: 'enfermedad', 
+            nombre: 'Enfermedad',
+            descripcion: 'Ausencia por motivos de salud',
+            es_justificada: true,
+            horas_compensadas: 8.0
+        },
+        { 
+            id: 'personal', 
+            nombre: 'Motivo Personal',
+            descripcion: 'Trámites o asuntos personales',
+            es_justificada: false,
+            horas_compensadas: 0
+        },
+        { 
+            id: 'otro', 
+            nombre: 'Otro',
+            descripcion: 'Otros motivos no especificados',
+            es_justificada: false,
+            horas_compensadas: 0
+        }
+    ];
+}
+
+// ✅ VALIDAR FECHA DE JUSTIFICACIÓN
+export function validarFechaJustificacion(fecha) {
+    const fechaJustificacion = new Date(fecha);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    
+    // No permitir fechas futuras
+    if (fechaJustificacion > hoy) {
+        throw new Error('No se pueden justificar fechas futuras');
+    }
+    
+    // Opcional: Limitar cuántos días atrás se puede justificar (ej: 30 días)
+    const hace30Dias = new Date();
+    hace30Dias.setDate(hace30Dias.getDate() - 30);
+    hace30Dias.setHours(0, 0, 0, 0);
+    
+    if (fechaJustificacion < hace30Dias) {
+        throw new Error('Solo se pueden justificar ausencias de los últimos 30 días');
+    }
+    
+    return true;
+}
+
+// ✅ CREAR JUSTIFICACIÓN
 export async function crearJustificacion(rut_usuario, datosJustificacion) {
-    console.log('📋 [JUSTIFICACIONES] Creando justificación:', { rut_usuario, datos: datosJustificacion });
+    console.log('📋 [JUSTIFICACIONES-SERVICE] Creando justificación:', { rut_usuario, datosJustificacion });
     
     try {
-        const nuevaJustificacion = await Justificacion.create({
-            ...datosJustificacion,
-            rut_usuario,
-            estado_aprobacion: 'aprobada', // ✅ AUTO-APROBADO: No requiere autorización admin
-            fecha_solicitud: new Date(),
-            documento_adjunto: datosJustificacion.documento_adjunto || null
+        // Obtener configuración del motivo
+        const motivos = await getMotivosJustificacion();
+        const motivoConfig = motivos.find(m => m.id === datosJustificacion.motivo);
+        
+        if (!motivoConfig) {
+            throw new Error('Motivo de justificación no válido');
+        }
+        
+        // Verificar si ya existe una justificación para esa fecha
+        const justificacionExistente = await Justificacion.findOne({
+            where: {
+                rut_usuario,
+                fecha_justificacion: datosJustificacion.fecha_justificacion
+            }
         });
-
-        console.log('✅ [JUSTIFICACIONES] Justificación creada:', nuevaJustificacion.id_justificacion);
+        
+        if (justificacionExistente) {
+            throw new Error('Ya existe una justificación para esta fecha');
+        }
+        
+        // Crear justificación con datos calculados
+        const nuevaJustificacion = await Justificacion.create({
+            rut_usuario,
+            fecha_justificacion: datosJustificacion.fecha_justificacion,
+            motivo: datosJustificacion.motivo,
+            descripcion: datosJustificacion.descripcion || '',
+            es_justificada: motivoConfig.es_justificada,
+            horas_compensadas: motivoConfig.horas_compensadas,
+            estado: 'REGISTRADA',
+            observaciones: datosJustificacion.observaciones || null,
+            fecha_registro: new Date()
+        });
+        
+        console.log('✅ [JUSTIFICACIONES-SERVICE] Justificación creada:', nuevaJustificacion.id_justificacion);
         
         return nuevaJustificacion;
-
+        
     } catch (error) {
-        console.error('❌ [JUSTIFICACIONES] Error creando:', error.message);
+        console.error('❌ [JUSTIFICACIONES-SERVICE] Error crear:', error.message);
         throw error;
     }
 }
 
 // ✅ OBTENER JUSTIFICACIONES DEL USUARIO
 export async function getJustificacionesUsuario(rut_usuario, filtros = {}) {
-    console.log('📋 [JUSTIFICACIONES] Obteniendo justificaciones:', { rut_usuario, filtros });
+    console.log('📋 [JUSTIFICACIONES-SERVICE] Obteniendo justificaciones:', { rut_usuario, filtros });
     
     try {
-        const whereCondition = { rut_usuario };
+        const where = { rut_usuario };
         
-        // Aplicar filtros
+        // Filtros opcionales
         if (filtros.estado) {
-            whereCondition.estado_aprobacion = filtros.estado;
+            where.estado = filtros.estado;
         }
         
         if (filtros.mes && filtros.anio) {
-            whereCondition.fecha_justificacion = {
-                [Op.between]: [
-                    new Date(filtros.anio, filtros.mes - 1, 1),
-                    new Date(filtros.anio, filtros.mes, 0)
-                ]
+            const primerDia = new Date(filtros.anio, filtros.mes - 1, 1);
+            const ultimoDia = new Date(filtros.anio, filtros.mes, 0);
+            
+            where.fecha_justificacion = {
+                [Op.between]: [primerDia, ultimoDia]
             };
-        }
-        
-        if (filtros.fecha_desde && filtros.fecha_hasta) {
-            whereCondition.fecha_justificacion = {
+        } else if (filtros.fecha_desde && filtros.fecha_hasta) {
+            where.fecha_justificacion = {
                 [Op.between]: [filtros.fecha_desde, filtros.fecha_hasta]
             };
         }
-
-        // Obtener justificaciones de un usuario
+        
         const justificaciones = await Justificacion.findAll({
-            where: {
-                rut_usuario,
-                // ...otros filtros como estado, fecha_justificacion, etc.
-            },
-            order: [['fecha_justificacion', 'DESC']]
+            where,
+            order: [['fecha_justificacion', 'DESC']],
+            limit: filtros.limit || 50
         });
-
-        // Calcular estadísticas
-        const estadisticas = {
-            total: justificaciones.length,
-            pendientes: justificaciones.filter(j => j.estado_aprobacion === 'pendiente').length,
-            aprobadas: justificaciones.filter(j => j.estado_aprobacion === 'aprobada').length,
-            rechazadas: justificaciones.filter(j => j.estado_aprobacion === 'rechazada').length
-        };
-
+        
+        console.log('✅ [JUSTIFICACIONES-SERVICE] Justificaciones encontradas:', justificaciones.length);
+        
         return {
             justificaciones,
-            estadisticas,
-            filtros_aplicados: filtros
+            total: justificaciones.length
         };
-
+        
     } catch (error) {
-        console.error('❌ [JUSTIFICACIONES] Error obteniendo:', error.message);
+        console.error('❌ [JUSTIFICACIONES-SERVICE] Error get:', error.message);
         throw error;
     }
 }
 
 // ✅ OBTENER DETALLE DE JUSTIFICACIÓN
 export async function getDetalleJustificacion(id_justificacion, rut_usuario) {
-    console.log('📋 [JUSTIFICACIONES] Obteniendo detalle:', { id_justificacion, rut_usuario });
+    console.log('📋 [JUSTIFICACIONES-SERVICE] Obteniendo detalle:', { id_justificacion, rut_usuario });
     
     try {
         const justificacion = await Justificacion.findOne({
@@ -98,103 +176,96 @@ export async function getDetalleJustificacion(id_justificacion, rut_usuario) {
                 rut_usuario
             }
         });
-
+        
         if (!justificacion) {
             throw new Error('Justificación no encontrada');
         }
-
+        
+        console.log('✅ [JUSTIFICACIONES-SERVICE] Justificación encontrada');
+        
         return justificacion;
-
+        
     } catch (error) {
-        console.error('❌ [JUSTIFICACIONES] Error detalle:', error.message);
+        console.error('❌ [JUSTIFICACIONES-SERVICE] Error detalle:', error.message);
         throw error;
     }
 }
 
-// ✅ ACTUALIZAR JUSTIFICACIÓN (Solo si está pendiente)
+// ✅ ACTUALIZAR JUSTIFICACIÓN
 export async function actualizarJustificacion(id_justificacion, rut_usuario, datosActualizacion) {
-    console.log('📋 [JUSTIFICACIONES] Actualizando:', { id_justificacion, rut_usuario });
+    console.log('📋 [JUSTIFICACIONES-SERVICE] Actualizando:', { id_justificacion, rut_usuario });
     
     try {
         const justificacion = await Justificacion.findOne({
             where: {
                 id_justificacion,
-                rut_usuario,
-                // ✅ Permitir modificar justificaciones sin restricción de estado
+                rut_usuario
             }
         });
-
+        
         if (!justificacion) {
             throw new Error('Justificación no encontrada');
         }
-
-        await justificacion.update(datosActualizacion);
         
-        console.log('✅ [JUSTIFICACIONES] Justificación actualizada');
+        // Solo permitir actualizar descripción y observaciones
+        const datosPermitidos = {
+            descripcion: datosActualizacion.descripcion,
+            observaciones: datosActualizacion.observaciones
+        };
+        
+        // Si se cambia el motivo, recalcular es_justificada y horas
+        if (datosActualizacion.motivo && datosActualizacion.motivo !== justificacion.motivo) {
+            const motivos = await getMotivosJustificacion();
+            const motivoConfig = motivos.find(m => m.id === datosActualizacion.motivo);
+            
+            if (!motivoConfig) {
+                throw new Error('Motivo no válido');
+            }
+            
+            datosPermitidos.motivo = datosActualizacion.motivo;
+            datosPermitidos.es_justificada = motivoConfig.es_justificada;
+            datosPermitidos.horas_compensadas = motivoConfig.horas_compensadas;
+        }
+        
+        await justificacion.update(datosPermitidos);
+        
+        console.log('✅ [JUSTIFICACIONES-SERVICE] Justificación actualizada');
         
         return justificacion;
-
+        
     } catch (error) {
-        console.error('❌ [JUSTIFICACIONES] Error actualizando:', error.message);
+        console.error('❌ [JUSTIFICACIONES-SERVICE] Error actualizar:', error.message);
         throw error;
     }
 }
 
 // ✅ CANCELAR JUSTIFICACIÓN
 export async function cancelarJustificacion(id_justificacion, rut_usuario) {
-    console.log('📋 [JUSTIFICACIONES] Cancelando:', { id_justificacion, rut_usuario });
+    console.log('📋 [JUSTIFICACIONES-SERVICE] Cancelando:', { id_justificacion, rut_usuario });
     
     try {
         const justificacion = await Justificacion.findOne({
             where: {
                 id_justificacion,
-                rut_usuario,
-                // ✅ Permitir cancelar justificaciones sin restricción de estado
+                rut_usuario
             }
         });
-
+        
         if (!justificacion) {
             throw new Error('Justificación no encontrada');
         }
-
-        await justificacion.update({
-            estado_aprobacion: 'cancelada',
-            fecha_respuesta: new Date(),
-            observaciones_aprobador: 'Cancelada por el usuario'
-        });
         
-        console.log('✅ [JUSTIFICACIONES] Justificación cancelada');
+        // Eliminar la justificación
+        await justificacion.destroy();
         
-        return justificacion;
-
+        console.log('✅ [JUSTIFICACIONES-SERVICE] Justificación eliminada');
+        
+        return { mensaje: 'Justificación eliminada exitosamente' };
+        
     } catch (error) {
-        console.error('❌ [JUSTIFICACIONES] Error cancelando:', error.message);
+        console.error('❌ [JUSTIFICACIONES-SERVICE] Error cancelar:', error.message);
         throw error;
     }
-}
-
-// ✅ OBTENER MOTIVOS DISPONIBLES (SOLO AUSENCIA)
-export async function getMotivosJustificacion() {
-    return [
-        { id: 'ausencia', label: 'Ausencia', requiere_documento: false, descripcion: 'Registrar día de ausencia con motivo' }
-    ];
-}
-
-// ✅ VALIDAR FECHA DE JUSTIFICACIÓN
-export function validarFechaJustificacion(fecha) {
-    const fechaJustificacion = new Date(fecha);
-    const hoy = new Date();
-    const hace30Dias = new Date(hoy.getTime() - (30 * 24 * 60 * 60 * 1000));
-    
-    if (fechaJustificacion > hoy) {
-        throw new Error('No se puede justificar una fecha futura');
-    }
-    
-    if (fechaJustificacion < hace30Dias) {
-        throw new Error('No se puede justificar una fecha de más de 30 días');
-    }
-    
-    return true;
 }
 
 console.log('📋 [JUSTIFICACIONES-SERVICE] ✅ Servicio de justificaciones cargado');

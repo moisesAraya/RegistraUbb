@@ -275,7 +275,7 @@ const LoginForm: React.FC = () => {
 
         <div className="text-center mt-8">
           <p className="text-sm text-gray-500">
-            Universidad del Bío-Bío © 2024
+            Universidad del Bío-Bío © 2025
           </p>
           </div>
       </div>

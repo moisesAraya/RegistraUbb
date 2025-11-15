@@ -7,7 +7,8 @@ import {
     getEstadisticasAsistenciaController,
     solicitarJustificacionController,
     getJustificacionesController,
-    marcar
+    marcar,
+    createManualEntryController
 } from '../controllers/asistencia.controller.js';
 
 const router = express.Router();
@@ -24,6 +25,8 @@ router.get('/justificaciones', getJustificacionesController);
 // 📝 Rutas POST
 router.post('/justificacion', solicitarJustificacionController);
 router.post('/marcar', marcar);
+// Ingreso manual sin aprobación
+router.post('/manual', createManualEntryController);
 
 // 📅 Ruta general AL FINAL (para evitar conflictos)
 router.get('/', getAsistenciaController);

@@ -173,9 +173,9 @@ export async function actualizarJustificacionController(req, res) {
     }
 }
 
-// ✅ CANCELAR JUSTIFICACIÓN
-export async function cancelarJustificacionController(req, res) {
-    console.log('📋 [JUSTIFICACIONES-CONTROLLER] ===== CANCELAR =====');
+// ✅ CANCELAR/ELIMINAR JUSTIFICACIÓN
+export async function eliminarJustificacionController(req, res) {
+    console.log('📋 [JUSTIFICACIONES-CONTROLLER] ===== ELIMINAR =====');
     
     try {
         const user = req.user;
@@ -189,7 +189,7 @@ export async function cancelarJustificacionController(req, res) {
             });
         }
 
-        console.log('📋 Cancelando justificación:', { id, rut_usuario });
+        console.log('📋 Eliminando justificación:', { id, rut_usuario });
 
         const justificacionCancelada = await cancelarJustificacion(
             parseInt(id), 
@@ -198,15 +198,15 @@ export async function cancelarJustificacionController(req, res) {
 
         return res.status(200).json({
             success: true,
-            message: 'Justificación cancelada exitosamente',
+            message: 'Justificación eliminada exitosamente',
             data: justificacionCancelada
         });
 
     } catch (error) {
-        console.error('❌ [JUSTIFICACIONES-CONTROLLER] Error cancelar:', error.message);
+        console.error('❌ [JUSTIFICACIONES-CONTROLLER] Error eliminar:', error.message);
         return res.status(400).json({
             success: false,
-            error: 'Error cancelando justificación',
+            error: 'Error eliminando justificación',
             details: error.message
         });
     }

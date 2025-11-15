@@ -98,16 +98,16 @@ const PersonalDashboard: React.FC = () => {
                 <p className="text-slate-600">Objetivo: {targetHours} horas semanales</p>
               </div>
             </div>
-            <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-              progressPercentage >= 100 ? 'bg-green-100 text-green-700' :
-              progressPercentage >= 75 ? 'bg-blue-100 text-blue-700' :
-              progressPercentage >= 50 ? 'bg-yellow-100 text-yellow-700' :
-              'bg-red-100 text-red-700'
-            }`}>
-              {weeklyProgress.status === 'completed' ? 'Completado' :
-               weeklyProgress.status === 'on_track' ? 'En ruta' :
-               weeklyProgress.status === 'behind' ? 'Retrasado' : 'Necesita atención'}
-            </div>
+              <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                progressPercentage >= 100 ? 'bg-green-100 text-green-700' :
+                progressPercentage >= 75 ? 'bg-blue-100 text-blue-700' :
+                progressPercentage >= 50 ? 'bg-yellow-100 text-yellow-700' :
+                'bg-red-100 text-red-700'
+              }`}>
+                {weeklyProgress.status === 'completed' ? 'Completado' :
+                 weeklyProgress.status === 'on_track' ? 'En ruta' :
+                 weeklyProgress.status === 'behind' ? 'Retrasado' : ''}
+              </div>
           </div>
 
           {/* Barra de Progreso */}

@@ -13,26 +13,25 @@ try {
     getAsistenciaUsuarioService = asistenciaModule.getAsistenciaUsuarioService;
     getEstadisticasAsistenciaService = asistenciaModule.getEstadisticasAsistenciaService;
     
-    console.log('✅ [DASHBOARD-SIMPLE] Servicios importados exitosamente');
+    console.log('✅ [DASHBOARD-SERVICE] Servicios importados exitosamente');
 } catch (importError) {
-    console.error('❌ [DASHBOARD-SIMPLE] Error importando servicios:', importError);
+    console.error('❌ [DASHBOARD-SERVICE] Error importando servicios:', importError);
 }
 
 /**
- * 📊 SERVICIO SIMPLIFICADO - SOLO REGISTRO DE HORAS
+ * 📊 SERVICIO - DASHBOARD CON 44 HORAS SEMANALES
  */
 export async function getSimpleMetrics(rut_usuario) {
-    console.log('🚀 [DASHBOARD-SIMPLE] ===== INICIANDO DASHBOARD SIMPLIFICADO =====');
-    console.log('📥 Input recibido:', { rut_usuario, tipo: typeof rut_usuario });
+    console.log('🚀 [DASHBOARD-SERVICE] ===== INICIANDO DASHBOARD =====');
+    console.log('📥 Input recibido:', { rut_usuario });
     
     try {
         if (!getAsistenciaUsuarioService) {
             throw new Error('getAsistenciaUsuarioService no está disponible');
         }
 
-        console.log('✅ [DASHBOARD-SIMPLE] Obteniendo datos básicos...');
+        console.log('✅ [DASHBOARD-SERVICE] Obteniendo datos...');
         
-        // ✅ OBTENER SOLO DATOS BÁSICOS
         const personal_basic_stats = await getPersonalStatsFromRealService(rut_usuario);
         const attendance_analytics = await getAttendanceAnalyticsFromRealService(rut_usuario);
         const organization_overview = await getOrganizationOverview();
@@ -46,8 +45,7 @@ export async function getSimpleMetrics(rut_usuario) {
                     this_week: attendance_analytics.this_week || 0,
                     this_month: attendance_analytics.this_month || 0
                 },
-                weekly_trends: attendance_analytics.weekly_trends || [],
-                monthly_comparison: attendance_analytics.monthly_comparison || []
+                weekly_trends: attendance_analytics.weekly_trends || []
             },
             organization_overview,
             weekly_progress,
@@ -55,32 +53,32 @@ export async function getSimpleMetrics(rut_usuario) {
             metadata: {
                 generated_at: new Date().toISOString(),
                 user_rut: rut_usuario,
-                version: '6.0.0-SIMPLE',
-                source: 'simple_dashboard_service',
-                modules: ['basic_stats', 'attendance_analytics', 'weekly_progress']
+                version: '7.0.0-FIXED',
+                source: 'dashboard_service',
+                target_weekly_hours: 44
             }
         };
 
-        console.log('✅ [DASHBOARD-SIMPLE] Dashboard simplificado generado:', {
-            modulos: response.metadata.modules.length,
+        console.log('✅ [DASHBOARD-SERVICE] Dashboard generado:', {
             hoy: personal_basic_stats.today_hours,
-            semana: weekly_progress.hours_this_week,
-            progreso: weekly_progress.progress_percentage
+            semana: personal_basic_stats.week_hours,
+            mes: personal_basic_stats.month_hours,
+            asistencia: personal_basic_stats.attendance_rate
         });
 
         return response;
 
     } catch (error) {
-        console.error('❌ [DASHBOARD-SIMPLE] Error:', error.message);
+        console.error('❌ [DASHBOARD-SERVICE] Error:', error.message);
         throw error;
     }
 }
 
 /**
- * 👤 OBTENER STATS BÁSICOS (SOLO HORAS)
+ * 👤 OBTENER STATS BÁSICOS PERSONALES
  */
 async function getPersonalStatsFromRealService(rut_usuario) {
-    console.log('👤 [PERSONAL-STATS] Obteniendo estadísticas personales básicas...');
+    console.log('👤 [PERSONAL-STATS] Obteniendo estadísticas personales...');
     
     try {
         const now = new Date();
@@ -90,51 +88,97 @@ async function getPersonalStatsFromRealService(rut_usuario) {
         const asistenciaData = await getAsistenciaUsuarioService(rut_usuario, mes, anio);
         const asistencias = asistenciaData.asistencias || [];
         
-        // Horas de hoy
+        // ✅ HORAS DE HOY
         const today = now.toISOString().split('T')[0];
         const todayRecord = asistencias.find(a => a.fecha === today);
         const today_hours = todayRecord ? parseFloat(todayRecord.horasTrabajadas || 0) : 0;
         
-        // Horas totales del mes
-        const total_hours_month = asistencias.reduce((sum, a) => 
+        // ✅ HORAS DE ESTA SEMANA
+        const startOfWeek = getStartOfWeek(now);
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(endOfWeek.getDate() + 6);
+        
+        const thisWeekRecords = asistencias.filter(a => {
+            const recordDate = new Date(a.fecha);
+            return recordDate >= startOfWeek && recordDate <= endOfWeek;
+        });
+        
+        const week_hours = thisWeekRecords.reduce((sum, a) => 
             sum + parseFloat(a.horasTrabajadas || 0), 0);
         
-        // Días trabajados
-        const days_worked = asistencias.filter(a => 
+        // ✅ HORAS TOTALES DEL MES
+        const month_hours = asistencias.reduce((sum, a) => 
+            sum + parseFloat(a.horasTrabajadas || 0), 0);
+        
+        // ✅ DÍAS TRABAJADOS (con al menos 1 hora)
+        const days_worked_month = asistencias.filter(a => 
             parseFloat(a.horasTrabajadas || 0) > 0).length;
         
-        // Promedio de horas por día trabajado
-        const avg_hours_per_day = days_worked > 0 ? total_hours_month / days_worked : 0;
+        // ✅ PROMEDIO DE HORAS POR DÍA TRABAJADO
+        const avg_hours_per_day = days_worked_month > 0 ? 
+            month_hours / days_worked_month : 0;
         
-        // Porcentaje de asistencia (días con registro)
+        // ✅ PORCENTAJE DE ASISTENCIA (días trabajados vs días laborables)
         const workDaysInMonth = getWorkDaysInMonth(now);
         const attendance_rate = workDaysInMonth > 0 ? 
-            Math.round((days_worked / workDaysInMonth) * 100) : 0;
+            Math.round((days_worked_month / workDaysInMonth) * 100) : 0;
 
-        return {
+        // ✅ JUSTIFICACIONES PENDIENTES
+        const pending_justifications = 0; // TODO: implementar cuando tengas el servicio
+
+        // ✅ ACTIVIDADES RECIENTES (últimos 5 registros)
+        const recent_activities = asistencias.slice(0, 5).map(a => ({
+            date: a.fecha,
+            time: a.horaIngreso ? a.horaIngreso.substring(0, 5) : '-',
+            description: `${a.horasTrabajadas}h trabajadas`,
+            status: a.estado,
+            type: 'asistencia'
+        }));
+
+        const stats = {
             today_hours: Math.round(today_hours * 100) / 100,
-            total_hours_month: Math.round(total_hours_month * 100) / 100,
-            days_worked_month: days_worked,
+            week_hours: Math.round(week_hours * 100) / 100,
+            month_hours: Math.round(month_hours * 100) / 100,
+            total_hours_month: Math.round(month_hours * 100) / 100,
+            days_worked_month,
             avg_hours_per_day: Math.round(avg_hours_per_day * 100) / 100,
             attendance_rate,
+            pending_justifications,
+            recent_activities,
             last_updated: new Date().toISOString()
         };
+
+        console.log('✅ [PERSONAL-STATS] Stats calculados:', {
+            hoy: stats.today_hours,
+            semana: stats.week_hours,
+            mes: stats.month_hours,
+            tasa: stats.attendance_rate
+        });
+
+        return stats;
         
     } catch (error) {
         console.error('❌ [PERSONAL-STATS] Error:', error);
         return {
             today_hours: 0,
+            week_hours: 0,
+            month_hours: 0,
             total_hours_month: 0,
             days_worked_month: 0,
             avg_hours_per_day: 0,
             attendance_rate: 0,
+            pending_justifications: 0,
+            recent_activities: [],
             last_updated: new Date().toISOString()
         };
     }
 }
 
 /**
- * 📈 PROGRESO SEMANAL HACIA 40 HORAS
+ * 📈 PROGRESO SEMANAL HACIA 44 HORAS
+ */
+/**
+ * 📈 PROGRESO SEMANAL HACIA 44 HORAS
  */
 async function getWeeklyProgress(rut_usuario) {
     console.log('📈 [WEEKLY-PROGRESS] Calculando progreso semanal...');
@@ -151,36 +195,48 @@ async function getWeeklyProgress(rut_usuario) {
         const asistenciaData = await getAsistenciaUsuarioService(rut_usuario, mes, anio);
         const asistencias = asistenciaData.asistencias || [];
         
-        // Filtrar solo registros de esta semana
+        // ✅ FILTRAR SOLO REGISTROS DE ESTA SEMANA
         const thisWeekRecords = asistencias.filter(a => {
             const recordDate = new Date(a.fecha);
             return recordDate >= startOfWeek && recordDate <= endOfWeek;
         });
         
-        // Calcular horas de esta semana
+        // ✅ CALCULAR HORAS DE ESTA SEMANA
         const hours_this_week = thisWeekRecords.reduce((sum, a) => 
             sum + parseFloat(a.horasTrabajadas || 0), 0);
         
-        // Progreso hacia 40 horas
-        const target_weekly_hours = 40;
+        // ✅ OBJETIVO: 44 HORAS SEMANALES
+        const target_weekly_hours = 44;
         const progress_percentage = Math.min(100, Math.round((hours_this_week / target_weekly_hours) * 100));
         const hours_remaining = Math.max(0, target_weekly_hours - hours_this_week);
         
-        // Días trabajados esta semana
+        // ✅ DÍAS TRABAJADOS ESTA SEMANA
         const days_worked_this_week = thisWeekRecords.filter(a => 
             parseFloat(a.horasTrabajadas || 0) > 0).length;
         
-        // Promedio diario esta semana
+        // ✅ PROMEDIO DIARIO ESTA SEMANA
         const avg_daily_hours = days_worked_this_week > 0 ? 
             hours_this_week / days_worked_this_week : 0;
         
-        // Estimación para completar las 40 horas
+        // ✅ DÍAS NECESARIOS PARA COMPLETAR 44H
         let days_to_complete = 0;
         if (hours_remaining > 0 && avg_daily_hours > 0) {
             days_to_complete = Math.ceil(hours_remaining / avg_daily_hours);
         }
 
-        return {
+        // ✅ ESTADO DEL PROGRESO (SIN TYPESCRIPT)
+        let status;
+        if (progress_percentage >= 100) {
+            status = 'completed';
+        } else if (progress_percentage >= 80) {
+            status = 'on_track';
+        } else if (progress_percentage >= 60) {
+            status = 'behind';
+        } else {
+            status = 'needs_attention';
+        }
+
+        const progress = {
             hours_this_week: Math.round(hours_this_week * 100) / 100,
             target_weekly_hours,
             progress_percentage,
@@ -190,31 +246,40 @@ async function getWeeklyProgress(rut_usuario) {
             days_to_complete,
             week_start: startOfWeek.toISOString().split('T')[0],
             week_end: endOfWeek.toISOString().split('T')[0],
-            status: progress_percentage >= 100 ? 'completed' : 
-                    progress_percentage >= 75 ? 'on_track' : 
-                    progress_percentage >= 50 ? 'behind' : 'needs_attention'
+            status
         };
+
+        console.log('✅ [WEEKLY-PROGRESS] Progreso calculado:', {
+            horas: progress.hours_this_week,
+            objetivo: progress.target_weekly_hours,
+            porcentaje: progress.progress_percentage,
+            estado: progress.status
+        });
+
+        return progress;
         
     } catch (error) {
         console.error('❌ [WEEKLY-PROGRESS] Error:', error);
         return {
             hours_this_week: 0,
-            target_weekly_hours: 40,
+            target_weekly_hours: 44,
             progress_percentage: 0,
-            hours_remaining: 40,
+            hours_remaining: 44,
             days_worked_this_week: 0,
             avg_daily_hours: 0,
             days_to_complete: 0,
+            week_start: '',
+            week_end: '',
             status: 'needs_attention'
         };
     }
 }
 
 /**
- * 📊 ANALÍTICAS DE ASISTENCIA SIMPLIFICADAS
+ * 📊 ANALÍTICAS DE ASISTENCIA
  */
 async function getAttendanceAnalyticsFromRealService(rut_usuario) {
-    console.log('📊 [ATTENDANCE-ANALYTICS] Obteniendo analíticas de asistencia...');
+    console.log('📊 [ATTENDANCE-ANALYTICS] Obteniendo analíticas...');
     
     try {
         const now = new Date();
@@ -224,7 +289,7 @@ async function getAttendanceAnalyticsFromRealService(rut_usuario) {
         const asistenciaData = await getAsistenciaUsuarioService(rut_usuario, mes, anio);
         const asistencias = asistenciaData.asistencias || [];
         
-        // Registros por período
+        // ✅ REGISTROS POR PERÍODO
         const today = now.toISOString().split('T')[0];
         const startOfWeek = getStartOfWeek(now);
         
@@ -235,7 +300,7 @@ async function getAttendanceAnalyticsFromRealService(rut_usuario) {
         }).length;
         const this_month = asistencias.length;
         
-        // Tendencias semanales (últimas 4 semanas)
+        // ✅ TENDENCIAS SEMANALES (últimas 4 semanas)
         const weekly_trends = [];
         for (let i = 3; i >= 0; i--) {
             const weekStart = new Date(startOfWeek);
@@ -252,11 +317,13 @@ async function getAttendanceAnalyticsFromRealService(rut_usuario) {
                 sum + parseFloat(a.horasTrabajadas || 0), 0);
             
             weekly_trends.push({
-                week: `${weekStart.getDate()}/${weekStart.getMonth() + 1}`,
+                week: `Semana ${4 - i}`,
                 hours: Math.round(weekHours * 100) / 100,
                 days: weekRecords.filter(a => parseFloat(a.horasTrabajadas || 0) > 0).length
             });
         }
+        
+        console.log('✅ [ATTENDANCE-ANALYTICS] Analíticas calculadas');
         
         return {
             today: today_count,
@@ -280,92 +347,16 @@ async function getAttendanceAnalyticsFromRealService(rut_usuario) {
  * 🏢 OVERVIEW ORGANIZACIONAL
  */
 async function getOrganizationOverview() {
-    console.log('🏢 [ORGANIZATION] Obteniendo overview organizacional...');
+    console.log('🏢 [ORGANIZATION] Obteniendo overview...');
     
     try {
-        // Total de usuarios
         const totalUsers = await Usuario.count();
-
-        // Total de QR codes activos
-        const totalQRsActivos = await QR.count({
-            where: { estado_qr: true }
-        });
-
-        // Total de QR codes (todos)
+        const totalQRsActivos = await QR.count({ where: { estado_qr: true } });
         const totalQRs = await QR.count();
-
-        // Total de totems
         const totalTotems = await Totem.count();
 
-        console.log('🏢 [ORGANIZATION] Total usuarios activos:', totalUsers);
-        console.log('🏢 [ORGANIZATION] QR codes activos:', totalQRsActivos, 'de', totalQRs);
-        console.log('🏢 [ORGANIZATION] Total totems:', totalTotems);
-
-        // Calcular horas totales del mes actual de forma más simple
-        const now = new Date();
-        const mes = now.getMonth() + 1;
-        const anio = now.getFullYear();
-        
-        let totalHoursMonth = 0;
-        let averageWeeklyHours = 0;
-        
-        // Simplificado: solo calcular si hay pocos usuarios
-        if (totalUsers > 0 && totalUsers <= 20) {
-            try {
-                const usuarios = await Usuario.findAll({
-                    attributes: ['rut_usuario']
-                });
-
-                let totalHorasSemanales = 0;
-                let usuariosConDatos = 0;
-                const startOfWeek = getStartOfWeek(now);
-                const endOfWeek = new Date(startOfWeek);
-                endOfWeek.setDate(endOfWeek.getDate() + 6);
-                endOfWeek.setHours(23, 59, 59, 999);
-
-                for (const usuario of usuarios) {
-                    try {
-                        const asistenciaData = await getAsistenciaUsuarioService(usuario.rut_usuario, mes, anio);
-                        if (asistenciaData && asistenciaData.asistencias) {
-                            const horasMes = asistenciaData.asistencias.reduce((sum, a) => 
-                                sum + parseFloat(a.horasTrabajadas || 0), 0);
-                            totalHoursMonth += horasMes;
-
-                            const thisWeekRecords = asistenciaData.asistencias.filter(a => {
-                                const recordDate = new Date(a.fecha);
-                                return recordDate >= startOfWeek && recordDate <= endOfWeek;
-                            });
-
-                            const horasSemana = thisWeekRecords.reduce((sum, a) => 
-                                sum + parseFloat(a.horasTrabajadas || 0), 0);
-                            
-                            if (horasSemana > 0) {
-                                totalHorasSemanales += horasSemana;
-                                usuariosConDatos++;
-                            }
-                        }
-                    } catch (err) {
-                        console.error(`Error procesando usuario ${usuario.rut_usuario}:`, err.message);
-                        continue;
-                    }
-                }
-
-                averageWeeklyHours = usuariosConDatos > 0 ? 
-                    Math.round((totalHorasSemanales / usuariosConDatos) * 10) / 10 : 0;
-
-                console.log('🏢 [ORGANIZATION] Horas mes:', totalHoursMonth, 'Promedio semanal:', averageWeeklyHours);
-
-            } catch (err) {
-                console.error('⚠️ [ORGANIZATION] Error calculando estadísticas detalladas:', err.message);
-            }
-        } else {
-            console.log('🏢 [ORGANIZATION] Demasiados usuarios, omitiendo cálculo detallado');
-        }
-        
         const result = {
             total_active_users: totalUsers,
-            total_hours_month: Math.round(totalHoursMonth * 10) / 10,
-            average_weekly_hours: averageWeeklyHours,
             qr_code_stats: {
                 active: totalQRsActivos,
                 total: totalQRs
@@ -375,19 +366,14 @@ async function getOrganizationOverview() {
             last_updated: new Date().toISOString()
         };
 
-        console.log('✅ [ORGANIZATION] Overview generado:', result);
+        console.log('✅ [ORGANIZATION] Overview generado');
         return result;
         
     } catch (error) {
-        console.error('❌ [ORGANIZATION] Error crítico:', error);
+        console.error('❌ [ORGANIZATION] Error:', error);
         return {
             total_active_users: 0,
-            total_hours_month: 0,
-            average_weekly_hours: 0,
-            qr_code_stats: {
-                active: 0,
-                total: 0
-            },
+            qr_code_stats: { active: 0, total: 0 },
             totems_count: 0,
             system_status: 'error',
             last_updated: new Date().toISOString()
@@ -415,7 +401,7 @@ function getWorkDaysInMonth(date) {
     for (let day = 1; day <= daysInMonth; day++) {
         const currentDate = new Date(year, month, day);
         const dayOfWeek = currentDate.getDay();
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) { // No domingo ni sábado
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
             workDays++;
         }
     }
@@ -427,21 +413,15 @@ function getWorkDaysInMonth(date) {
 export async function getRealTimeData(rut_usuario) {
     return {
         timestamp: new Date().toISOString(),
-        currently_active: Math.floor(Math.random() * 15) + 5,
-        recent_marcajes: [
-            { user: 'Usuario 1', time: '08:30', type: 'entrada' },
-            { user: 'Usuario 2', time: '09:15', type: 'entrada' },
-            { user: 'Usuario 3', time: '17:45', type: 'salida' }
-        ]
+        currently_active: 0,
+        recent_marcajes: []
     };
 }
 
 export async function getAdvancedAnalytics(rut_usuario) {
-    const baseMetrics = await getSimpleMetrics(rut_usuario);
-    return baseMetrics;
+    return await getSimpleMetrics(rut_usuario);
 }
 
-// ✅ FUNCIÓN PRINCIPAL ESPERADA POR EL CONTROLADOR
 export async function getCompleteMetrics(rut_usuario) {
     return await getSimpleMetrics(rut_usuario);
 }
@@ -450,8 +430,8 @@ export async function getDebugInfo(rut_usuario) {
     return {
         timestamp: new Date().toISOString(),
         user: rut_usuario,
-        message: 'Dashboard simplificado v6.0 - Solo registro de horas',
-        source: 'simple_dashboard_service',
-        modules_active: 3
+        message: 'Dashboard v7.0 - 44 horas semanales',
+        source: 'dashboard_service'
     };
 }
+

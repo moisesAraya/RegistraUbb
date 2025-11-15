@@ -3,15 +3,14 @@ import { useJustificaciones } from '../../hooks/useJustifications';
 import { 
   Plus, 
   FileText, 
-  Clock, 
   CheckCircle, 
-  XCircle, 
-  AlertCircle,
+  XCircle,
   Calendar,
-  Edit3,
   Trash2,
   RefreshCw,
-  Filter
+  Filter,
+  AlertCircle,
+  X
 } from 'lucide-react';
 
 const JustificationManager: React.FC = () => {
@@ -22,44 +21,36 @@ const JustificationManager: React.FC = () => {
     estadisticas,
     motivos,
     crearJustificacion,
-    actualizarJustificacion,
-    cancelarJustificacion,
+    eliminarJustificacion,
     obtenerJustificaciones,
     clearError
   } = useJustificaciones();
 
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
-  const [justificacionEditando, setJustificacionEditando] = useState<any>(null);
-  const [filtroEstado, setFiltroEstado] = useState<string>('');
+  const [filtroTipo, setFiltroTipo] = useState<string>('');
 
-  // ✅ FORMULARIO DE NUEVA AUSENCIA (SIMPLIFICADO)
+  // ✅ FORMULARIO MEJORADO
   const FormularioJustificacion = () => {
     const [formData, setFormData] = useState({
-      fecha_justificacion: justificacionEditando?.fecha_justificacion?.split('T')[0] || '',
-      motivo: 'ausencia',
-      descripcion: justificacionEditando?.descripcion || '',
-      tipo_justificacion: 'ausencia'
+      fecha_justificacion: '',
+      motivo: '',
+      descripcion: ''
     });
+
+    const motivoSeleccionado = motivos.find(m => m.id === formData.motivo);
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       
       try {
-        if (justificacionEditando) {
-          await actualizarJustificacion(justificacionEditando.id_justificacion, formData);
-        } else {
-          await crearJustificacion(formData);
-        }
-        
+        await crearJustificacion(formData);
         setMostrarFormulario(false);
-        setJustificacionEditando(null);
         
         // Resetear formulario
         setFormData({
           fecha_justificacion: '',
           motivo: '',
-          descripcion: '',
-          tipo_justificacion: 'ausencia'
+          descripcion: ''
         });
       } catch (err) {
         console.error('Error guardando justificación:', err);
@@ -67,73 +58,143 @@ const JustificationManager: React.FC = () => {
     };
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-          <h3 className="text-lg font-semibold mb-4">
-            {justificacionEditando ? 'Editar Ausencia' : 'Registrar Ausencia'}
-          </h3>
-          
-          <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6 rounded-t-xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold text-white flex items-center">
+                <FileText className="h-6 w-6 mr-2" />
+                Registrar Ausencia
+              </h3>
+              <button
+                onClick={() => setMostrarFormulario(false)}
+                className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-blue-100 text-sm mt-2">
+              Registra el motivo de tu ausencia para mantener un historial completo
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            {/* Fecha */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Fecha a Justificar
+              <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                <Calendar className="h-4 w-4 mr-2 text-blue-600" />
+                Fecha de Ausencia
               </label>
               <input
                 type="date"
                 required
                 value={formData.fecha_justificacion}
                 onChange={(e) => setFormData({...formData, fecha_justificacion: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 max={new Date().toISOString().split('T')[0]}
                 min={new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Solo puedes justificar fechas de los últimos 30 días
+              </p>
             </div>
 
+            {/* Motivo */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Motivo de la Ausencia
               </label>
-              <p className="text-sm text-gray-600 mb-2">
-                Registrando ausencia para el día seleccionado
-              </p>
-              <input
-                type="hidden"
-                value="ausencia"
-                name="motivo"
-              />
+              <select
+                required
+                value={formData.motivo}
+                onChange={(e) => setFormData({...formData, motivo: e.target.value})}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              >
+                <option value="">Selecciona un motivo</option>
+                {motivos.map((m) => (
+                  <option key={m.id} value={m.id}>
+                  {m.nombre} {m.es_justificada ? '' : ''}
+                </option>
+                ))}
+              </select>
+              
+              {/* Info del motivo seleccionado */}
+              {motivoSeleccionado && (
+                <div className={`mt-3 p-4 rounded-lg border-2 ${
+                  motivoSeleccionado.es_justificada 
+                    ? 'bg-green-50 border-green-200' 
+                    : 'bg-orange-50 border-orange-200'
+                }`}>
+                  <div className="flex items-start space-x-3">
+                    {motivoSeleccionado.es_justificada ? (
+                      <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                    )}
+                    <div>
+                      <p className={`text-sm font-semibold ${
+                        motivoSeleccionado.es_justificada ? 'text-green-800' : 'text-orange-800'
+                      }`}>
+                        {motivoSeleccionado.es_justificada 
+                          ? 'Ausencia Justificada' 
+                          : 'Ausencia No Justificada'}
+                      </p>
+                      <p className={`text-xs mt-1 ${
+                        motivoSeleccionado.es_justificada ? 'text-green-700' : 'text-orange-700'
+                      }`}>
+                        {motivoSeleccionado.es_justificada 
+                          ? `Se compensarán ${motivoSeleccionado.horas_compensadas} horas en tu registro` 
+                          : 'Esta ausencia no suma horas trabajadas'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
+            {/* Descripción */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Descripción del motivo
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Descripción Adicional (Opcional)
               </label>
               <textarea
-                required
-                rows={3}
+                rows={4}
                 value={formData.descripcion}
                 onChange={(e) => setFormData({...formData, descripcion: e.target.value})}
-                placeholder="Describe detalladamente el motivo de la justificación..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Agrega detalles adicionales sobre tu ausencia..."
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Este campo es opcional, pero puede ayudar a documentar mejor la ausencia
+              </p>
             </div>
 
+            {/* Botones */}
             <div className="flex space-x-3 pt-4">
               <button
                 type="button"
-                onClick={() => {
-                  setMostrarFormulario(false);
-                  setJustificacionEditando(null);
-                }}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                onClick={() => setMostrarFormulario(false)}
+                className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                disabled={loading}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                disabled={loading || !formData.motivo}
+                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors flex items-center justify-center"
               >
-                {loading ? 'Guardando...' : justificacionEditando ? 'Actualizar' : 'Crear'}
+                {loading ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Registrar
+                  </>
+                )}
               </button>
             </div>
           </form>
@@ -142,45 +203,20 @@ const JustificationManager: React.FC = () => {
     );
   };
 
-  // ✅ OBTENER ICONO DE ESTADO
-  const getEstadoIcon = (estado: string) => {
-    switch (estado) {
-      case 'aprobada':
-        return <CheckCircle className="w-5 h-5 text-green-600" />;
-      case 'rechazada':
-        return <XCircle className="w-5 h-5 text-red-600" />;
-      case 'cancelada':
-        return <XCircle className="w-5 h-5 text-gray-600" />;
-      default:
-        return <Clock className="w-5 h-5 text-yellow-600" />;
-    }
-  };
-
-  // ✅ OBTENER COLOR DE ESTADO
-  const getEstadoColor = (estado: string) => {
-    switch (estado) {
-      case 'aprobada':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'rechazada':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'cancelada':
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-      default:
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    }
-  };
-
-  // ✅ FILTRAR JUSTIFICACIONES
-  const justificacionesFiltradas = justificaciones.filter(j => 
-    !filtroEstado || j.estado_aprobacion === filtroEstado
-  );
+  // Filtrar justificaciones
+  const justificacionesFiltradas = justificaciones.filter(j => {
+    if (!filtroTipo) return true;
+    if (filtroTipo === 'justificadas') return j.es_justificada;
+    if (filtroTipo === 'no_justificadas') return !j.es_justificada;
+    return true;
+  });
 
   if (loading && justificaciones.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="flex items-center space-x-3">
           <RefreshCw className="w-6 h-6 animate-spin text-blue-500" />
-          <span className="text-gray-600">Cargando justificaciones...</span>
+          <span className="text-gray-600">Cargando ausencias...</span>
         </div>
       </div>
     );
@@ -192,14 +228,14 @@ const JustificationManager: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Mis Ausencias</h1>
-          <p className="text-gray-600">Gestiona tus solicitudes de justificación de asistencia</p>
+          <p className="text-gray-600">Gestiona el registro de tus ausencias laborales</p>
         </div>
         <button
           onClick={() => setMostrarFormulario(true)}
-          className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"
         >
-          <Plus className="w-4 h-4" />
-          <span>Registrar Ausencia</span>
+          <Plus className="w-5 h-5" />
+          <span className="font-medium">Registrar Ausencia</span>
         </button>
       </div>
 
@@ -207,56 +243,52 @@ const JustificationManager: React.FC = () => {
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3">
           <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-          <div>
+          <div className="flex-1">
             <p className="text-red-700 font-medium">Error</p>
             <p className="text-red-600 text-sm">{error}</p>
           </div>
           <button
             onClick={clearError}
-            className="ml-auto text-red-500 hover:text-red-700"
+            className="text-red-500 hover:text-red-700"
           >
-            ×
+            <X className="w-5 h-5" />
           </button>
         </div>
       )}
 
       {/* Estadísticas */}
       {estadisticas && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-lg border">
-            <div className="flex items-center space-x-3">
-              <FileText className="w-8 h-8 text-blue-600" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white p-6 rounded-lg border-2 border-gray-200 hover:border-blue-300 transition-colors">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-blue-600">{estadisticas.total}</p>
-                <p className="text-sm text-gray-600">Total</p>
+                <p className="text-gray-600 text-sm font-medium mb-1">Total Registradas</p>
+                <p className="text-3xl font-bold text-gray-900">{estadisticas.total}</p>
               </div>
+              <FileText className="w-12 h-12 text-blue-600 opacity-20" />
             </div>
           </div>
-          <div className="bg-white p-4 rounded-lg border">
-            <div className="flex items-center space-x-3">
-              <Clock className="w-8 h-8 text-yellow-600" />
+          
+          <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg border-2 border-green-200">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-yellow-600">{estadisticas.pendientes}</p>
-                <p className="text-sm text-gray-600">Pendientes</p>
+                <p className="text-green-700 text-sm font-medium mb-1">Justificadas</p>
+                <p className="text-3xl font-bold text-green-800">{estadisticas.justificadas}</p>
+                <p className="text-xs text-green-600 mt-1">
+                  +{estadisticas.horas_compensadas_total}h compensadas
+                </p>
               </div>
+              <CheckCircle className="w-12 h-12 text-green-600 opacity-30" />
             </div>
           </div>
-          <div className="bg-white p-4 rounded-lg border">
-            <div className="flex items-center space-x-3">
-              <CheckCircle className="w-8 h-8 text-green-600" />
+          
+          <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-lg border-2 border-orange-200">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-green-600">{estadisticas.aprobadas}</p>
-                <p className="text-sm text-gray-600">Aprobadas</p>
+                <p className="text-orange-700 text-sm font-medium mb-1">No Justificadas</p>
+                <p className="text-3xl font-bold text-orange-800">{estadisticas.no_justificadas}</p>
               </div>
-            </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg border">
-            <div className="flex items-center space-x-3">
-              <XCircle className="w-8 h-8 text-red-600" />
-              <div>
-                <p className="text-2xl font-bold text-red-600">{estadisticas.rechazadas}</p>
-                <p className="text-sm text-gray-600">Rechazadas</p>
-              </div>
+              <XCircle className="w-12 h-12 text-orange-600 opacity-30" />
             </div>
           </div>
         </div>
@@ -266,19 +298,17 @@ const JustificationManager: React.FC = () => {
       <div className="flex items-center space-x-4 bg-white p-4 rounded-lg border">
         <Filter className="w-5 h-5 text-gray-500" />
         <select
-          value={filtroEstado}
-          onChange={(e) => setFiltroEstado(e.target.value)}
-          className="border rounded px-3 py-2"
+          value={filtroTipo}
+          onChange={(e) => setFiltroTipo(e.target.value)}
+          className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
-          <option value="">Todos los estados</option>
-          <option value="pendiente">Pendientes</option>
-          <option value="aprobada">Aprobadas</option>
-          <option value="rechazada">Rechazadas</option>
-          <option value="cancelada">Canceladas</option>
+          <option value="">Todas las ausencias</option>
+          <option value="justificadas">Solo justificadas</option>
+          <option value="no_justificadas">Solo no justificadas</option>
         </select>
         <button
           onClick={() => obtenerJustificaciones()}
-          className="flex items-center space-x-2 px-3 py-2 text-blue-600 hover:bg-blue-50 rounded"
+          className="flex items-center space-x-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
           <span>Actualizar</span>
@@ -288,86 +318,84 @@ const JustificationManager: React.FC = () => {
       {/* Lista de Justificaciones */}
       <div className="bg-white rounded-lg border">
         {justificacionesFiltradas.length === 0 ? (
-          <div className="text-center py-12">
-            <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500">No tienes justificaciones registradas</p>
+          <div className="text-center py-16">
+            <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500 text-lg font-medium">No tienes ausencias registradas</p>
+            <p className="text-gray-400 text-sm mt-2">Registra tus ausencias para mantener un historial completo</p>
             <button
               onClick={() => setMostrarFormulario(true)}
-              className="mt-4 text-blue-600 hover:text-blue-700 font-medium"
+              className="mt-6 text-blue-600 hover:text-blue-700 font-medium flex items-center justify-center mx-auto"
             >
-              Crear tu primera justificación
+              <Plus className="w-4 h-4 mr-2" />
+              Registrar primera ausencia
             </button>
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
             {justificacionesFiltradas.map((justificacion) => (
-              <div key={justificacion.id_justificacion} className="p-4">
+              <div key={justificacion.id_justificacion} className="p-6 hover:bg-gray-50 transition-colors">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      {getEstadoIcon(justificacion.estado_aprobacion)}
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getEstadoColor(justificacion.estado_aprobacion)}`}>
-                        {(justificacion.estado ?? justificacion.estado_aprobacion ?? '').toUpperCase()}
-                      </span>
-                      <span className="text-sm text-gray-500">
-                        {justificacion.fecha_justificacion
-                          ? new Date(justificacion.fecha_justificacion).toLocaleDateString('es-CL')
-                          : ''}
+                    <div className="flex items-center space-x-3 mb-3">
+                      {justificacion.es_justificada ? (
+                        <div className="flex items-center space-x-2 px-3 py-1 bg-green-100 border border-green-300 rounded-full">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <span className="text-xs font-semibold text-green-700">JUSTIFICADA</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2 px-3 py-1 bg-orange-100 border border-orange-300 rounded-full">
+                          <XCircle className="h-4 w-4 text-orange-600" />
+                          <span className="text-xs font-semibold text-orange-700">NO JUSTIFICADA</span>
+                        </div>
+                      )}
+                      
+                      <span className="text-sm font-medium text-gray-900">
+                        {new Date(justificacion.fecha_justificacion).toLocaleDateString('es-CL', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
                       </span>
                     </div>
                     
                     <div className="mb-2">
-                      <p className="font-medium text-gray-900">
-                        {motivos.find(m => m.id === justificacion.motivo)?.label || justificacion.motivo}
+                      <p className="font-semibold text-gray-900 text-lg">
+                        {justificacion.motivo_nombre || justificacion.motivo}
                       </p>
-                      <p className="text-sm text-gray-600 mt-1">{justificacion.descripcion}</p>
-                    </div>
-                    
-                    <div className="flex items-center space-x-4 text-xs text-gray-500">
-                      <span>Tipo: {justificacion.tipo_justificacion}</span>
-                      <span>
-                        Solicitado: {justificacion.fecha_solicitud
-                          ? new Date(justificacion.fecha_solicitud).toLocaleDateString('es-CL')
-                          : ''}
-                      </span>
-                      {justificacion.fecha_respuesta && (
-                        <span>
-                          Respondido: {new Date(justificacion.fecha_respuesta).toLocaleDateString('es-CL')}
-                        </span>
+                      {justificacion.descripcion && (
+                        <p className="text-sm text-gray-600 mt-2 bg-gray-50 p-3 rounded-lg border">
+                          {justificacion.descripcion}
+                        </p>
                       )}
                     </div>
                     
-                    {justificacion.observaciones_aprobador && (
-                      <div className="mt-3 p-3 bg-gray-50 rounded border-l-4 border-gray-300">
-                        <p className="text-sm text-gray-700">
-                          <span className="font-medium">Observaciones: </span>
-                          {justificacion.observaciones_aprobador}
-                        </p>
-                      </div>
-                    )}
+                    <div className="flex items-center space-x-4 text-xs text-gray-500 mt-3">
+                      {justificacion.es_justificada && (
+                        <span className="flex items-center space-x-1 bg-green-50 px-2 py-1 rounded">
+                          <CheckCircle className="h-3 w-3 text-green-600" />
+                          <span className="text-green-700 font-medium">
+                            +{justificacion.horas_compensadas}h compensadas
+                          </span>
+                        </span>
+                      )}
+                      <span>
+                        Registrado: {new Date(justificacion.fecha_registro).toLocaleDateString('es-CL')}
+                      </span>
+                    </div>
                   </div>
                   
-                  {justificacion.estado_aprobacion === 'pendiente' && (
-                    <div className="flex items-center space-x-2 ml-4">
-                      <button
-                        onClick={() => {
-                          setJustificacionEditando(justificacion);
-                          setMostrarFormulario(true);
-                        }}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded"
-                        title="Editar"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => cancelarJustificacion(justificacion.id_justificacion)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded"
-                        title="Cancelar"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
+                  <button
+                    onClick={() => {
+                      if (window.confirm('¿Estás seguro de eliminar esta justificación?')) {
+                        eliminarJustificacion(justificacion.id_justificacion);
+                      }
+                    }}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors ml-4"
+                    title="Eliminar"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
             ))}

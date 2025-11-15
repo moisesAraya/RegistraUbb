@@ -12,39 +12,46 @@ const Justificacion = sequelize.define('Justificacion', {
         type: DataTypes.STRING,
         allowNull: false
     },
-    descripcion: {
-        type: DataTypes.STRING,
-        allowNull: false
-    },
-    estado: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        defaultValue: 'PENDIENTE'
-    },
     fecha_justificacion: {
         type: DataTypes.DATEONLY,
         allowNull: false
     },
-    // ⭐ Campos para el tracking de aprobaciones
-    observaciones_admin: {
+    motivo: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        // Valores: 'congreso', 'charla', 'enfermedad', 'personal', 'otro'
+    },
+    descripcion: {
         type: DataTypes.TEXT,
         allowNull: true
     },
-    aprobado_por: {
+    es_justificada: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+        // true = suma 8 horas (congreso, charla, enfermedad)
+        // false = no suma horas (personal, otro)
+    },
+    horas_compensadas: {
+        type: DataTypes.DECIMAL(5, 2),
+        allowNull: false,
+        defaultValue: 0
+        // 8.0 si es justificada, 0 si no lo es
+    },
+    estado: {
         type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'REGISTRADA'
+        // Solo un estado: REGISTRADA (no necesita aprobación)
+    },
+    observaciones: {
+        type: DataTypes.TEXT,
         allowNull: true
     },
-    fecha_aprobacion: {
+    fecha_registro: {
         type: DataTypes.DATE,
-        allowNull: true
-    },
-    rechazado_por: {
-        type: DataTypes.STRING,
-        allowNull: true
-    },
-    fecha_rechazo: {
-        type: DataTypes.DATE,
-        allowNull: true
+        allowNull: false,
+        defaultValue: DataTypes.NOW
     }
 }, {
     tableName: 'Justificacions',

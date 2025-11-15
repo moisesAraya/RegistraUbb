@@ -247,18 +247,9 @@ export function useDashboard() {
           users_by_role: [],
           qr_code_stats: { active: 0, inactive: 0 }
         },
-        weekly_progress: data?.weekly_progress || {
-          hours_this_week: 0,
-          target_weekly_hours: 40,
-          progress_percentage: 0,
-          hours_remaining: 40,
-          days_worked_this_week: 0,
-          avg_daily_hours: 0,
-          days_to_complete: 0,
-          week_start: '',
-          week_end: '',
-          status: 'needs_attention'
-        },
+        weekly_progress: data?.weekly_progress
+          ? { ...data.weekly_progress }
+          : undefined,
         metadata: data?.metadata || {
           generated_at: new Date().toISOString(),
           user_rut: user.rut_usuario,

@@ -1,286 +1,218 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../components/Context/AuthContext';
+
+interface Motivo {
+  id: string;
+  nombre: string;
+  es_justificada: boolean;
+  horas_compensadas: number;
+  descripcion: string;
+}
 
 interface Justificacion {
   id_justificacion: number;
   rut_usuario: string;
   fecha_justificacion: string;
   motivo: string;
-  descripcion: string;
-  tipo_justificacion: string;
-  estado_aprobacion: 'aprobada' | 'cancelada'; // ✅ Solo estados necesarios - auto-aprobación
-  fecha_solicitud: string;
-  fecha_respuesta?: string;
-  rut_aprobador?: string;
-  observaciones_aprobador?: string;
-  documento_adjunto?: string;
+  motivo_nombre?: string;
+  motivo_descripcion?: string;
+  descripcion: string | null;
+  es_justificada: boolean;
+  horas_compensadas: number;
+  estado: string;
+  observaciones: string | null;
+  fecha_registro: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-interface EstadisticasJustificaciones {
+interface Estadisticas {
   total: number;
-  aprobadas: number; // ✅ Solo mostrar aprobadas
-  canceladas: number; // ✅ Y canceladas por el usuario
-}
-
-interface MotivoJustificacion {
-  id: string;
-  label: string;
-  requiere_documento: boolean;
+  justificadas: number;
+  no_justificadas: number;
+  horas_compensadas_total: number;
 }
 
 interface FiltrosJustificaciones {
-  estado?: string;
   mes?: number;
   anio?: number;
   fecha_desde?: string;
   fecha_hasta?: string;
-  limit?: number;
+  es_justificada?: boolean;
 }
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export const useJustificaciones = () => {
-  const { token } = useAuth();
+  const [justificaciones, setJustificaciones] = useState<Justificacion[]>([]);
+  const [estadisticas, setEstadisticas] = useState<Estadisticas | null>(null);
+  const [motivos, setMotivos] = useState<Motivo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [justificaciones, setJustificaciones] = useState<Justificacion[]>([]);
-  const [estadisticas, setEstadisticas] = useState<EstadisticasJustificaciones | null>(null);
-  const [motivos, setMotivos] = useState<MotivoJustificacion[]>([]);
+  // ✅ OBTENER TOKEN
+  const getToken = () => {
+    return localStorage.getItem('token');
+  };
+
+  // ✅ FUNCIÓN GENÉRICA PARA LLAMADAS API
+  const apiCall = async (endpoint: string, options: RequestInit = {}) => {
+    const token = getToken();
+    if (!token) {
+      throw new Error('No hay token de autenticación');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        ...options.headers,
+      },
+      ...options,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Error ${response.status}`);
+    }
+
+    return response.json();
+  };
+
+  // ✅ OBTENER MOTIVOS DISPONIBLES
+  const obtenerMotivos = async () => {
+    try {
+      console.log('📋 [useJustificaciones] Obteniendo motivos...');
+      const result = await apiCall('justificaciones/motivos');
+      
+      if (result.success && result.data) {
+        setMotivos(result.data);
+        console.log('✅ [useJustificaciones] Motivos obtenidos:', result.data.length);
+      }
+    } catch (err) {
+      console.error('❌ [useJustificaciones] Error obteniendo motivos:', err);
+      setError(err instanceof Error ? err.message : 'Error obteniendo motivos');
+    }
+  };
 
   // ✅ OBTENER JUSTIFICACIONES
-  const obtenerJustificaciones = async (filtros: FiltrosJustificaciones = {}) => {
-    if (!token) return;
-
+  const obtenerJustificaciones = async (filtros?: FiltrosJustificaciones) => {
     setLoading(true);
     setError(null);
 
     try {
+      console.log('📋 [useJustificaciones] Obteniendo justificaciones...', filtros);
+
+      // Construir query params
       const params = new URLSearchParams();
-      if (filtros.estado) params.append('estado', filtros.estado);
-      if (filtros.mes) params.append('mes', filtros.mes.toString());
-      if (filtros.anio) params.append('anio', filtros.anio.toString());
-      if (filtros.fecha_desde) params.append('fecha_desde', filtros.fecha_desde);
-      if (filtros.fecha_hasta) params.append('fecha_hasta', filtros.fecha_hasta);
-      if (filtros.limit) params.append('limit', filtros.limit.toString());
-
-      const response = await fetch(
-        `${API_URL}/justificaciones?${params.toString()}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      if (filtros?.mes) params.append('mes', filtros.mes.toString());
+      if (filtros?.anio) params.append('anio', filtros.anio.toString());
+      if (filtros?.fecha_desde) params.append('fecha_desde', filtros.fecha_desde);
+      if (filtros?.fecha_hasta) params.append('fecha_hasta', filtros.fecha_hasta);
+      if (filtros?.es_justificada !== undefined) {
+        params.append('es_justificada', filtros.es_justificada.toString());
       }
 
-      const data = await response.json();
+      const endpoint = `justificaciones${params.toString() ? `?${params.toString()}` : ''}`;
+      const result = await apiCall(endpoint);
 
-      if (data.success) {
-        setJustificaciones(data.data.justificaciones);
-        setEstadisticas(data.data.estadisticas);
-        return data.data;
-      } else {
-        throw new Error(data.error || 'Error obteniendo justificaciones');
+      if (result.success && result.data) {
+        setJustificaciones(result.data.justificaciones || []);
+        setEstadisticas(result.data.estadisticas || null);
+        console.log('✅ [useJustificaciones] Justificaciones obtenidas:', result.data.justificaciones.length);
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
-      setError(errorMessage);
-      console.error('Error obteniendo justificaciones:', err);
+      console.error('❌ [useJustificaciones] Error:', err);
+      setError(err instanceof Error ? err.message : 'Error obteniendo justificaciones');
     } finally {
       setLoading(false);
     }
   };
 
   // ✅ CREAR JUSTIFICACIÓN
-  const crearJustificacion = async (datosJustificacion: Partial<Justificacion>) => {
-    if (!token) return;
-
+  const crearJustificacion = async (datos: {
+    fecha_justificacion: string;
+    motivo: string;
+    descripcion?: string;
+  }) => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(
-        `${API_URL}/justificaciones`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(datosJustificacion),
-        }
-      );
+      console.log('📋 [useJustificaciones] Creando justificación...', datos);
 
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
+      const result = await apiCall('justificaciones', {
+        method: 'POST',
+        body: JSON.stringify(datos),
+      });
 
-      const data = await response.json();
-
-      if (data.success) {
-        // Actualizar lista
+      if (result.success) {
+        console.log('✅ [useJustificaciones] Justificación creada');
+        // Recargar lista
         await obtenerJustificaciones();
-        return data.data;
+        return { success: true, message: result.message };
       } else {
-        throw new Error(data.error || 'Error creando justificación');
+        throw new Error(result.error || 'Error creando justificación');
       }
     } catch (err) {
+      console.error('❌ [useJustificaciones] Error creando:', err);
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
       setError(errorMessage);
-      console.error('Error creando justificación:', err);
-      return null;
+      return { success: false, message: errorMessage };
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ ACTUALIZAR JUSTIFICACIÓN
-  const actualizarJustificacion = async (id: number, datos: Partial<Justificacion>) => {
-    if (!token) return;
-
+  // ✅ ELIMINAR JUSTIFICACIÓN
+  const eliminarJustificacion = async (id: number) => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(
-        `${API_URL}/justificaciones/${id}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(datos),
-        }
-      );
+      console.log('📋 [useJustificaciones] Eliminando justificación:', id);
 
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
+      const result = await apiCall(`justificaciones/${id}`, {
+        method: 'DELETE',
+      });
 
-      const data = await response.json();
-
-      if (data.success) {
-        // Actualizar lista
+      if (result.success) {
+        console.log('✅ [useJustificaciones] Justificación eliminada');
+        // Recargar lista
         await obtenerJustificaciones();
-        return data.data;
+        return { success: true, message: result.message };
       } else {
-        throw new Error(data.error || 'Error actualizando justificación');
+        throw new Error(result.error || 'Error eliminando justificación');
       }
     } catch (err) {
+      console.error('❌ [useJustificaciones] Error eliminando:', err);
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
       setError(errorMessage);
-      console.error('Error actualizando justificación:', err);
-      return null;
+      return { success: false, message: errorMessage };
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ CANCELAR JUSTIFICACIÓN
-  const cancelarJustificacion = async (id: number) => {
-    if (!token) return;
-
-    setLoading(true);
+  // ✅ LIMPIAR ERROR
+  const clearError = () => {
     setError(null);
-
-    try {
-      const response = await fetch(
-        `${API_URL}/justificaciones/${id}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      if (data.success) {
-        // Actualizar lista
-        await obtenerJustificaciones();
-        return data.data;
-      } else {
-        throw new Error(data.error || 'Error cancelando justificación');
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
-      setError(errorMessage);
-      console.error('Error cancelando justificación:', err);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ✅ OBTENER MOTIVOS
-  const obtenerMotivos = async () => {
-    if (!token) return;
-
-    try {
-      const response = await fetch(
-        `${API_URL}/justificaciones/motivos`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      if (data.success) {
-        setMotivos(data.data);
-        return data.data;
-      } else {
-        throw new Error(data.error || 'Error obteniendo motivos');
-      }
-    } catch (err) {
-      console.error('Error obteniendo motivos:', err);
-    }
   };
 
   // ✅ CARGAR DATOS INICIALES
   useEffect(() => {
-    if (token) {
-      obtenerJustificaciones();
-      obtenerMotivos();
-    }
-  }, [token]);
+    obtenerMotivos();
+    obtenerJustificaciones();
+  }, []);
 
   return {
-    // Estados
-    loading,
-    error,
     justificaciones,
     estadisticas,
     motivos,
-
-    // Funciones
+    loading,
+    error,
     obtenerJustificaciones,
     crearJustificacion,
-    actualizarJustificacion,
-    cancelarJustificacion,
-    obtenerMotivos,
-
-    // Utils
-    clearError: () => setError(null),
-    refresh: () => obtenerJustificaciones()
+    eliminarJustificacion,
+    clearError,
   };
 };

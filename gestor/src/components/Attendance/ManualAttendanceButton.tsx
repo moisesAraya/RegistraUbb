@@ -18,56 +18,51 @@ const ManualAttendanceButton: React.FC<ManualAttendanceButtonProps> = ({ onSubmi
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleOpenModal = () => {
-    console.log('🔵 Abriendo modal de registro manual'); // Debug
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
-    console.log('🔴 Cerrando modal de registro manual'); // Debug
     setIsModalOpen(false);
   };
 
   const handleSubmit = async (data: any) => {
-    console.log('📝 Datos del formulario modal:', data); // Debug
     return await onSubmit(data);
   };
 
   return (
     <>
-      {/* Tarjeta compacta con botón */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-amber-600" />
+      {/* Banner de registro manual - Optimizado para header */}
+      <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all w-full">
+        <div className="flex items-center justify-between gap-6">
+          {/* Contenido izquierdo */}
+          <div className="flex items-center gap-4 flex-1">
+            {/* Icono */}
+            <div className="w-11 h-11 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0">
+              <AlertTriangle className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <h4 className="font-semibold text-amber-900 text-sm">¿No puede usar el QR?</h4>
-              <p className="text-amber-700 text-xs leading-relaxed">
-                Solicite un registro manual excepcional
+            
+            {/* Texto */}
+            <div className="flex-1">
+              <h4 className="font-semibold text-amber-900 text-sm leading-tight">
+                ¿Problemas con el lector QR?
+              </h4>
+              <p className="text-amber-700 text-xs mt-0.5 leading-relaxed">
+                Registre su asistencia manualmente.
               </p>
             </div>
           </div>
+          
+          {/* Botón de acción */}
           <button
             onClick={handleOpenModal}
-            className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 shadow-md hover:shadow-lg"
+            className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 shadow-md hover:shadow-lg hover:-translate-y-0.5 flex-shrink-0"
           >
             <FileText className="w-4 h-4" />
-            <span>Solicitar</span>
+            <span>Registrar ahora</span>
           </button>
-        </div>
-        
-        <div className="mt-3 text-xs text-amber-800 bg-amber-100 rounded-lg p-2">
-          <strong>Nota:</strong> Solo para casos excepcionales. 
         </div>
       </div>
 
-      {/* Debug info */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mt-2 text-xs text-slate-500">
-          Estado del modal: {isModalOpen ? 'ABIERTO' : 'CERRADO'}
-        </div>
-      )}
 
       {/* Modal */}
       <ManualAttendanceModal

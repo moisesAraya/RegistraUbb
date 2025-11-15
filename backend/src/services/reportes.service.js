@@ -117,7 +117,7 @@ function generarReporteVacio(mes, anio, fechaInicio, fechaFin, periodo) {
         resumen_basico: {
             horasTotales: 0,
             diasTrabajados: 0,
-            ausentismos: 0,
+            faltas: 0,
             promedioHorasDia: 0
         },
         asistencias_detalle: [],
@@ -125,7 +125,7 @@ function generarReporteVacio(mes, anio, fechaInicio, fechaFin, periodo) {
         justificaciones: [],
         metricas_avanzadas: {
             promedio_horas_dia: 0,
-            puntualidad: { llegadas_tempranas: 0, llegadas_tarde: 0, puntualidad_score: 0 },
+            puntualidad: { puntualidad_score: 0 },
             consistencia: { dias_completos: 0, dias_incompletos: 0, consistencia_score: 0 },
             justificaciones: { total: 0, aprobadas: 0, pendientes: 0, rechazadas: 0 }
         },
@@ -216,12 +216,10 @@ function procesarAsistenciasDetalle(marcajesPorFecha) {
         const horasTarde = calcularHorasEntreMarcajes(tarde.entrada, tarde.salida);
         const horasTotalesDia = horasMañana + horasTarde;
 
-        // Determinar estado del día
+        // Determinar estado del día (no marcamos 'tarde')
         let estado = 'presente';
         if (horasTotalesDia === 0) {
-            estado = 'ausente';
-        } else if (manana.entrada && parseInt(manana.entrada.split(':')[0]) > 9) {
-            estado = 'tarde';
+            estado = 'falta';
         }
 
         asistencias.push({
@@ -281,12 +279,12 @@ function calcularHorasEntreMarcajes(entrada, salida) {
 function calcularResumenAsistencias(asistencias) {
     const horasTotales = asistencias.reduce((sum, a) => sum + (a.horas_totales || 0), 0);
     const diasTrabajados = asistencias.filter(a => a.horas_totales > 0).length;
-    const ausentismos = asistencias.filter(a => a.estado === 'ausente').length;
+    const faltas = asistencias.filter(a => a.estado === 'falta').length;
     
     return {
         horasTotales: Math.round(horasTotales * 100) / 100,
         diasTrabajados,
-        ausentismos,
+        faltas,
         promedioHorasDia: diasTrabajados > 0 ? Math.round((horasTotales / diasTrabajados) * 100) / 100 : 0
     };
 }
@@ -313,7 +311,7 @@ export async function getReporteComparativo(rut_usuario) {
                     nombre_mes: fecha.toLocaleDateString('es-CL', { month: 'short' }),
                     horas_totales: reporte.resumen_basico?.horasTotales || 0,
                     dias_trabajados: reporte.resumen_basico?.diasTrabajados || 0,
-                    ausentismos: reporte.resumen_basico?.ausentismos || 0,
+                    faltas: reporte.resumen_basico?.faltas || 0,
                     justificaciones: reporte.justificaciones?.length || 0,
                     porcentaje_asistencia: calcularPorcentajeAsistencia(reporte.resumen_basico)
                 });
@@ -322,7 +320,7 @@ export async function getReporteComparativo(rut_usuario) {
                 reportesMensuales.push({
                     mes, anio,
                     nombre_mes: fecha.toLocaleDateString('es-CL', { month: 'short' }),
-                    horas_totales: 0, dias_trabajados: 0, ausentismos: 0, justificaciones: 0, porcentaje_asistencia: 0
+                    horas_totales: 0, dias_trabajados: 0, faltas: 0, justificaciones: 0, porcentaje_asistencia: 0
                 });
             }
         }
@@ -389,8 +387,6 @@ function calcularMetricasAvanzadas(asistencias, justificaciones) {
         return hora <= 8;
     }).length;
     
-    const llegadasTardes = asistencias.filter(a => a.estado === 'tarde').length;
-    
     // Análisis de consistencia
     const diasCompletos = asistencias.filter(a => parseFloat(a.horasTrabajadas || a.horas_trabajadas || 0) >= 8).length;
     const diasIncompletos = asistencias.filter(a => {
@@ -401,8 +397,6 @@ function calcularMetricasAvanzadas(asistencias, justificaciones) {
     return {
         promedio_horas_dia: Math.round(promedioHorasDia * 100) / 100,
         puntualidad: {
-            llegadas_tempranas: llegadasTempranas,
-            llegadas_tarde: llegadasTardes,
             puntualidad_score: totalAsistencias > 0 ? Math.round(((llegadasTempranas / totalAsistencias) * 100)) : 0
         },
         consistencia: {

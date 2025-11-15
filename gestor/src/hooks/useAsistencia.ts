@@ -5,7 +5,7 @@ interface AsistenciaItem {
   horaIngreso: string | null;
   horaSalida: string | null;
   horasTrabajadas: number;
-  estado: 'presente' | 'ausente' | 'tarde';
+  estado: 'presente' | 'ausente' | 'falta';
   observacion?: string;
   tipoMarcaje: string;
   ubicacion: string;
@@ -15,8 +15,7 @@ interface ResumenAsistencia {
   diasTrabajados: number;
   horasTotales: number;
   horasPromedio: number;
-  ausentismos: number;
-  llegadasTarde: number;
+  faltas: number;
 }
 
 interface EstadisticasAsistencia {
@@ -106,13 +105,18 @@ export const useAsistencia = () => {
     }
   };
 
-  const fetchEstadisticas = async () => {
+  const fetchEstadisticas = async (mes?: number, anio?: number) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      const result = await makeApiCall('asistencia/estadisticas');
-      
+      const params = new URLSearchParams();
+      if (mes) params.append('mes', mes.toString());
+      if (anio) params.append('anio', anio.toString());
+
+      const endpoint = `asistencia/estadisticas${params.toString() ? `?${params.toString()}` : ''}`;
+      const result = await makeApiCall(endpoint);
+
       if (result.success) {
         setEstadisticas(result.data);
       } else {
@@ -127,28 +131,50 @@ export const useAsistencia = () => {
   };
 
   const registrarMarcajeManual = async (data: {
-    activityType: string;
+    date: string;
+    checkInTime: string;
+    checkOutTime?: string;
     location?: string;
     notes?: string;
+    activityType?: string;
+    id_totem?: number | null;
   }) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      const result = await makeApiCall('asistencia/marcaje-manual', {
+      // Mapear campos del formulario al body esperado por el backend
+      const body: any = {
+        fecha: data.date,
+        hora_ingreso: data.checkInTime,
+      };
+
+      if (data.checkOutTime) body.hora_salida = data.checkOutTime;
+      if (data.notes) body.observacion = data.notes;
+      if (data.id_totem) body.id_totem = data.id_totem;
+
+      // Añadir información adicional en observación si existe ubicación/actividad
+      if (data.location || data.activityType) {
+        const extras = [] as string[];
+        if (data.location) extras.push(`Ubicación: ${data.location}`);
+        if (data.activityType) extras.push(`Actividad: ${data.activityType}`);
+        body.observacion = [body.observacion || '', extras.join(' | ')].filter(Boolean).join(' - ');
+      }
+
+      const result = await makeApiCall('asistencia/manual', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: JSON.stringify(body),
       });
-      
+
       if (result.success) {
-        // Refrescar datos después del marcaje
+        // Refrescar datos después del registro manual
         await fetchAsistencia();
-        return { success: true, message: result.message };
+        return { success: true, message: result.message || 'Ingreso registrado' };
       } else {
-        throw new Error(result.error || 'Error registrando marcaje');
+        throw new Error(result.error || 'Error registrando ingreso manual');
       }
     } catch (err) {
-      console.error('❌ Error registrando marcaje:', err);
+      console.error('❌ Error registrando marcaje manual:', err);
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
       setError(errorMessage);
       return { success: false, message: errorMessage };
@@ -187,10 +213,14 @@ export const useAsistencia = () => {
     }
   };
 
-  // Cargar datos al montar el hook
+  // Cargar datos al montar el hook (mes y año actuales)
   useEffect(() => {
-    fetchAsistencia();
-    fetchEstadisticas();
+    const now = new Date();
+    const mesActual = now.getMonth() + 1;
+    const anioActual = now.getFullYear();
+
+    fetchAsistencia(mesActual, anioActual);
+    fetchEstadisticas(mesActual, anioActual);
   }, []);
 
   return {

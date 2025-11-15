@@ -121,11 +121,50 @@ class Marcaje(models.Model):
     hora_salida = models.DateTimeField(blank=True, null=True)
     fecha = models.DateField()
     observacion = models.TextField(blank=True, null=True)
+    rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario', to_field='rut_usuario')
+    id_totem = models.ForeignKey('Totem', on_delete=models.CASCADE, db_column='id_totem')
     createdAt = models.DateTimeField(auto_now_add=True)
     updatedAt = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'Marcajes'
+    
+    def crear_asistencia_si_completo(self):
+        """
+        Crea un registro de asistencia cuando el marcaje tiene entrada y salida.
+        Calcula las horas diarias y determina si tuvo colación basado en las horas trabajadas.
+        """
+        # Solo crear asistencia si hay entrada Y salida
+        if self.hora_ingreso and self.hora_salida:
+            # Verificar que no exista ya una asistencia para este marcaje
+            if not hasattr(self, 'asistencia_set') or not self.asistencia_set.exists():
+                # Calcular las horas trabajadas
+                diferencia = self.hora_salida - self.hora_ingreso
+                horas_trabajadas = diferencia.total_seconds() / 3600  # Convertir a horas
+                
+                # Determinar colación basado en las horas trabajadas
+                # Si trabajó 5 horas o más, NO tuvo colación (False)
+                # Si trabajó menos de 5 horas, SÍ tuvo colación (True)
+                tuvo_colacion = horas_trabajadas < 5.0
+                
+                # Crear el registro de asistencia
+                Asistencia.objects.create(
+                    id_marcaje=self,
+                    horas_diarias=round(horas_trabajadas, 2),  # Redondear a 2 decimales
+                    colacion=tuvo_colacion,
+                    observacion=f"Asistencia generada automáticamente. Horas trabajadas: {round(horas_trabajadas, 2)}"
+                )
+    
+    def save(self, *args, **kwargs):
+        """
+        Override del método save para crear asistencia automáticamente
+        cuando se complete un marcaje (se agregue hora de salida)
+        """
+        # Guardar el marcaje primero
+        super().save(*args, **kwargs)
+        
+        # Intentar crear asistencia si está completo
+        self.crear_asistencia_si_completo()
 
 
 class Registro_marcaje(models.Model):
@@ -152,13 +191,30 @@ class Registro_marcaje(models.Model):
 
 class Justificacion(models.Model):
     id_justificacion = models.AutoField(primary_key=True)
+    rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario', to_field='rut_usuario')
     descripcion = models.TextField()
-    estado = models.CharField(max_length=255)
+    estado = models.CharField(max_length=255, default='PENDIENTE')
+    fecha_justificacion = models.DateField()
+
+    # Campos de tracking de aprobaciones
+    observaciones_admin = models.TextField(null=True, blank=True)
+    aprobado_por = models.ForeignKey('Usuario', on_delete=models.SET_NULL, null=True, blank=True, 
+                                   related_name='justificaciones_aprobadas', db_column='aprobado_por', to_field='rut_usuario')
+    fecha_aprobacion = models.DateTimeField(null=True, blank=True)
+    rechazado_por = models.ForeignKey('Usuario', on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name='justificaciones_rechazadas', db_column='rechazado_por', to_field='rut_usuario')
+    fecha_rechazo = models.DateTimeField(null=True, blank=True)
+
+    # timestamps equivalentes a Sequelize
     createdAt = models.DateTimeField(auto_now_add=True)
     updatedAt = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'Justificacions'
+    
+    def __str__(self):
+        return f"Justificacion {self.id_justificacion} - {self.rut_usuario.rut_usuario} ({self.estado})"
+
 
 
 class Asistencia(models.Model):

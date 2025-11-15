@@ -3,282 +3,504 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lector Código de Barras - RegistraUBB</title>
+    <title>Lector QR - RegistraUBB</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #2563eb 0%, #6d56d4 100%);
             min-height: 100vh;
             color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
+
         .container {
             background: white;
             padding: 40px;
             border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            width: 90%;
+            max-width: 800px;
+            min-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
+
         .header {
             text-align: center;
             margin-bottom: 40px;
         }
+
         .header h1 {
             color: #2c3e50;
-            margin-bottom: 10px;
-            font-size: 2.5em;
-        }
-        .header p {
-            color: #7f8c8d;
-            font-size: 1.2em;
-        }
-        .scanner-section {
-            text-align: center;
-            margin: 30px 0;
-            padding: 30px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            border: 3px dashed #007bff;
-        }
-        .scanner-icon {
-            font-size: 4em;
-            color: #007bff;
+            font-size: 3em;
             margin-bottom: 20px;
         }
-        .qr-input {
-            font-size: 18px;
-            padding: 15px;
-            width: 100%;
-            max-width: 400px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            text-align: center;
-            background: white;
-            margin: 10px 0;
+
+        .totem-info {
+            margin: 20px 0;
         }
-        .qr-input:focus {
-            outline: none;
-            border-color: #007bff;
-            box-shadow: 0 0 10px rgba(0,123,255,0.25);
-        }
-        .usuario-info {
-            background: linear-gradient(135deg, #e8f4fd 0%, #d4edda 100%);
-            padding: 25px;
-            border-radius: 10px;
-            margin: 25px 0;
-            display: none;
-            border-left: 5px solid #28a745;
-        }
-        .usuario-info h3 {
-            color: #155724;
-            margin-top: 0;
-        }
-        .pin-section {
-            background: #fff3cd;
-            padding: 25px;
-            border-radius: 10px;
-            margin: 25px 0;
-            display: none;
-            text-align: center;
-            border-left: 5px solid #ffc107;
-        }
-        .pin-input {
-            font-size: 28px;
-            text-align: center;
-            padding: 15px;
-            width: 250px;
-            margin: 15px;
-            border: 3px solid #ffc107;
-            border-radius: 8px;
-            background: white;
-        }
-        .pin-input:focus {
-            outline: none;
-            border-color: #e0a800;
-            box-shadow: 0 0 15px rgba(255,193,7,0.3);
-        }
-        .btn {
-            background: #007bff;
+
+        .totem-badge {
+            background: linear-gradient(135deg, #17a2b8, #20c997);
             color: white;
-            padding: 15px 30px;
+            padding: 15px 20px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 4px 12px rgba(23, 162, 184, 0.3);
+        }
+
+        .totem-icon {
+            font-size: 1.5em;
+        }
+
+        .totem-details {
+            flex: 1;
+            text-align: left;
+        }
+
+        .totem-details small {
+            display: block;
+            opacity: 0.8;
+            font-size: 0.9em;
+        }
+
+        .btn-reconfig {
+            background: rgba(255,255,255,0.2);
             border: none;
-            border-radius: 8px;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 5px;
             cursor: pointer;
-            font-size: 16px;
-            margin: 10px;
+            font-size: 14px;
             transition: all 0.3s ease;
-            font-weight: bold;
         }
-        .btn:hover {
-            background: #0056b3;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+
+        .btn-reconfig:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.05);
         }
-        .btn-success {
-            background: #28a745;
+
+        .instructions {
+            text-align: center;
+            margin-bottom: 30px;
         }
-        .btn-success:hover {
-            background: #218838;
-        }
-        .btn-danger {
-            background: #dc3545;
-        }
-        .btn-danger:hover {
-            background: #c82333;
-        }
-        .btn-secondary {
-            background: #6c757d;
-        }
-        .btn-secondary:hover {
-            background: #545b62;
-        }
-        .alert {
-            padding: 20px;
-            margin: 15px 0;
-            border-radius: 8px;
-            font-size: 16px;
-            animation: slideIn 0.3s ease;
-        }
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-            border-left: 5px solid #28a745;
-        }
-        .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-            border-left: 5px solid #dc3545;
-        }
-        .hidden {
-            display: none;
-        }
+
         .status-indicator {
             display: inline-block;
             width: 12px;
             height: 12px;
             border-radius: 50%;
-            margin-right: 8px;
+            margin-right: 10px;
         }
-        .status-waiting {
-            background: #ffc107;
-            animation: pulse 2s infinite;
-        }
+
         .status-ready {
             background: #28a745;
+            animation: pulse 2s infinite;
         }
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
+
+        .status-waiting {
+            background: #ffc107;
         }
+
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.5; }
             100% { opacity: 1; }
         }
+
+        .scanner-section {
+            text-align: center;
+            margin: 40px 0;
+        }
+
+        .scanner-icon {
+            font-size: 4em;
+            color: #6c757d;
+            margin-bottom: 20px;
+        }
+
+        .scanner-section h2 {
+            color: #495057;
+            margin-bottom: 20px;
+        }
+
+        .qr-input {
+            width: 100%;
+            padding: 20px;
+            font-size: 18px;
+            border: 3px solid #e9ecef;
+            border-radius: 10px;
+            text-align: center;
+            background: #f8f9fa;
+            transition: all 0.3s ease;
+        }
+
+        .qr-input:focus {
+            outline: none;
+            border-color: #007bff;
+            background: white;
+            box-shadow: 0 0 10px rgba(0,123,255,0.1);
+        }
+
+        .usuario-info {
+            background: #e8f5e8;
+            border: 2px solid #28a745;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .usuario-info h3 {
+            color: #155724;
+            margin-bottom: 15px;
+            
+        }
+
         .info-row {
             display: flex;
             justify-content: space-between;
-            margin: 10px 0;
-            padding: 8px 0;
-            border-bottom: 1px solid #e9ecef;
+            margin-bottom: 10px;
+            padding: 5px 0;
         }
+
         .info-label {
             font-weight: bold;
             color: #495057;
         }
-        .instructions {
-            background: #e7f3ff;
-            padding: 20px;
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            min-width: 350px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        .modal-content h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        .pin-display {
+            font-size: 2em;
+            font-family: monospace;
+            background: #f8f9fa;
+            padding: 15px 20px;
             border-radius: 8px;
             margin: 20px 0;
-            border-left: 4px solid #007bff;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #e9ecef;
+        }
+
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .key {
+            padding: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .key:hover {
+            background: #e9ecef;
+            border-color: #007bff;
+        }
+
+        .key:active {
+            transform: scale(0.95);
+        }
+
+        .key.clear {
+            background: #dc3545;
+            color: white;
+            border-color: #dc3545;
+        }
+
+        .key.clear:hover {
+            background: #c82333;
+        }
+
+        .key.zero {
+            grid-column: span 1;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        /* Notificaciones dentro del modal */
+        .modal-notification {
+            margin: 15px 0 5px 0;
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            text-align: center;
+            animation: slideIn 0.3s ease;
+            display: none;
+        }
+
+        .modal-notification.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .modal-notification.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #007bff;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            border-radius: 50px;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .fullscreen-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        .fullscreen-toggle:hover {
+            background: rgba(0,0,0,0.9);
+            transform: scale(1.1);
+        }
+
+        .alert {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* Pantalla completa */
+        body.fullscreen {
+            padding: 0;
+        }
+
+        body.fullscreen .container {
+            width: 100vw;
+            height: 100vh;
+            max-width: none;
+            min-height: 100vh;
+            border-radius: 0;
+            box-shadow: none;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .container {
+            animation: slideIn 0.5s ease;
         }
     </style>
 </head>
 <body>
+    <!-- Botón pantalla completa -->
+    <button class="fullscreen-toggle" id="fullscreen-btn" title="Pantalla completa">⛶</button>
+
     <div class="container">
         <div class="header">
-            <h1>📊 Sistema de Asistencia</h1>
-            <p>Escanea tu código QR con el lector de código de barras</p>
+            <h1> Sistema de Asistencia</h1>
         </div>
+
+        {% if totem %}
+        <div class="totem-info">
+            <div class="totem-badge">
+                <span class="totem-icon">🖥️</span>
+                <div class="totem-details">
+                    <strong>{{ totem.nombre }}</strong>
+                    <small>📍 {{ totem.ubicacion }}</small>
+                </div>
+                <button onclick="reconfigurarTotem()" class="btn-reconfig" title="Cambiar totem">⚙️</button>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Estado del sistema -->
         <div class="instructions">
-            <p><span class="status-indicator status-waiting" id="status-indicator"></span>
-            <strong id="status-text">Sistema listo - Escanea tu código QR</strong></p>
+            <p><span class="status-indicator status-ready" id="status-indicator"></span>
+            <strong id="status-text">Escanea tu código QR</strong></p>
         </div>
 
         <!-- Área de escaneo -->
         <div class="scanner-section">
             <div class="scanner-icon">📱</div>
-            <h3>Lector de Código de Barras</h3>
-            <p>El cursor debe estar en el campo de abajo. Escanea tu código QR.</p>
+            <h2>Lector de Código QR</h2>
             <input type="text" 
                    id="qr-input" 
                    class="qr-input" 
-                   placeholder="Escanea aquí tu código QR..." 
+                   placeholder="Escanea tu código aquí..." 
                    autocomplete="off"
                    autofocus>
         </div>
 
-        <!-- Información del usuario -->
-        <div id="usuario-info" class="usuario-info">
-            <h3>👤 Usuario Identificado</h3>
-            <div class="info-row">
-                <span class="info-label">RUT:</span>
-                <span id="usuario-rut"></span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Nombre:</span>
-                <span id="usuario-nombre"></span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Cargo:</span>
-                <span id="usuario-cargo"></span>
-            </div>
-        </div>
 
-        <!-- Sección PIN -->
-        <div id="pin-section" class="pin-section">
-            <h3>🔐 Ingresa tu PIN de Seguridad</h3>
-            <input type="password" 
-                   id="pin-input" 
-                   class="pin-input" 
-                   placeholder="PIN" 
-                   maxlength="10"
-                   autocomplete="off">
-            <br>
-            <button id="verificar-pin" class="btn btn-success">✅ Verificar PIN</button>
-            <button id="cancelar" class="btn btn-danger">❌ Cancelar</button>
-        </div>
 
         <!-- Mensajes -->
         <div id="mensajes"></div>
+    </div>
 
-        <!-- Botones de control -->
-        <div style="text-align: center; margin-top: 30px;">
-            <button id="limpiar" class="btn btn-secondary">🔄 Limpiar Pantalla</button>
+    <!-- Modal PIN -->
+    <div class="modal-overlay" id="pin-modal">
+        <div class="modal-content">
+            <h1> Bienvenido </h1>  
+
+
+        <!-- Información del usuario -->
+        <div id="usuario-info" class="usuario-info">
+            <span class="info-label" id="usuario-nombre" style="text-align: center;">Nombre:</span>        
+
+        </div>
+
+            <h2>Ingresa tu PIN</h2>
+            
+            <!-- Área de notificaciones dentro del modal -->
+            <div class="modal-notification" id="modal-notification"></div>
+            
+            <div class="pin-display" id="pin-display">••••</div>
+            
+            <div class="keypad">
+                <button class="key" onclick="agregarDigito('1')">1</button>
+                <button class="key" onclick="agregarDigito('2')">2</button>
+                <button class="key" onclick="agregarDigito('3')">3</button>
+                <button class="key" onclick="agregarDigito('4')">4</button>
+                <button class="key" onclick="agregarDigito('5')">5</button>
+                <button class="key" onclick="agregarDigito('6')">6</button>
+                <button class="key" onclick="agregarDigito('7')">7</button>
+                <button class="key" onclick="agregarDigito('8')">8</button>
+                <button class="key" onclick="agregarDigito('9')">9</button>
+                <button class="key clear" onclick="limpiarPin()">⌫</button>
+                <button class="key zero" onclick="agregarDigito('0')">0</button>
+            </div>
+
+            <div class="modal-actions" id="mensajes">
+                <button class="btn" onclick="verificarPin()">✅ Confirmar</button>
+                <button class="btn btn-danger" onclick="cerrarModal()">❌ Cancelar</button>
+                
+            </div>
         </div>
     </div>
 
+    <!-- Botón limpiar -->
+    <button id="limpiar" class="btn btn-secondary">🔄</button>
+
     <script>
         let codigoQRActual = '';
+        let pinActual = '';
         let timeoutId = null;
 
         // Elementos del DOM
         const qrInput = document.getElementById('qr-input');
         const usuarioInfo = document.getElementById('usuario-info');
-        const pinSection = document.getElementById('pin-section');
-        const pinInput = document.getElementById('pin-input');
-        const verificarPinBtn = document.getElementById('verificar-pin');
-        const cancelarBtn = document.getElementById('cancelar');
-        const limpiarBtn = document.getElementById('limpiar');
         const mensajesDiv = document.getElementById('mensajes');
         const statusIndicator = document.getElementById('status-indicator');
         const statusText = document.getElementById('status-text');
+        const pinModal = document.getElementById('pin-modal');
+        const pinDisplay = document.getElementById('pin-display');
+        const modalNotification = document.getElementById('modal-notification');
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        const limpiarBtn = document.getElementById('limpiar');
 
         // Event listeners
         qrInput.addEventListener('input', manejarEscaneoQR);
@@ -288,34 +510,50 @@
             }
         });
         
-        verificarPinBtn.addEventListener('click', verificarPin);
-        cancelarBtn.addEventListener('click', cancelar);
+        fullscreenBtn.addEventListener('click', toggleFullscreen);
         limpiarBtn.addEventListener('click', limpiarPantalla);
-        
-        pinInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                verificarPin();
-            }
-        });
 
-        // Mantener el foco en el input del QR
+        // Mantener foco en input QR
         setInterval(() => {
-            if (!pinSection.style.display || pinSection.style.display === 'none') {
+            if (pinModal.style.display !== 'flex') {
                 if (document.activeElement !== qrInput) {
                     qrInput.focus();
                 }
             }
         }, 1000);
 
+        // Pantalla completa
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().then(() => {
+                    document.body.classList.add('fullscreen');
+                    fullscreenBtn.innerHTML = '❌';
+                    fullscreenBtn.title = 'Salir de pantalla completa';
+                });
+            } else {
+                document.exitFullscreen().then(() => {
+                    document.body.classList.remove('fullscreen');
+                    fullscreenBtn.innerHTML = '⛶';
+                    fullscreenBtn.title = 'Pantalla completa';
+                });
+            }
+        }
+
+        // Detectar cambios de pantalla completa
+        document.addEventListener('fullscreenchange', function() {
+            if (!document.fullscreenElement) {
+                document.body.classList.remove('fullscreen');
+                fullscreenBtn.innerHTML = '⛶';
+            }
+        });
+
         function manejarEscaneoQR() {
             const codigo = qrInput.value.trim();
             
-            // Limpiar timeout anterior
             if (timeoutId) {
                 clearTimeout(timeoutId);
             }
             
-            // Si hay contenido, procesar después de un breve delay
             if (codigo.length > 0) {
                 timeoutId = setTimeout(() => {
                     procesarCodigoQR();
@@ -327,16 +565,16 @@
             const codigo = qrInput.value.trim();
             
             if (!codigo) {
-                mostrarMensaje('Por favor escanea un código QR válido', 'error');
+                mostrarMensaje('Escanea un código QR válido', 'error');
                 return;
             }
 
             codigoQRActual = codigo;
-            actualizarEstado('Procesando código...', 'waiting');
+            actualizarEstado('Procesando...', 'waiting');
             
             fetch('/procesar_qr/', {
                 method: 'POST',
-                headers: {
+                headers: {  
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ codigo_qr: codigo })
@@ -345,48 +583,69 @@
             .then(data => {
                 if (data.success) {
                     mostrarUsuario(data.usuario);
+                    mostrarModalPin();
                     actualizarEstado('Ingresa tu PIN', 'ready');
                 } else {
                     mostrarMensaje(data.error, 'error');
-                    actualizarEstado('Error - Escanea nuevamente', 'waiting');
-                    setTimeout(() => {
-                        limpiarPantalla();
-                    }, 3000);
+                    actualizarEstado('Error - Intenta nuevamente', 'waiting');
+                    setTimeout(limpiarPantalla, 3000);
                 }
             })
             .catch(error => {
-                mostrarMensaje('Error de conexión. Intenta nuevamente.', 'error');
+                mostrarMensaje('Error de conexión', 'error');
                 actualizarEstado('Error de conexión', 'waiting');
-                setTimeout(() => {
-                    limpiarPantalla();
-                }, 3000);
+                setTimeout(limpiarPantalla, 3000);
             });
         }
 
         function mostrarUsuario(usuario) {
-            document.getElementById('usuario-rut').textContent = usuario.rut;
+            /* document.getElementById('usuario-rut').textContent = usuario.rut; */
             document.getElementById('usuario-nombre').textContent = usuario.nombre;
-            document.getElementById('usuario-cargo').textContent = usuario.cargo;
-            
             usuarioInfo.style.display = 'block';
-            pinSection.style.display = 'block';
-            
-            // Cambiar foco al PIN
-            setTimeout(() => {
-                pinInput.focus();
-            }, 100);
+        }
+
+        function mostrarModalPin() {
+            pinModal.style.display = 'flex';
+            pinActual = '';
+            actualizarDisplayPin();
+            ocultarNotificacionModal(); // Limpiar notificaciones anteriores
+        }
+
+        function cerrarModal() {
+            pinModal.style.display = 'none';
+            pinActual = '';
+            ocultarNotificacionModal();
+            limpiarPantalla();
+        }
+
+        function agregarDigito(digito) {
+            if (pinActual.length < 10) {
+                pinActual += digito;
+                actualizarDisplayPin();
+            }
+        }
+
+        function limpiarPin() {
+            pinActual = pinActual.slice(0, -1);
+            actualizarDisplayPin();
+        }
+
+        function actualizarDisplayPin() {
+            if (pinActual.length === 0) {
+                pinDisplay.textContent = '••••';
+            } else {
+                pinDisplay.textContent = '•'.repeat(pinActual.length);
+            }
         }
 
         function verificarPin() {
-            const pin = pinInput.value.trim();
-            
-            if (!pin) {
-                mostrarMensaje('Por favor ingresa tu PIN', 'error');
-                pinInput.focus();
+            if (!pinActual) {
+                mostrarNotificacionModal('⚠️ Ingresa tu PIN', 'error');
                 return;
             }
 
             actualizarEstado('Verificando PIN...', 'waiting');
+            mostrarNotificacionModal('🔄 Verificando PIN...', 'success');
 
             fetch('/verificar_pin/', {
                 method: 'POST',
@@ -395,7 +654,7 @@
                 },
                 body: JSON.stringify({
                     codigo_qr: codigoQRActual,
-                    pin: pin
+                    pin: pinActual
                 })
             })
             .then(response => response.json())
@@ -404,42 +663,42 @@
                     const tipoMarcaje = data.tipo_marcaje.toUpperCase();
                     const icono = data.tipo_marcaje === 'ingreso' ? '🟢' : '🔴';
                     
+                    // Mostrar mensaje de éxito en la pantalla principal
                     mostrarMensaje(
-                        `${icono} ${tipoMarcaje} registrado correctamente<br>
+                        `${icono} ${tipoMarcaje} #${data.numero_marcaje} registrado<br>
                          <strong>${data.usuario}</strong><br>
-                         Hora: ${data.hora}`,
+                         📅 ${data.fecha} - ⏰ ${data.hora}<br>
+                         📊 Total marcajes hoy: ${data.total_marcajes_hoy}`,
                         'success'
                     );
                     
-                    actualizarEstado(`${tipoMarcaje} registrado exitosamente`, 'ready');
-                    setTimeout(() => {
-                        limpiarPantalla();
-                    }, 4000);
+                    pinModal.style.display = 'none';
+                    actualizarEstado(`${tipoMarcaje} #${data.numero_marcaje} registrado`, 'ready');
+                    setTimeout(limpiarPantalla, 5000);
                 } else {
-                    mostrarMensaje(data.error, 'error');
-                    pinInput.value = '';
-                    pinInput.focus();
-                    actualizarEstado('PIN incorrecto - Intenta nuevamente', 'waiting');
+                    // Mostrar error dentro del modal
+                    mostrarNotificacionModal(`❌ ${data.error}`, 'error');
+                    pinActual = '';
+                    actualizarDisplayPin();
+                    actualizarEstado('Error en PIN - Intenta nuevamente', 'waiting');
                 }
             })
             .catch(error => {
-                mostrarMensaje('Error de conexión. Intenta nuevamente.', 'error');
+                // Mostrar error de conexión dentro del modal
+                mostrarNotificacionModal('❌ Error de conexión', 'error');
                 actualizarEstado('Error de conexión', 'waiting');
             });
         }
 
-        function cancelar() {
-            limpiarPantalla();
-        }
-
         function limpiarPantalla() {
             usuarioInfo.style.display = 'none';
-            pinSection.style.display = 'none';
+            pinModal.style.display = 'none';
             qrInput.value = '';
-            pinInput.value = '';
+            pinActual = '';
             codigoQRActual = '';
             mensajesDiv.innerHTML = '';
-            actualizarEstado('Sistema listo - Escanea tu código QR', 'ready');
+            ocultarNotificacionModal(); // Limpiar notificaciones del modal
+            actualizarEstado('Escanea tu código QR', 'ready');
             
             setTimeout(() => {
                 qrInput.focus();
@@ -451,22 +710,63 @@
             mensajesDiv.innerHTML = `<div class="alert ${alertClass}">${mensaje}</div>`;
         }
 
+        function mostrarNotificacionModal(mensaje, tipo) {
+            modalNotification.className = `modal-notification ${tipo}`;
+            modalNotification.innerHTML = mensaje;
+            modalNotification.style.display = 'block';
+            
+            // Ocultar la notificación después de 3 segundos
+            setTimeout(() => {
+                modalNotification.style.display = 'none';
+            }, 3000);
+        }
+
+        function ocultarNotificacionModal() {
+            modalNotification.style.display = 'none';
+        }
+
         function actualizarEstado(texto, estado) {
             statusText.textContent = texto;
             statusIndicator.className = `status-indicator status-${estado}`;
         }
 
+        function reconfigurarTotem() {
+            if (confirm('¿Deseas reconfigurar el totem de este dispositivo?')) {
+                fetch('/reconfigurar_totem/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = '/configuracion/';
+                    }
+                })
+                .catch(error => {
+                    mostrarMensaje('Error al reconfigurar', 'error');
+                });
+            }
+        }
+
         // Inicializar
         document.addEventListener('DOMContentLoaded', function() {
             qrInput.focus();
-            actualizarEstado('Sistema listo - Escanea tu código QR', 'ready');
+            actualizarEstado('Escanea tu código QR', 'ready');
         });
 
-        // Prevenir que se pierda el foco del input principal
-        document.addEventListener('click', function(e) {
-            if (!pinSection.style.display || pinSection.style.display === 'none') {
-                if (e.target !== qrInput && !e.target.matches('.btn')) {
-                    setTimeout(() => qrInput.focus(), 100);
+        // Teclas del teclado para PIN
+        document.addEventListener('keydown', function(e) {
+            if (pinModal.style.display === 'flex') {
+                if (e.key >= '0' && e.key <= '9') {
+                    agregarDigito(e.key);
+                } else if (e.key === 'Backspace') {
+                    limpiarPin();
+                } else if (e.key === 'Enter') {
+                    verificarPin();
+                } else if (e.key === 'Escape') {
+                    cerrarModal();
                 }
             }
         });
