@@ -2,85 +2,19 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.contrib import messages
 from django.utils import timezone
-from .models import QR, Usuario, Marcaje, Totem, Registro_marcaje
+from .models import QR, Usuario, Marcaje, Registro_marcaje, Totem
 from django.views.decorators.csrf import csrf_exempt
 import json
 
-def configuracion_totem_view(request):
-    """Vista para configurar el totem del dispositivo"""
-    totems = Totem.objects.all()
-    return render(request, 'lector/configuracion_totem.html', {'totems': totems})
-
-@csrf_exempt
-def guardar_totem(request):
-    """Guarda la configuración del totem en la sesión"""
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            totem_id = data.get('totem_id')
-            
-            # Verificar que el totem existe
-            totem = get_object_or_404(Totem, id_totem=totem_id)
-            
-            # Guardar en sesión
-            request.session['totem_id'] = totem_id
-            
-            return JsonResponse({
-                'success': True,
-                'totem': {
-                    'id': totem.id_totem,
-                    'ubicacion': totem.ubicacion
-                }
-            })
-            
-        except Totem.DoesNotExist:
-            return JsonResponse({
-                'success': False,
-                'error': 'Totem no encontrado'
-            })
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': 'Error al guardar configuración'
-            })
-    
-    return JsonResponse({'success': False, 'error': 'Método no permitido'})
-
 def lector_qr_view(request):
     """Vista para mostrar la página del lector QR con código de barras"""
-    # Verificar si el totem está configurado
-    totem_id = request.session.get('totem_id')
-    if not totem_id:
-        return redirect('configuracion_totem')
-    
-    # Obtener información del totem para mostrar
-    try:
-        totem = Totem.objects.get(id_totem=totem_id)
-        context = {
-            'totem': {
-                'id': totem.id_totem,
-                'ubicacion': totem.ubicacion
-            }
-        }
-    except Totem.DoesNotExist:
-        # Si el totem no existe, redirigir a configuración
-        return redirect('configuracion_totem')
-    
-    return render(request, 'lector/lector_qr.html', context)
+    return render(request, 'lector/lector_qr.html')
 
 @csrf_exempt
 def procesar_qr(request):
     """Procesa el código QR escaneado y solicita PIN"""
     if request.method == 'POST':
         try:
-            # Verificar que el totem esté configurado
-            totem_id = request.session.get('totem_id')
-            if not totem_id:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Dispositivo no configurado. Configurar totem primero.'
-                })
-            
             data = json.loads(request.body)
             codigo_qr = data.get('codigo_qr')
             
@@ -112,20 +46,13 @@ def procesar_qr(request):
 
 @csrf_exempt
 def verificar_pin(request):
-    """Verifica el PIN del usuario y registra el marcaje (múltiples marcajes por día)"""
+    """Verifica el PIN del usuario y registra el marcaje"""
     if request.method == 'POST':
         try:
-            # Verificar que el totem esté configurado
-            totem_id = request.session.get('totem_id')
-            if not totem_id:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Dispositivo no configurado'
-                })
-            
             data = json.loads(request.body)
             codigo_qr = data.get('codigo_qr')
             pin_ingresado = data.get('pin')
+            totem_id = data.get('totem_id', 1)  # ID del totem por defecto
             
             # Buscar el QR y usuario
             qr_obj = get_object_or_404(QR, codigo_unico=codigo_qr, estado_qr=True)
@@ -145,80 +72,52 @@ def verificar_pin(request):
                 usuario.bloqueado_hasta = None
                 usuario.save()
                 
-                # Obtener la hora actual
+                # Crear marcaje
                 ahora = timezone.now()
                 fecha_hoy = ahora.date()
                 
-                # Obtener el totem
-                totem = get_object_or_404(Totem, id_totem=totem_id)
-                
-                # Buscar todos los marcajes del usuario para hoy, ordenados por fecha de creación
-                # Obtenemos los IDs de marcajes del usuario a través de Registro_marcaje
-                marcajes_ids = Registro_marcaje.objects.filter(
-                    rut_usuario=usuario.rut_usuario
-                ).values_list('id_marcaje', flat=True)
-                
-                marcajes_hoy = Marcaje.objects.filter(
-                    id_marcaje__in=marcajes_ids,
+                # Verificar si ya hay un marcaje para hoy
+                marcaje_existente = Marcaje.objects.filter(
+                    registro_marcaje__rut_usuario=usuario,
                     fecha=fecha_hoy
-                ).order_by('createdAt')
+                ).first()
                 
-                # Determinar el tipo de marcaje basado en el último estado
-                if not marcajes_hoy.exists():
-                    # No hay marcajes hoy, es el primer ingreso
-                    tipo_marcaje = 'ingreso'
-                    crear_nuevo_marcaje = True
-                else:
-                    # Hay marcajes previos, verificar el último
-                    ultimo_marcaje = marcajes_hoy.last()
-                    
-                    if ultimo_marcaje.hora_salida is None:
-                        # El último marcaje no tiene salida, es una salida
-                        ultimo_marcaje.hora_salida = ahora
-                        ultimo_marcaje.save()
+                if marcaje_existente:
+                    # Es salida
+                    if not marcaje_existente.hora_salida:
+                        marcaje_existente.hora_salida = ahora
+                        marcaje_existente.save()
                         tipo_marcaje = 'salida'
-                        crear_nuevo_marcaje = False
                     else:
-                        # El último marcaje ya tiene salida, es un nuevo ingreso
-                        tipo_marcaje = 'ingreso'
-                        crear_nuevo_marcaje = True
-                
-                # Crear nuevo marcaje si es necesario
-                if crear_nuevo_marcaje:
-                    # Crear el marcaje
-                    nuevo_marcaje = Marcaje.objects.create(
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'Ya se registró ingreso y salida para hoy'
+                        })
+                else:
+                    # Es ingreso
+                    marcaje = Marcaje.objects.create(
                         hora_ingreso=ahora,
-                        fecha=fecha_hoy,
-                        rut_usuario=usuario,    
-                        id_totem=totem 
+                        fecha=fecha_hoy
                     )
                     
-                    # Crear el registro que conecta usuario, marcaje y totem
+                    # Crear registro de marcaje
+                    totem = get_object_or_404(Totem, id_totem=totem_id)
                     Registro_marcaje.objects.create(
-                        rut_usuario=usuario.rut_usuario,
-                        id_marcaje=nuevo_marcaje,
+                        rut_usuario=usuario,
+                        id_marcaje=marcaje,
                         id_totem=totem
                     )
-                
-                # Contar marcajes del día para mostrar información adicional
-                total_marcajes_hoy = marcajes_hoy.count() + (1 if crear_nuevo_marcaje else 0)
-                numero_marcaje = total_marcajes_hoy if tipo_marcaje == 'ingreso' else total_marcajes_hoy
+                    tipo_marcaje = 'ingreso'
                 
                 return JsonResponse({
                     'success': True,
                     'tipo_marcaje': tipo_marcaje,
-                    'numero_marcaje': numero_marcaje,
                     'usuario': f"{usuario.first_name} {usuario.last_name}",
-                    'hora': ahora.strftime("%H:%M:%S"),
-                    'fecha': fecha_hoy.strftime("%d/%m/%Y"),
-                    'total_marcajes_hoy': total_marcajes_hoy,
+                    'hora': ahora.strftime("%H:%M:%S")
                 })
             
             else:
                 # PIN incorrecto - incrementar intentos
-                if usuario.intentos_pin is None:
-                    usuario.intentos_pin = 0
-                    
                 usuario.intentos_pin += 1
                 
                 if usuario.intentos_pin >= 3:
@@ -237,67 +136,10 @@ def verificar_pin(request):
                         'error': f'PIN incorrecto. Intentos restantes: {intentos_restantes}'
                     })
                     
-        except QR.DoesNotExist:
-            return JsonResponse({
-                'success': False,
-                'error': 'Código QR no válido'
-            })
-        except Totem.DoesNotExist:
-            return JsonResponse({
-                'success': False,
-                'error': 'Totem no encontrado'
-            })
         except Exception as e:
             return JsonResponse({
                 'success': False,
-                'error': f'Error interno del servidor: {str(e)}'
-            })
-    
-    return JsonResponse({'success': False, 'error': 'Método no permitido'})
-
-@csrf_exempt
-def obtener_marcajes_usuario(request):
-    """Obtiene el historial de marcajes del usuario para hoy"""
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            codigo_qr = data.get('codigo_qr')
-            
-            # Buscar el QR y usuario
-            qr_obj = get_object_or_404(QR, codigo_unico=codigo_qr, estado_qr=True)
-            usuario = qr_obj.rut_usuario
-            
-            # Obtener marcajes de hoy
-            fecha_hoy = timezone.now().date()
-            # Obtenemos los IDs de marcajes del usuario a través de Registro_marcaje
-            marcajes_ids = Registro_marcaje.objects.filter(
-                rut_usuario=usuario.rut_usuario
-            ).values_list('id_marcaje', flat=True)
-            
-            marcajes_hoy = Marcaje.objects.filter(
-                id_marcaje__in=marcajes_ids,
-                fecha=fecha_hoy
-            ).order_by('createdAt')
-            
-            historial = []
-            for i, marcaje in enumerate(marcajes_hoy, 1):
-                historial.append({
-                    'numero': i,
-                    'ingreso': marcaje.hora_ingreso.strftime("%H:%M:%S") if marcaje.hora_ingreso else None,
-                    'salida': marcaje.hora_salida.strftime("%H:%M:%S") if marcaje.hora_salida else None,
-                    'completo': marcaje.hora_salida is not None
-                })
-            
-            return JsonResponse({
-                'success': True,
-                'marcajes': historial,
-                'total': len(historial)
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': 'Error al obtener marcajes'
+                'error': 'Error al verificar PIN'
             })
     
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
@@ -305,13 +147,3 @@ def obtener_marcajes_usuario(request):
 def reset_session(request):
     """Reinicia la sesión del lector"""
     return JsonResponse({'success': True})
-
-@csrf_exempt
-def reconfigurar_totem(request):
-    """Permite reconfigurar el totem"""
-    if 'totem_id' in request.session:
-        del request.session['totem_id']
-    if 'totem_nombre' in request.session:
-        del request.session['totem_nombre']
-    
-    return JsonResponse({'success': True, 'redirect': True})

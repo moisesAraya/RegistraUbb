@@ -23,9 +23,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-g-xo9*6zdqi0+39a!!*(kb$=$+d*bmt@grp1n4*b_h)#6z9c1q'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True  # Cambiar temporalmente para ver errores detallados
 
-ALLOWED_HOSTS = ['146.83.194.142', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['146.83.194.142', 'localhost', '127.0.0.1', '*']
 
 # Remover configuraciones HTTPS
 # CSRF_TRUSTED_ORIGINS = [
@@ -89,15 +89,15 @@ if DEBUG:  # DESARROLLO - Base de datos local
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'RegistraUbb',
+            'NAME': 'postgres',  # Usar la misma BD de producción temporalmente
             'USER': 'postgres',
-            'PASSWORD': 'holiwis',
-            'HOST': 'localhost',
-            'PORT': '5432',
+            'PASSWORD': 'andrea2025',
+            'HOST': '146.83.194.142',
+            'PORT': '1774',
+            'CONN_MAX_AGE': 0,  # No mantener conexiones persistentes
         }
     }
-    # URL del backend para desarrollo (puede ser localhost si tienes el backend corriendo local)
-    BACKEND_URL = "http://127.0.0.1:3000/api/"  # Cambia el puerto según tu backend local
+    BACKEND_URL = "http://146.83.194.142:3000/api/"
     
 else:  # PRODUCCIÓN - Base de datos remota
     DATABASES = {
