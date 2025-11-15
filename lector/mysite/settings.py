@@ -22,43 +22,13 @@ SECRET_KEY = 'django-insecure-g-xo9*6zdqi0+39a!!*(kb$=$+d*bmt@grp1n4*b_h)#6z9c1q
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-# ==========================================
-# CONFIGURACIÓN MEJORADA PARA NGINX + SSL
-# ==========================================
-
-# Hosts permitidos - IMPORTANTE para producción
+# Hosts permitidos
 ALLOWED_HOSTS = [
     '146.83.194.142',
     'localhost',
     '127.0.0.1',
     '0.0.0.0',
 ]
-
-# ==========================================
-# CONFIGURACIÓN SSL DETRÁS DE NGINX
-# ==========================================
-
-# Configuración para proxy reverso SSL
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-USE_X_FORWARDED_HOST = True
-USE_X_FORWARDED_PORT = True
-
-# Configuraciones SSL para producción
-if not DEBUG:
-    # NO redirigir desde Django, Nginx ya lo hace
-    SECURE_SSL_REDIRECT = False  # Nginx maneja esto
-    
-    # Cookies seguras
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-    
-    # Headers de seguridad
-    SECURE_CONTENT_TYPE_NOSNIFF = True
-    SECURE_BROWSER_XSS_FILTER = True
-    SECURE_HSTS_SECONDS = 31536000  # 1 año
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-    X_FRAME_OPTIONS = 'DENY'
 
 # Application definition
 INSTALLED_APPS = [
@@ -131,7 +101,7 @@ else:  # PRODUCCIÓN - Base de datos remota
             'PORT': '1774',
         }
     }
-    BACKEND_URL = "https://146.83.194.142:1773"
+    BACKEND_URL = "http://146.83.194.142:3000/api/"
 
 # Password validation
 AUTH_USER_MODEL = 'modlector.Usuario'
