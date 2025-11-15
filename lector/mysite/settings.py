@@ -27,11 +27,19 @@ DEBUG = False
 
 ALLOWED_HOSTS = ['146.83.194.142', 'localhost', '127.0.0.1']
 
-# Remover configuraciones HTTPS
-# CSRF_TRUSTED_ORIGINS = [
-#     'https://146.83.194.142',
-#     'https://146.83.194.142:1779',
-# ]
+# Configuraciones CSRF para HTTP
+CSRF_TRUSTED_ORIGINS = [
+    'http://146.83.194.142',
+    'http://146.83.194.142:1779',
+    'http://146.83.194.142:8000',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+]
+
+# Configuraciones CSRF adicionales
+CSRF_COOKIE_HTTPONLY = False  # Permitir acceso por JavaScript si es necesario
+CSRF_USE_SESSIONS = False     # Usar cookies en lugar de sesiones
+CSRF_COOKIE_SAMESITE = 'Lax'  # Política de cookies más permisiva
 
 
 # Application definition
@@ -225,6 +233,7 @@ else:  # Desarrollo (DEBUG=True)
         'localhost',
         '127.0.0.1',
         '0.0.0.0',
+        '146.83.194.142',  # Agregar IP del servidor
     ]
     
     # Configuración de WhiteNoise para desarrollo
