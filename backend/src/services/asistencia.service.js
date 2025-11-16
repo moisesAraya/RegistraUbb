@@ -7,6 +7,50 @@ import RegistroMarcaje from '../entities/registro_marcaje.entity.js';
 
 console.log('🎯 [ASISTENCIA-SERVICE] ✅ SERVICE CARGADO ✅');
 
+function formatTimeToString(value) {
+    if (!value) return null;
+
+    // Si ya es string en formato HH:MM o HH:MM:SS
+    if (typeof value === "string") {
+        // Si viene como "08:32", lo extiendo a "08:32:00"
+        if (/^\d{2}:\d{2}$/.test(value)) {
+            return value + ":00";
+        }
+
+        // Si viene completo como "08:32:12", lo dejo
+        if (/^\d{2}:\d{2}:\d{2}$/.test(value)) {
+            return value;
+        }
+
+        // Si viene como ISO
+        if (value.includes("T")) {
+            try {
+                const date = new Date(value);
+                return date.toISOString().split("T")[1].split(".")[0];
+            } catch {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    // Si viene como Date
+    if (value instanceof Date) {
+        return value.toISOString().split("T")[1].split(".")[0];
+    }
+
+    // Si viene como objeto { hours, minutes }
+    if (typeof value === "object" && value.hours !== undefined) {
+        const h = String(value.hours).padStart(2, "0");
+        const m = String(value.minutes).padStart(2, "0");
+        const s = String(value.seconds || 0).padStart(2, "0");
+        return `${h}:${m}:${s}`;
+    }
+
+    return null;
+}
+
 /**
  * 📅 SERVICIO - OBTENER ASISTENCIA DEL USUARIO (CORREGIDO)
  */
@@ -132,11 +176,18 @@ export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio =
                 const pares = Math.min(entradas.length, salidas.length);
                 
                 for (let i = 0; i < pares; i++) {
-                    const entrada = entradas[i].hora;
-                    const salida = salidas[i].hora;
-                    
-                    const [hE, mE] = entrada.split(':').map(Number);
-                    const [hS, mS] = salida.split(':').map(Number);
+                    const entradaStr = formatTimeToString(entradas[i].hora);
+                    const salidaStr = formatTimeToString(salidas[i].hora);
+
+                    // Evitar errores si algún valor no es válido
+                    if (!entradaStr || !salidaStr) {
+                        console.warn("Registro inválido:", entradas[i], salidas[i]);
+                        continue;
+                    }
+
+                    const [hE, mE] = entradaStr.split(':').map(Number);
+                    const [hS, mS] = salidaStr.split(':').map(Number);
+
                     
                     const minutosEntrada = hE * 60 + mE;
                     const minutosSalida = hS * 60 + mS;
@@ -323,11 +374,18 @@ export async function getEstadisticasAsistenciaService(rutUsuario, mes = null, a
                 const pares = Math.min(entradas.length, salidas.length);
                 
                 for (let i = 0; i < pares; i++) {
-                    const entrada = entradas[i].hora;
-                    const salida = salidas[i].hora;
-                    
-                    const [hE, mE] = entrada.split(':').map(Number);
-                    const [hS, mS] = salida.split(':').map(Number);
+                    const entradaStr = formatTimeToString(entradas[i].hora);
+                    const salidaStr = formatTimeToString(salidas[i].hora);
+
+                    // Si alguna hora es inválida, saltar el par
+                    if (!entradaStr || !salidaStr) {
+                        console.warn("Registro inválido:", entradas[i].hora, salidas[i].hora);
+                        continue;
+                    }
+
+                    const [hE, mE] = entradaStr.split(':').map(Number);
+                    const [hS, mS] = salidaStr.split(':').map(Number);
+
                     
                     const minutosEntrada = hE * 60 + mE;
                     const minutosSalida = hS * 60 + mS;
