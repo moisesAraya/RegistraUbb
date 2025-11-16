@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Download, CreditCard, User, Eye, RefreshCw, Palette, AlertCircle, Loader } from 'lucide-react';
 import QRCode from 'qrcode';
+import { UserAvatar } from '../Common/UserAvatar';
 
 interface User {
   nombres?: string;
@@ -45,6 +46,14 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user }) => {
   const [loadingQR, setLoadingQR] = useState(true);
   const [qrError, setQrError] = useState<string | null>(null);
   const [fotoPerfilUrl, setFotoPerfilUrl] = useState<string | null>(null);
+  
+  // ✅ Estados para la imagen del usuario en el canvas
+  const [userImage, setUserImage] = useState<HTMLImageElement | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  
+  // ✅ Estados para el logo
+  const [logoImage, setLogoImage] = useState<HTMLImageElement | null>(null);
+  const [logoLoaded, setLogoLoaded] = useState(false);
 
   // 🎨 Temas de colores disponibles
   const colorThemes: Record<string, ColorTheme> = {
@@ -148,10 +157,12 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
           console.log('🎯 QR activo encontrado:', activeQR.codigo_unico);
           setRealQRData(activeQR.hash_encriptado);
           setQrError(null);
+          return true; // ✅ Éxito
         } else {
           console.log('⚠️ No se encontró QR activo');
           setRealQRData(null);
           setQrError('No tiene un código QR activo. Genere uno desde "Mi Código QR".');
+          return false; // ❌ No hay QR activo
         }
         
       } else {
@@ -163,10 +174,12 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
         } else {
           setQrError('Error cargando código QR desde el servidor.');
         }
+        return false; // ❌ Error
       }
     } catch (error) {
       console.error('Error cargando QR activo:', error);
       setQrError(`Error de conexión: ${error.message}`);
+      return false; // ❌ Error
     } finally {
       setLoadingQR(false);
     }
@@ -246,21 +259,77 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
       const photoY = 150;
       const photoSize = 180;
 
-      // Fondo de la foto
-      ctx.fillStyle = theme.background;
-      ctx.fillRect(photoX, photoY, photoSize, photoSize);
-
-      // Borde de la foto
+      // Foto del usuario o iniciales
+      if (userImage && imageLoaded) {
+        // Dibujar imagen real del usuario
+        ctx.save();
+        
+        // Crear clipping rect para la foto
+        ctx.beginPath();
+        ctx.rect(photoX, photoY, photoSize, photoSize);
+        ctx.clip();
+        
+        // Calcular dimensiones para mantener aspect ratio
+        const imgAspect = userImage.width / userImage.height;
+        const boxAspect = photoSize / photoSize;
+        
+        let drawWidth, drawHeight, drawX, drawY;
+        
+        if (imgAspect > boxAspect) {
+          // Imagen más ancha que el contenedor
+          drawHeight = photoSize;
+          drawWidth = drawHeight * imgAspect;
+          drawX = photoX - (drawWidth - photoSize) / 2;
+          drawY = photoY;
+        } else {
+          // Imagen más alta que el contenedor
+          drawWidth = photoSize;
+          drawHeight = drawWidth / imgAspect;
+          drawX = photoX;
+          drawY = photoY - (drawHeight - photoSize) / 2;
+        }
+        
+        ctx.drawImage(userImage, drawX, drawY, drawWidth, drawHeight);
+        ctx.restore();
+      } else {
+        // Fondo de la foto (fallback)
+        ctx.fillStyle = theme.background;
+        ctx.fillRect(photoX, photoY, photoSize, photoSize);
+        
+        // Icono de usuario (placeholder con iniciales)
+        ctx.fillStyle = theme.primary;
+        ctx.font = 'bold 80px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        const initials = `${user.nombres?.charAt(0) || ''}${user.apellidos?.charAt(0) || ''}`.toUpperCase() || 'U';
+        ctx.fillText(initials, photoX + photoSize/2, photoY + photoSize/2 + 20);
+      }
+      
+      // Borde de la foto (siempre)
       ctx.strokeStyle = theme.accent;
       ctx.lineWidth = 3;
       ctx.strokeRect(photoX, photoY, photoSize, photoSize);
 
-      // Icono de usuario (placeholder)
-      ctx.fillStyle = theme.primary;
-      ctx.font = 'bold 80px Arial, sans-serif';
-      ctx.textAlign = 'center';
-      const initials = `${user.nombres?.charAt(0) || ''}${user.apellidos?.charAt(0) || ''}`.toUpperCase() || 'U';
-      ctx.fillText(initials, photoX + photoSize/2, photoY + photoSize/2 + 20);
+      // ✅ Logo RegistraUBB debajo de la foto (más grande y más abajo)
+      const qrSize = 270; // Tamaño del QR según el código
+      const logoWidth = (qrSize / 2) * 2.2; // Un poco más grande que la mitad del QR (175px)
+      const logoHeight = 75; // Altura más grande
+      const logoX = photoX + (photoSize - logoWidth) / 20; // Centrado bajo la foto
+      const logoY = photoY + photoSize + 45; // Más abajo (35px en lugar de 20px)
+      
+      if (logoImage && logoLoaded && logoImage.complete) {
+        // Dibujar logo real manteniendo proporción
+        const realLogoHeight = (logoWidth * logoImage.height) / logoImage.width;
+        ctx.drawImage(logoImage, logoX, logoY, logoWidth, realLogoHeight);
+      } else {
+        // Fallback: rectángulo con texto "RegistraUBB"
+        ctx.fillStyle = theme.primary;
+        ctx.fillRect(logoX, logoY, logoWidth, logoHeight);
+        
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 18px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('RegistraUBB', logoX + logoWidth/2, logoY + logoHeight/2 + 6);
+      }
 
       // Información del usuario
       const infoX = photoX + photoSize + 40;
@@ -383,41 +452,114 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
     link.click();
   };
 
-  // ✅ Cargar QR real al montar el componente
+  // ✅ Cargar QR real y foto de perfil al montar el componente
   useEffect(() => {
-    loadActiveQR();
-  }, []);
-
-  // ✅ Regenerar tarjeta cuando cambie el QR o el tema
-  useEffect(() => {
-    if (realQRData) {
-      generateCard();
-    }
-  }, [realQRData, selectedTheme, user]);
-
-  // Cargar foto de perfil desde el nuevo endpoint
-  useEffect(() => {
-    if (import.meta.env.VITE_ENABLE_MINIO === 'true') {
-      const fetchFotoPerfil = async () => {
+    const initializeCard = async () => {
+      // Primero cargar el QR
+      await loadActiveQR();
+      
+      // Cargar el logo desde MinIO
+      const loadLogo = async () => {
         try {
-          const res = await fetch(
-            `${import.meta.env.VITE_API_URL}/api/profile/foto-perfil-url/${user.rut_usuario}`
+          // Intentar con URL presigned primero
+          const logoRes = await fetch(
+            `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/minio/logo-url?bucket=registraubb&filename=logo_registraubb.png`
           );
-          const json = await res.json();
-          if (json.success && json.foto_url) {
-            setFotoPerfilUrl(json.foto_url);
+          const logoJson = await logoRes.json();
+          
+          if (logoJson.success && logoJson.url) {
+            const logoImg = new Image();
+            logoImg.crossOrigin = 'anonymous';
+            logoImg.onload = () => {
+              console.log('✅ Logo cargado desde URL presigned');
+              setLogoImage(logoImg);
+              setLogoLoaded(true);
+            };
+            logoImg.onerror = () => {
+              console.log('⚠️ Error con URL presigned, intentando acceso directo');
+              tryDirectAccess();
+            };
+            logoImg.src = logoJson.url;
           } else {
-            setFotoPerfilUrl(null);
+            console.log('⚠️ No hay URL presigned, intentando acceso directo');
+            tryDirectAccess();
           }
         } catch {
-          setFotoPerfilUrl(null);
+          console.log('❌ Error con endpoint presigned, intentando acceso directo');
+          tryDirectAccess();
         }
       };
-      fetchFotoPerfil();
-    } else {
-      setFotoPerfilUrl(null);
-    }
+
+      const tryDirectAccess = () => {
+        // Intentar acceso directo a MinIO
+        const directUrl = `${import.meta.env.VITE_MINIO_ENDPOINT || 'http://localhost:9000'}/registraubb/logo_registraubb.png`;
+        console.log('🔄 Intentando acceso directo:', directUrl);
+        
+        const logoImg = new Image();
+        logoImg.crossOrigin = 'anonymous';
+        logoImg.onload = () => {
+          console.log('✅ Logo cargado desde acceso directo');
+          setLogoImage(logoImg);
+          setLogoLoaded(true);
+        };
+        logoImg.onerror = () => {
+          console.log('❌ Error cargando logo, usando fallback');
+          setLogoImage(null);
+          setLogoLoaded(true);
+        };
+        logoImg.src = directUrl;
+      };
+
+      loadLogo();
+
+      // Luego cargar la foto de perfil
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/profile/foto-perfil-url/${user.rut_usuario}`
+        );
+        const json = await res.json();
+        if (json.success && json.foto_url) {
+          setFotoPerfilUrl(json.foto_url);
+          
+          // ✅ Cargar imagen para el canvas
+          const img = new Image();
+          img.crossOrigin = 'anonymous'; // Para evitar problemas de CORS
+          img.onload = () => {
+            console.log('✅ Imagen de perfil cargada correctamente');
+            setUserImage(img);
+            setImageLoaded(true);
+          };
+          img.onerror = () => {
+            console.log('⚠️ Error cargando imagen, usando iniciales');
+            setUserImage(null);
+            setImageLoaded(true); // Marcamos como "cargado" para continuar
+          };
+          img.src = json.foto_url;
+        } else {
+          console.log('ℹ️ No hay foto de perfil, usando iniciales');
+          setFotoPerfilUrl(null);
+          setUserImage(null);
+          setImageLoaded(true); // Marcamos como "cargado" para continuar
+        }
+      } catch (error) {
+        console.error('Error cargando imagen de perfil:', error);
+        setFotoPerfilUrl(null);
+        setUserImage(null);
+        setImageLoaded(true); // Marcamos como "cargado" para continuar
+      }
+    };
+    
+    initializeCard();
   }, [user.rut_usuario]);
+
+  // ✅ Generar tarjeta automáticamente cuando todo esté listo
+  useEffect(() => {
+    if (realQRData && imageLoaded && !loadingQR) {
+      console.log('🎯 Generando tarjeta automáticamente...');
+      generateCard();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [realQRData, imageLoaded, loadingQR, selectedTheme, user, logoLoaded]);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
