@@ -23,15 +23,17 @@ function formatTimeToString(value) {
             return value;
         }
 
-        // Si viene como ISO timestamp (2025-11-16T00:32:07.940-0300)
+        // Si viene como ISO timestamp (2025-11-11T09:01:00-03:00)
         if (value.includes("T")) {
             try {
-                const date = new Date(value);
-                // Formatear manualmente para evitar problemas de zona horaria
-                const hours = String(date.getHours()).padStart(2, '0');
-                const minutes = String(date.getMinutes()).padStart(2, '0');
-                const seconds = String(date.getSeconds()).padStart(2, '0');
-                return `${hours}:${minutes}:${seconds}`;
+                // Extraer directamente la parte de la hora del timestamp
+                const timePart = value.split('T')[1];
+                if (timePart) {
+                    // Remover la zona horaria y obtener HH:MM:SS
+                    const timeOnly = timePart.split(/[+-]/)[0]; // Divide por + o -
+                    return timeOnly.length >= 8 ? timeOnly.substring(0, 8) : timeOnly;
+                }
+                return null;
             } catch {
                 return null;
             }

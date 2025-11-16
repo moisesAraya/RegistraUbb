@@ -16,6 +16,7 @@ import {
 import Marcaje from '../entities/marcaje.entity.js';
 import RegistroMarcaje from '../entities/registro_marcaje.entity.js';
 import Totem from '../entities/totem.entity.js';
+import Asistencia from '../entities/asistencia.entity.js';
 
 console.log('👤 [ASISTENCIA-CTRL] ✅ CONTROLLER CARGADO ✅');
 console.log('🚀 [DASHBOARD-CONTROLLER] Controller cargado y conectado con service real');
@@ -30,8 +31,9 @@ function buildTimestamp(fecha, hora) {
     // Normalizar hora a HH:MM:SS
     const time = hora.length === 5 ? `${hora}:00` : hora;
 
-    // Construir timestamp ISO
-    return `${fecha}T${time}`;
+    // Construir timestamp con zona horaria de Chile (UTC-3)
+    // Esto asegura que la hora se guarde correctamente en la base de datos
+    return `${fecha}T${time}-03:00`;
 }
 
 export async function getAsistenciaController(req, res) {
@@ -307,7 +309,9 @@ export async function createManualEntryController(req, res) {
       hora_ingreso: horaIngresoTS,
       hora_salida: horaSalidaTS,
       fecha: date,
-      observacion: `Actividad: ${activityType}${notes ? ` | ${notes}` : ''}${location ? ` | ${location}` : ''}`
+      observacion: `Actividad: ${activityType}${notes ? ` | ${notes}` : ''}${location ? ` | ${location}` : ''}`,
+      id_totem: totem.id_totem,
+      rut_usuario: rutUsuario
     });
 
     // Registro de marcaje (fecha_registro debe ser timestamp)
@@ -318,10 +322,39 @@ export async function createManualEntryController(req, res) {
       fecha_registro: new Date() // <-- CORRECTO
     });
 
+    // ✅ CALCULAR HORAS TRABAJADAS Y CREAR REGISTRO DE ASISTENCIA
+    let horasTrabajadas = 0;
+    let tuvoColacion = false;
+
+    if (checkOutTime && checkInTime) {
+      // Calcular horas trabajadas
+      const ingreso = new Date(`${date}T${checkInTime}:00`);
+      const salida = new Date(`${date}T${checkOutTime}:00`);
+      const diffMs = salida.getTime() - ingreso.getTime();
+      horasTrabajadas = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100; // Convertir a horas con 2 decimales
+      
+      // Si trabajó más de 6 horas, asumimos que tuvo colación
+      tuvoColacion = horasTrabajadas > 6;
+    }
+
+    await Asistencia.create({
+      colacion: tuvoColacion,
+      observacion: `Ingreso manual: ${activityType}${notes ? ` | ${notes}` : ''}`,
+      horas_diarias: horasTrabajadas,
+      id_marcaje: nuevoMarcaje.id_marcaje,
+      id_justificacion: null
+    });
+
+    console.log(`✅ [MANUAL-ENTRY] Asistencia creada: ${horasTrabajadas}h, colación: ${tuvoColacion}`);
+
     return res.status(201).json({
       success: true,
       message: "Asistencia manual registrada correctamente",
-      data: nuevoMarcaje
+      data: {
+        marcaje: nuevoMarcaje,
+        horas_trabajadas: horasTrabajadas,
+        tuvo_colacion: tuvoColacion
+      }
     });
 
   } catch (error) {

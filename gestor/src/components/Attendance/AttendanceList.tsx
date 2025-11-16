@@ -17,6 +17,8 @@ const AttendanceList: React.FC = () => {
 
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [dateFilter, setDateFilter] = useState('');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
   useEffect(() => {
     console.log('🔄 AttendanceList - useEffect ejecutado con:', { selectedMonth, selectedYear });
@@ -49,6 +51,30 @@ const AttendanceList: React.FC = () => {
     }
   };
 
+  // Función para filtrar y ordenar asistencias
+  const getFilteredAndSortedAsistencias = () => {
+    if (!asistenciaData?.asistencias) return [];
+    
+    let filtered = asistenciaData.asistencias;
+    
+    // Filtrar por fecha si hay filtro
+    if (dateFilter) {
+      filtered = filtered.filter(asistencia => asistencia.fecha === dateFilter);
+    }
+    
+    // Ordenar
+    return filtered.sort((a, b) => {
+      const fechaA = new Date(a.fecha + 'T' + (a.horaIngreso || '00:00:00'));
+      const fechaB = new Date(b.fecha + 'T' + (b.horaIngreso || '00:00:00'));
+      
+      if (sortOrder === 'desc') {
+        return fechaB.getTime() - fechaA.getTime();
+      } else {
+        return fechaA.getTime() - fechaB.getTime();
+      }
+    });
+  };
+
   // ✅ FORMATO: "16 Nov" - Sin problemas de zona horaria
   const formatDate = (dateString: string) => {
     // Crear fecha directamente desde el string YYYY-MM-DD sin conversión de zona horaria
@@ -57,18 +83,15 @@ const AttendanceList: React.FC = () => {
     return `${day} ${months[month - 1]}`;
   };
 
-  // ✅ FORMATO: "00:30" desde "00:30:00" o timestamp
+  // ✅ FORMATO: "09:01" desde "09:01:00" o timestamp
   const formatTime = (timeString: string | null) => {
     if (!timeString) return '-';
     
-    // Si viene como timestamp ISO (2025-11-16T00:32:07.940-0300)
+    // Si viene como timestamp ISO, extraer solo la hora
     if (timeString.includes('T')) {
-      const date = new Date(timeString);
-      return date.toLocaleTimeString('es-CL', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false 
-      });
+      // Extraer la parte de la hora del timestamp (ej: "2025-11-11T09:01:00-03:00" -> "09:01")
+      const timePart = timeString.split('T')[1];
+      return timePart ? timePart.substring(0, 5) : '-';
     }
     
     // Si viene como "HH:MM:SS", tomar solo "HH:MM"
@@ -236,35 +259,67 @@ const AttendanceList: React.FC = () => {
       {/* Lista de asistencias */}
       <div className="bg-white shadow overflow-hidden sm:rounded-md">
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-            Registro Detallado
-            {asistenciaData?.periodo && (
-              <span className="text-sm text-gray-500 ml-2">
-                ({asistenciaData.periodo.mes}/{asistenciaData.periodo.anio})
-              </span>
-            )}
-          </h3>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+            <h3 className="text-lg leading-6 font-medium text-gray-900">
+              Registro Detallado
+              {asistenciaData?.periodo && (
+                <span className="text-sm text-gray-500 ml-2">
+                  ({asistenciaData.periodo.mes}/{asistenciaData.periodo.anio})
+                </span>
+              )}
+            </h3>
+            
+            {/* Controles de filtro y ordenamiento */}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Filtro por fecha */}
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-gray-500" />
+                <input
+                  type="date"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Filtrar por fecha"
+                />
+                {dateFilter && (
+                  <button
+                    onClick={() => setDateFilter('')}
+                    className="text-gray-400 hover:text-gray-600"
+                    title="Limpiar filtro"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              
+              {/* Ordenamiento */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                  className="flex items-center gap-1 px-3 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <TrendingUp className="h-4 w-4" />
+                  {sortOrder === 'desc' ? 'Más reciente' : 'Más antiguo'}
+                </button>
+              </div>
+            </div>
+          </div>
 
           {(() => {
+            const filteredAsistencias = getFilteredAndSortedAsistencias();
             console.log('📊 AttendanceList - Datos de asistencia:', {
               asistenciaData,
               hasAsistencias: asistenciaData?.asistencias,
               asistenciasLength: asistenciaData?.asistencias?.length,
+              filteredLength: filteredAsistencias.length,
+              dateFilter,
+              sortOrder,
               period: asistenciaData?.periodo
             });
-            return null;
-          })()}
-          
-          {asistenciaData?.asistencias && asistenciaData.asistencias.length > 0 ? (
-            <ul className="divide-y divide-gray-200">
-              {asistenciaData.asistencias
-                .sort((a, b) => {
-                  // Ordenar por fecha descendente (más reciente primero)
-                  const fechaA = new Date(a.fecha + 'T' + (a.horaIngreso || '00:00:00'));
-                  const fechaB = new Date(b.fecha + 'T' + (b.horaIngreso || '00:00:00'));
-                  return fechaB.getTime() - fechaA.getTime();
-                })
-                .map((asistencia, index) => (
+            
+            return filteredAsistencias.length > 0 ? (
+              <ul className="divide-y divide-gray-200">
+                {filteredAsistencias.map((asistencia, index) => (
                 <li key={index} className="py-4">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-4">
                     <div className="flex-shrink-0">
@@ -302,17 +357,31 @@ const AttendanceList: React.FC = () => {
                     </div>
                   </div>
                 </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-center py-8">
-              <Calendar className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No hay registros</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                No se encontraron registros de asistencia para este período.
-              </p>
-            </div>
-          )}
+                ))}
+              </ul>
+            ) : (
+              <div className="text-center py-8">
+                <Calendar className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-sm font-medium text-gray-900">
+                  {dateFilter ? 'No hay registros para esta fecha' : 'No hay registros'}
+                </h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  {dateFilter 
+                    ? `No se encontraron registros para ${formatDate(dateFilter)}.`
+                    : 'No se encontraron registros de asistencia para este período.'
+                  }
+                </p>
+                {dateFilter && (
+                  <button
+                    onClick={() => setDateFilter('')}
+                    className="mt-3 text-blue-600 hover:text-blue-500 text-sm font-medium"
+                  >
+                    Mostrar todos los registros
+                  </button>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>

@@ -25,10 +25,26 @@ const Marcaje = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    id_totem: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'Totems',
+        key: 'id_totem',
+      },
+    },
+    rut_usuario: {
+      type: DataTypes.STRING(30),
+      allowNull: false,
+      references: {
+        model: 'Usuarios',
+        key: 'rut_usuario',
+      },
+    },
   },
   {
     tableName: "Marcajes",
-    timestamps: false, // ✅ DESACTIVAR TIMESTAMPS AUTOMÁTICOS
+    timestamps: true, // ✅ HABILITAR TIMESTAMPS PORQUE LA TABLA LOS REQUIERE
   }
 );
 
