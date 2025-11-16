@@ -35,6 +35,12 @@ export const userBodyValidation = Joi.object({
   id_cargo: Joi.number().integer().required().messages({
     "any.required": "El cargo es obligatorio.",
   }),
+  pin: Joi.number().integer().min(1000).max(9999).required().messages({
+    "number.base": "El PIN debe ser un número.",
+    "number.min": "El PIN debe ser de 4 dígitos.",
+    "number.max": "El PIN debe ser de 4 dígitos.",
+    "any.required": "El PIN es obligatorio.",
+  }),
 });
 
 // Validación para actualizar usuario (SIN rut_usuario y campos opcionales)

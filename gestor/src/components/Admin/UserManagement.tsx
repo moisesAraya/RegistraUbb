@@ -44,6 +44,7 @@ interface CreateUserData {
   horas_atrabajar: number;
   id_rol?: number;
   id_cargo?: number;
+  pin?: number;
 }
 
 interface Rol {
@@ -86,7 +87,8 @@ const UserManagement: React.FC = () => {
     password: '',
     horas_atrabajar: 44,
     id_rol: undefined,
-    id_cargo: undefined
+    id_cargo: undefined,
+    pin: 0
   });
 
   // Configurar cliente API
@@ -473,7 +475,6 @@ const UserManagement: React.FC = () => {
           <h4 className="text-lg font-semibold text-gray-900 mb-4">
             {editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}
           </h4>
-          
           <form onSubmit={editingUser ? handleUpdateUser : handleCreateUser} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -564,7 +565,7 @@ const UserManagement: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Horas a Trabajar *
@@ -619,6 +620,23 @@ const UserManagement: React.FC = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  PIN *
+                </label>
+                <input
+                  type="number"
+                  name="pin"
+                  value={formData.pin || ''}
+                  onChange={handleInputChange}
+                  min="1000"
+                  max="9999"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+                <span className="text-xs text-gray-500">Debe ser un PIN de 4 dígitos</span>
               </div>
             </div>
 

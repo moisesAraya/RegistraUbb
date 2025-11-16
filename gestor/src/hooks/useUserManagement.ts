@@ -19,6 +19,7 @@ export interface CreateUserData {
   department: string;
   rut_usuario?: string;
   password?: string;
+  pin: number;
 }
 
 interface ApiResponse<T> {
@@ -147,55 +148,13 @@ export const useUserManagement = () => {
   };
 
   // Crear nuevo usuario
-  const createUser = async (userData: CreateUserData) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Separar nombre completo en nombres y apellidos
-      const nameParts = userData.name.trim().split(' ');
-      const nombres = nameParts.slice(0, Math.ceil(nameParts.length / 2)).join(' ');
-      const apellidos = nameParts.slice(Math.ceil(nameParts.length / 2)).join(' ');
-
-      const requestBody = {
-        nombres,
-        apellidos,
-        email: userData.email,
-        rut_usuario: userData.rut_usuario || '12345678-9', // Requerirás RUT real
-        password: userData.password || 'temp123', // Contraseña temporal
-        horas_atrabajar: 44,
-        id_rol: getRoleId(userData.role),
-        id_cargo: 1, // Ajustar según tu estructura
-        departamento: userData.department
-      };
-
-      const response = await fetch(`${API_BASE_URL}/api/users`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify(requestBody)
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: ApiResponse<any> = await response.json();
-
-      if (data.success) {
-        await fetchUsers(); // Refrescar la lista
-        return { success: true, message: data.message };
-      } else {
-        setError(data.message || 'Error al crear el usuario');
-        return { success: false, message: data.message };
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error de conexión';
-      setError(errorMessage);
-      return { success: false, message: errorMessage };
-    } finally {
-      setLoading(false);
-    }
-  };
+  // ...existing code...
+  // Agrega el campo PIN en el formulario de creación de usuario en el componente correspondiente del frontend (ejemplo: UserForm, CreateUserModal, etc.)
+  // Ejemplo de campo:
+  // <label htmlFor="pin">PIN</label>
+  // <input type="number" id="pin" name="pin" value={formData.pin} onChange={handleChange} required min={1000} max={9999} />
+  // ...actualiza el estado formData.pin y pásalo a createUser...
+  // ...existing code...
 
   // Actualizar usuario
   const updateUser = async (userId: string, userData: Partial<CreateUserData>) => {

@@ -25,14 +25,6 @@ SECRET_KEY = 'django-insecure-g-xo9*6zdqi0+39a!!*(kb$=$+d*bmt@grp1n4*b_h)#6z9c1q
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-<<<<<<< HEAD
-ALLOWED_HOSTS = []
-
-CSRF_TRUSTED_ORIGINS = [
-    'https://146.83.194.142',
-    'https://146.83.194.142:1779',
-]
-=======
 ALLOWED_HOSTS = ['146.83.194.142', 'localhost', '127.0.0.1']
 
 # Remover configuraciones HTTPS
@@ -40,7 +32,6 @@ ALLOWED_HOSTS = ['146.83.194.142', 'localhost', '127.0.0.1']
 #     'https://146.83.194.142',
 #     'https://146.83.194.142:1779',
 # ]
->>>>>>> a483ff9a50efbd784ab6eabf95488bc5be16bb85
 
 
 # Application definition
@@ -120,11 +111,7 @@ else:  # PRODUCCIÓN - Base de datos remota
         }
     }
     # URL del backend para producción
-<<<<<<< HEAD
-    BACKEND_URL = "https://146.83.194.142:1776/api/"
-=======
     BACKEND_URL = "http://146.83.194.142:1772/api/"
->>>>>>> a483ff9a50efbd784ab6eabf95488bc5be16bb85
 
 
 # Password validation
@@ -201,20 +188,6 @@ ENABLE_BACKEND_SYNC = False
 # Solo aplicar configuraciones de seguridad en producción
 if not DEBUG:  # Cuando DEBUG=False (producción)
     
-<<<<<<< HEAD
-    # Configuraciones HTTPS
-    # USAR SOLO HTTP
-    SECURE_SSL_REDIRECT = True  # Redirigir HTTP a HTTPS
-    SECURE_HSTS_SECONDS = 31536000  # 1 año de HSTS
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-    
-    # Cookies seguras
-    SESSION_COOKIE_SECURE = True  # Cookies de sesión solo por HTTPS
-    CSRF_COOKIE_SECURE = True    # Cookies CSRF solo por HTTPS
-
-    # Headers adicionales de seguridad
-=======
     # Configuraciones HTTP (sin SSL)
     SECURE_SSL_REDIRECT = False
     SECURE_HSTS_SECONDS = 0
@@ -226,20 +199,10 @@ if not DEBUG:  # Cuando DEBUG=False (producción)
     CSRF_COOKIE_SECURE = False
 
     # Headers de seguridad básicos
->>>>>>> a483ff9a50efbd784ab6eabf95488bc5be16bb85
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_BROWSER_XSS_FILTER = True
     X_FRAME_OPTIONS = 'DENY'
 
-<<<<<<< HEAD
-    # Proxy configuración
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    USE_TZ = True
-
-    # Hosts permitidos (reemplaza con tu dominio real)
-    ALLOWED_HOSTS = [ 
-        '146.83.194.142',
-=======
     # Sin configuración de proxy SSL
     # SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
     USE_TZ = True
@@ -249,7 +212,6 @@ if not DEBUG:  # Cuando DEBUG=False (producción)
         '146.83.194.142',
         'localhost',
         '127.0.0.1',
->>>>>>> a483ff9a50efbd784ab6eabf95488bc5be16bb85
     ]
     
     # Configuración mejorada de WhiteNoise para producción
@@ -280,8 +242,4 @@ else:  # Desarrollo (DEBUG=True)
 # En desarrollo mantienes la actual, en producción debes cambiarla
 if not DEBUG:
     # ⚠️ CAMBIAR ESTA SECRET_KEY EN PRODUCCIÓN ⚠️
-<<<<<<< HEAD
     SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'tu-secret-key-super-segura-de-al-menos-50-caracteres-aqui')
-=======
-    SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'tu-secret-key-super-segura-de-al-menos-50-caracteres-aqui')
->>>>>>> a483ff9a50efbd784ab6eabf95488bc5be16bb85

@@ -140,8 +140,6 @@ try {
     );
   }
 
-<<<<<<< HEAD
-=======
   // ✅ 8. TOTEMS ROUTES
   try {
     console.log("🏢 Cargando Totems routes...");
@@ -152,7 +150,6 @@ try {
     console.error("❌ Error detallado Totems routes:", totemsError);
     console.log("⚠️ Totems routes no disponibles:", totemsError.message);
   }
->>>>>>> a483ff9a50efbd784ab6eabf95488bc5be16bb85
   // ✅ 9. PROFILE ROUTES
   try {
     console.log("👤 Cargando Profile routes...");
@@ -161,19 +158,6 @@ try {
     console.log("✅ Profile routes cargadas");
   } catch (profileError) {
     console.log("⚠️ Profile routes no disponibles:", profileError.message);
-<<<<<<< HEAD
-  }
-
-  // ✅ 10. NOTIFICACIONES ROUTES (placeholder)
-  try {
-    console.log("🔔 Cargando Notificaciones routes...");
-    const notificacionesRoutes = await import("./routes/notificaciones.routes.js");
-    app.use("/api/notificaciones", notificacionesRoutes.default);
-    console.log("✅ Notificaciones routes cargadas");
-  } catch (notificacionesError) {
-    console.log("⚠️ Notificaciones routes no disponibles:", notificacionesError.message);
-=======
->>>>>>> a483ff9a50efbd784ab6eabf95488bc5be16bb85
   }
 
 } catch (error) {
@@ -221,11 +205,8 @@ app.use((req, res) => {
       "GET /api/asistencia/*",
       "GET /api/reportes/*",
       "GET /api/justificaciones/*",
-<<<<<<< HEAD
-=======
       "GET /api/usuario/*",
       "GET /api/totems/*",
->>>>>>> a483ff9a50efbd784ab6eabf95488bc5be16bb85
       "GET /api/usuarios/*",
       "GET /api/approvals/*",
     ],
