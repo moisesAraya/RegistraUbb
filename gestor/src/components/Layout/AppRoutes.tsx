@@ -18,6 +18,7 @@ import AdminDashboard from '../Dashboard/AdminDashboard';
 import ProfilePage from '../Profile/ProfilePage';
 import HelpPage from '../Help/HelpPage';
 import AttendanceCalendar from '../Dashboard/Calendar';
+import { OpenMarcajeNotification } from '../Common/OpenMarcajeNotification';
 
 const AppRoutes: React.FC = () => {
   const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
@@ -133,6 +134,9 @@ const AppRoutes: React.FC = () => {
           </div>
         </main>
       </div>
+      
+      {/* Notificación de marcaje abierto */}
+      <OpenMarcajeNotification />
     </div>
   );
 };
