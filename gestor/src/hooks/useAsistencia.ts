@@ -143,23 +143,18 @@ export const useAsistencia = () => {
     setError(null);
 
     try {
-      // Mapear campos del formulario al body esperado por el backend
-      const body: any = {
-        fecha: data.date,
-        hora_ingreso: data.checkInTime,
+      // El backend espera estos nombres:
+      const body = {
+        date: data.date,
+        checkInTime: data.checkInTime,
+        checkOutTime: data.checkOutTime || null,
+        location: data.location || null,
+        notes: data.notes || null,
+        activityType: data.activityType || null,
+        id_totem: data.id_totem || null,
       };
 
-      if (data.checkOutTime) body.hora_salida = data.checkOutTime;
-      if (data.notes) body.observacion = data.notes;
-      if (data.id_totem) body.id_totem = data.id_totem;
-
-      // Añadir información adicional en observación si existe ubicación/actividad
-      if (data.location || data.activityType) {
-        const extras = [] as string[];
-        if (data.location) extras.push(`Ubicación: ${data.location}`);
-        if (data.activityType) extras.push(`Actividad: ${data.activityType}`);
-        body.observacion = [body.observacion || '', extras.join(' | ')].filter(Boolean).join(' - ');
-      }
+      console.log("📤 Datos enviados al backend:", body);
 
       const result = await makeApiCall('asistencia/manual', {
         method: 'POST',
@@ -167,7 +162,6 @@ export const useAsistencia = () => {
       });
 
       if (result.success) {
-        // Refrescar datos después del registro manual
         await fetchAsistencia();
         return { success: true, message: result.message || 'Ingreso registrado' };
       } else {
@@ -182,6 +176,7 @@ export const useAsistencia = () => {
       setIsLoading(false);
     }
   };
+
 
   const solicitarJustificacion = async (data: {
     fecha: string;

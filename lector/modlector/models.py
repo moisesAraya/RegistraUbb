@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.validators import RegexValidator
 from django.contrib.auth.models import AbstractUser
+from django.utils import timezone
 
 # --- Validadores ---
 rut_validator = RegexValidator(
@@ -22,10 +23,31 @@ class Cargo(models.Model):
         return self.nombre_cargo
 
 
-class Rol(models.Model):
+def get_current_chile_time():
+    """Obtiene la hora actual en zona horaria de Chile"""
+    import pytz
+    chile_tz = pytz.timezone('America/Santiago')
+    return timezone.now().astimezone(chile_tz)
+
+class ChileTimeModelMixin(models.Model):
+    """Mixin para asegurar que los timestamps se guarden en hora chilena"""
+    
+    class Meta:
+        abstract = True
+    
+    def save(self, *args, **kwargs):
+        """Override del método save para asegurar hora chilena en updatedAt"""
+        # Si el modelo tiene campo updatedAt, actualizarlo con hora actual
+        # Django ya maneja la configuración TIME_ZONE = 'America/Santiago' del settings.py
+        if hasattr(self, 'updatedAt'):
+            self.updatedAt = timezone.now()
+        
+        super().save(*args, **kwargs)
+
+class Rol(ChileTimeModelMixin):
     id_rol = models.AutoField(primary_key=True)
     nombre_rol = models.CharField(max_length=100)
-    createdAt = models.DateTimeField(auto_now_add=True)
+    createdAt = models.DateTimeField(default=get_current_chile_time)
     updatedAt = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -35,11 +57,11 @@ class Rol(models.Model):
         return self.nombre_rol
 
 
-class Totem(models.Model):
+class Totem(ChileTimeModelMixin):
     id_totem = models.AutoField(primary_key=True)
     ubicacion = models.CharField(max_length=100)
     descripcion = models.TextField(blank=True, null=True)
-    createdAt = models.DateTimeField(auto_now_add=True)
+    createdAt = models.DateTimeField(default=get_current_chile_time)
     updatedAt = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -106,7 +128,7 @@ class Usuario(AbstractUser):
 class QR(models.Model):
     codigo_unico = models.CharField(max_length=500, unique=True)
     estado_qr = models.BooleanField(default=True)
-    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_creacion = models.DateTimeField(default=get_current_chile_time)
     rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario', to_field='rut_usuario')
     #createdAt = models.DateTimeField(auto_now_add=True)
     #updatedAt = models.DateTimeField(auto_now=True)
@@ -115,7 +137,7 @@ class QR(models.Model):
         db_table = 'QRs'
 
 
-class Marcaje(models.Model):
+class Marcaje(ChileTimeModelMixin):
     id_marcaje = models.AutoField(primary_key=True)
     hora_ingreso = models.DateTimeField()
     hora_salida = models.DateTimeField(blank=True, null=True)
@@ -123,7 +145,7 @@ class Marcaje(models.Model):
     observacion = models.TextField(blank=True, null=True)
     rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario', to_field='rut_usuario')
     id_totem = models.ForeignKey('Totem', on_delete=models.CASCADE, db_column='id_totem')
-    createdAt = models.DateTimeField(auto_now_add=True)
+    createdAt = models.DateTimeField(default=get_current_chile_time)
     updatedAt = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -160,11 +182,18 @@ class Marcaje(models.Model):
         Override del método save para crear asistencia automáticamente
         cuando se complete un marcaje (se agregue hora de salida)
         """
+        # Aplicar la lógica de hora chilena del mixin
+        # Django ya maneja la configuración TIME_ZONE = 'America/Santiago' del settings.py
+        if hasattr(self, 'updatedAt'):
+            self.updatedAt = timezone.now()
+        
         # Guardar el marcaje primero
-        super().save(*args, **kwargs)
+        super(ChileTimeModelMixin, self).save(*args, **kwargs)
         
         # Intentar crear asistencia si está completo
         self.crear_asistencia_si_completo()
+    
+
 
 
 class Registro_marcaje(models.Model):
@@ -175,7 +204,7 @@ class Registro_marcaje(models.Model):
     )
     id_marcaje = models.ForeignKey('Marcaje', on_delete=models.CASCADE, db_column='id_marcaje')
     id_totem = models.ForeignKey('Totem', on_delete=models.CASCADE, db_column='id_totem')
-    fecha_registro = models.DateTimeField(auto_now_add=True)
+    fecha_registro = models.DateTimeField(default=get_current_chile_time)
 
     class Meta:
         db_table = 'RegistroMarcaje'
@@ -189,78 +218,110 @@ class Registro_marcaje(models.Model):
             raise ValidationError({'rut_usuario': 'Usuario con este RUT no existe.'})
 
 
-class Justificacion(models.Model):
-    id_justificacion = models.AutoField(primary_key=True)
-    rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario', to_field='rut_usuario')
-    descripcion = models.TextField()
-    estado = models.CharField(max_length=255, default='PENDIENTE')
-    fecha_justificacion = models.DateField()
-
-    # Campos de tracking de aprobaciones
-    observaciones_admin = models.TextField(null=True, blank=True)
-    aprobado_por = models.ForeignKey('Usuario', on_delete=models.SET_NULL, null=True, blank=True, 
-                                   related_name='justificaciones_aprobadas', db_column='aprobado_por', to_field='rut_usuario')
-    fecha_aprobacion = models.DateTimeField(null=True, blank=True)
-    rechazado_por = models.ForeignKey('Usuario', on_delete=models.SET_NULL, null=True, blank=True,
-                                    related_name='justificaciones_rechazadas', db_column='rechazado_por', to_field='rut_usuario')
-    fecha_rechazo = models.DateTimeField(null=True, blank=True)
-
-    # timestamps equivalentes a Sequelize
-    createdAt = models.DateTimeField(auto_now_add=True)
-    updatedAt = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = 'Justificacions'
-    
-    def __str__(self):
-        return f"Justificacion {self.id_justificacion} - {self.rut_usuario.rut_usuario} ({self.estado})"
-
-
-
-class Asistencia(models.Model):
+class Asistencia(ChileTimeModelMixin):
     id_asist = models.AutoField(primary_key=True)
     colacion = models.BooleanField(default=False)
     observacion = models.TextField(blank=True, null=True)
     horas_diarias = models.FloatField(blank=True, null=True)
     id_marcaje = models.ForeignKey('Marcaje', on_delete=models.CASCADE, db_column='id_marcaje')
-    id_justificacion = models.ForeignKey('Justificacion', on_delete=models.CASCADE, blank=True, null=True, db_column='id_justificacion')
-    createdAt = models.DateTimeField(auto_now_add=True)
+    id_justificacion = models.ForeignKey('Justificacion', on_delete=models.CASCADE, db_column='id_justificacion', blank=True, null=True)
+    createdAt = models.DateTimeField(default=get_current_chile_time)
     updatedAt = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'Asistencia'
 
 
+class Justificacion(models.Model):
+    id_justificacion = models.AutoField(primary_key=True)
+
+    rut_usuario = models.ForeignKey(
+        'Usuario',
+        on_delete=models.CASCADE,
+        db_column='rut_usuario',
+        to_field='rut_usuario'
+    )
+
+    fecha_justificacion = models.DateField()
+
+    motivo = models.CharField(
+        max_length=100
+        # Ejemplos: 'congreso', 'charla', 'enfermedad', 'personal', 'otro'
+    )
+
+    descripcion = models.TextField(blank=True, null=True)
+
+    es_justificada = models.BooleanField(
+        default=False
+        # true = suma 8 horas (congreso, charla, enfermedad)
+        # false = no suma horas (personal, otro)
+    )
+
+    horas_compensadas = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0
+        # 8.00 si es justificada, 0 si no lo es
+    )
+
+    estado = models.CharField(
+        max_length=50,
+        default='REGISTRADA'
+        # Único estado por ahora
+    )
+
+    observaciones = models.TextField(blank=True, null=True)
+
+    fecha_registro = models.DateTimeField(default=get_current_chile_time)
+
+    class Meta:
+        db_table = 'Justificacions'
+
+    def __str__(self):
+        return f"Justificación {self.id_justificacion} - {self.rut_usuario}"
+    
+
 class Notificacion(models.Model):
     id_alerta = models.AutoField(primary_key=True)
-    aviso = models.TextField()
-    descripcion = models.TextField(blank=True, null=True)
-    #fecha_registro = models.DateTimeField(auto_now_add=True)
-    id_asist = models.ForeignKey('Asistencia', on_delete=models.CASCADE, db_column='id_asist')
-    createdAt = models.DateTimeField(auto_now_add=True)
-    updatedAt = models.DateTimeField(auto_now=True)
+
+    aviso = models.CharField(max_length=255)
+
+    descripcion = models.CharField(
+        max_length=500
+    )
+
+    id_asist = models.ForeignKey(
+        'Asistencia',
+        on_delete=models.CASCADE,
+        db_column='id_asist'
+    )
 
     class Meta:
         db_table = 'Notificacions'
 
-
-class Registro_just(models.Model):
-    id_justificacion = models.ForeignKey('Justificacion', on_delete=models.CASCADE, db_column='id_justificacion')
-    rut_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, db_column='rut_usuario', to_field='rut_usuario')
-    fecha_registro = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = 'RegistroJust'
+    def __str__(self):
+        return f"Alerta {self.id_alerta}: {self.aviso}"
 
 
-class Motivo(models.Model):
+""" class Motivo(models.Model):
     id_motivo = models.AutoField(primary_key=True)
-    descripcion = models.TextField()
+
+    descripcion = models.CharField(
+        max_length=255
+    )
+
     periodo = models.TimeField()
-    observaciones = models.TextField(blank=True, null=True)
+
+    observaciones = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True
+    )
+
     id_justificacion = models.ForeignKey('Justificacion', on_delete=models.CASCADE, db_column='id_justificacion')
-    createdAt = models.DateTimeField(auto_now_add=True)
-    updatedAt = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'Motivos'
+
+    def __str__(self):
+        return f"Motivo {self.id_motivo} - {self.descripcion}" """
