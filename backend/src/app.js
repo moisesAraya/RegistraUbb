@@ -22,7 +22,7 @@ app.use(
       "http://146.83.194.142:1784", "http://146.83.194.142:1778", "http://146.83.194.142:1785"
      ],
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   })
 );
