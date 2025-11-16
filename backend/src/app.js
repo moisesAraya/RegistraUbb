@@ -158,6 +158,19 @@ try {
     console.log("✅ Profile routes cargadas");
   } catch (profileError) {
     console.log("⚠️ Profile routes no disponibles:", profileError.message);
+<<<<<<< HEAD
+=======
+  }
+
+  // ✅ 10. NOTIFICACIONES ROUTES (placeholder)
+  try {
+    console.log("🔔 Cargando Notificaciones routes...");
+    const notificacionesRoutes = await import("./routes/notificaciones.routes.js");
+    app.use("/api/notificaciones", notificacionesRoutes.default);
+    console.log("✅ Notificaciones routes cargadas");
+  } catch (notificacionesError) {
+    console.log("⚠️ Notificaciones routes no disponibles:", notificacionesError.message);
+>>>>>>> 89df166004e46036ba945dd5e78c18945085b4ef
   }
 
 } catch (error) {

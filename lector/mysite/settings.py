@@ -23,8 +23,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-g-xo9*6zdqi0+39a!!*(kb$=$+d*bmt@grp1n4*b_h)#6z9c1q'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = True  # Cambiar a True temporalmente para depurar
 
+<<<<<<< HEAD
 ALLOWED_HOSTS = ['146.83.194.142', 'localhost', '127.0.0.1']
 
 # Remover configuraciones HTTPS
@@ -32,7 +33,31 @@ ALLOWED_HOSTS = ['146.83.194.142', 'localhost', '127.0.0.1']
 #     'https://146.83.194.142',
 #     'https://146.83.194.142:1779',
 # ]
+=======
+ALLOWED_HOSTS = ['146.83.194.142', 'localhost', '127.0.0.1', '0.0.0.0', '*']
 
+# Configuraciones CSRF para HTTP
+CSRF_TRUSTED_ORIGINS = [
+    'http://146.83.194.142',
+    'http://146.83.194.142:80',
+    'http://146.83.194.142:1778',
+    'http://localhost',
+    'http://localhost:8000',
+    'http://127.0.0.1',
+    'http://127.0.0.1:8000',
+]
+
+# Configuraciones CSRF más permisivas
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
+>>>>>>> 89df166004e46036ba945dd5e78c18945085b4ef
+
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
 
 # Application definition
 
@@ -50,7 +75,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'modlector.middleware.FaviconMiddleware',
     'django.middleware.security.SecurityMiddleware',
-   # 'whitenoise.middleware.WhiteNoiseMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Activar WhiteNoise
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -163,12 +188,12 @@ STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 ]
 
-# Usar storage estándar en desarrollo, comprimido en producción
-if DEBUG:
-    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
-else:
-    #STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+# Configuración de archivos estáticos simplificada
+STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+
+# Configuraciones de WhiteNoise para servir archivos estáticos
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = True
 
 
 # Default primary key field type
@@ -185,6 +210,7 @@ import os
 
 ENABLE_BACKEND_SYNC = False
 
+<<<<<<< HEAD
 # Solo aplicar configuraciones de seguridad en producción
 if not DEBUG:  # Cuando DEBUG=False (producción)
     
@@ -230,6 +256,20 @@ else:  # Desarrollo (DEBUG=True)
     # Configuración de WhiteNoise para desarrollo
     WHITENOISE_USE_FINDERS = True
     WHITENOISE_AUTOREFRESH = True
+=======
+# Configuraciones de seguridad para HTTP
+SECURE_SSL_REDIRECT = False
+SECURE_HSTS_SECONDS = 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False  
+SECURE_HSTS_PRELOAD = False
+
+# Headers de seguridad básicos
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
+X_FRAME_OPTIONS = 'SAMEORIGIN'  # Cambiar de DENY a SAMEORIGIN para evitar problemas
+
+USE_TZ = True
+>>>>>>> 89df166004e46036ba945dd5e78c18945085b4ef
 
 # ==========================================
 # SECRET_KEY MEJORADA
@@ -242,4 +282,8 @@ else:  # Desarrollo (DEBUG=True)
 # En desarrollo mantienes la actual, en producción debes cambiarla
 if not DEBUG:
     # ⚠️ CAMBIAR ESTA SECRET_KEY EN PRODUCCIÓN ⚠️
+<<<<<<< HEAD
     SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'tu-secret-key-super-segura-de-al-menos-50-caracteres-aqui')
+=======
+    SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'tu-secret-key-super-segura-de-al-menos-50-caracteres-aqui')
+>>>>>>> 89df166004e46036ba945dd5e78c18945085b4ef

@@ -129,7 +129,10 @@ async function getPersonalStatsFromRealService(rut_usuario) {
         // ✅ ACTIVIDADES RECIENTES (últimos 5 registros)
         const recent_activities = asistencias.slice(0, 5).map(a => ({
             date: a.fecha,
-            time: a.horaIngreso ? a.horaIngreso.substring(0, 5) : '-',
+            time: a.horaIngreso ? 
+                (typeof a.horaIngreso === 'string' ? 
+                    a.horaIngreso.substring(0, 5) : 
+                    a.horaIngreso.toString().substring(0, 5)) : '-',
             description: `${a.horasTrabajadas}h trabajadas`,
             status: a.estado,
             type: 'asistencia'
