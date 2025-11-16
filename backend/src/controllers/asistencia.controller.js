@@ -590,21 +590,10 @@ export async function getMarcajeAbiertoController(req, res) {
     if (registrosMarcaje.length > 0) {
       const marcajeAbierto = registrosMarcaje[0].marcaje;
       
-      // Formatear hora_ingreso como string HH:MM:SS para el frontend
-      const horaIngresoFormatted = marcajeAbierto.hora_ingreso 
-        ? new Date(marcajeAbierto.hora_ingreso).toLocaleTimeString('en-GB', { 
-            hour12: false,
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-          })
-        : null;
-      
       console.log('🔄 [ASISTENCIA-CTRL] Marcaje abierto encontrado:', {
         id: marcajeAbierto.id_marcaje,
         fecha: marcajeAbierto.fecha,
-        hora_ingreso_original: marcajeAbierto.hora_ingreso,
-        hora_ingreso_formatted: horaIngresoFormatted
+        hora_ingreso: marcajeAbierto.hora_ingreso
       });
 
       return res.status(200).json({
@@ -612,7 +601,7 @@ export async function getMarcajeAbiertoController(req, res) {
         marcaje_abierto: {
           id_marcaje: marcajeAbierto.id_marcaje,
           fecha: marcajeAbierto.fecha,
-          hora_ingreso: horaIngresoFormatted,
+          hora_ingreso: marcajeAbierto.hora_ingreso,
           hora_salida: marcajeAbierto.hora_salida,
           tipo_marcaje: 'ingreso'
         }
