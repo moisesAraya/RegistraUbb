@@ -208,8 +208,8 @@ function procesarAsistenciasDetalle(marcajesPorFecha) {
     Object.entries(marcajesPorFecha).forEach(([fecha, marcajes]) => {
         // Ordenar marcajes por hora de entrada
         marcajes.sort((a, b) => {
-            const horaA = a.hora_entrada || '00:00:00';
-            const horaB = b.hora_entrada || '00:00:00';
+            const horaA = formatTimeToString(a.hora_entrada) || '00:00:00';
+            const horaB = formatTimeToString(b.hora_entrada) || '00:00:00';
             return horaA.localeCompare(horaB);
         });
 

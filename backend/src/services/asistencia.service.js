@@ -4,6 +4,7 @@ import { Op } from 'sequelize';
 import Usuario from '../entities/usuario.entity.js';
 import Marcaje from '../entities/marcaje.entity.js';
 import RegistroMarcaje from '../entities/registro_marcaje.entity.js';
+import Asistencia from '../entities/asistencia.entity.js';
 
 console.log('🎯 [ASISTENCIA-SERVICE] ✅ SERVICE CARGADO ✅');
 
@@ -22,11 +23,15 @@ function formatTimeToString(value) {
             return value;
         }
 
-        // Si viene como ISO
+        // Si viene como ISO timestamp (2025-11-16T00:32:07.940-0300)
         if (value.includes("T")) {
             try {
                 const date = new Date(value);
-                return date.toISOString().split("T")[1].split(".")[0];
+                // Formatear manualmente para evitar problemas de zona horaria
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                const seconds = String(date.getSeconds()).padStart(2, '0');
+                return `${hours}:${minutes}:${seconds}`;
             } catch {
                 return null;
             }
@@ -37,7 +42,13 @@ function formatTimeToString(value) {
 
     // Si viene como Date
     if (value instanceof Date) {
-        return value.toISOString().split("T")[1].split(".")[0];
+        return value.toLocaleTimeString('es-CL', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+            timeZone: 'America/Santiago'
+        });
     }
 
     // Si viene como objeto { hours, minutes }
@@ -52,7 +63,7 @@ function formatTimeToString(value) {
 }
 
 /**
- * 📅 SERVICIO - OBTENER ASISTENCIA DEL USUARIO (CORREGIDO)
+ * 📅 SERVICIO - OBTENER ASISTENCIA DEL USUARIO (USANDO ASISTENCIA + MARCAJE)
  */
 export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio = null) {
     try {
@@ -70,8 +81,8 @@ export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio =
         
         console.log('📅 [ASISTENCIA-SERVICE] Rango:', startDate.toISOString().split('T')[0], 'a', endDate.toISOString().split('T')[0]);
 
-        // Buscar registros de marcaje del usuario
-        const registrosMarcaje = await RegistroMarcaje.findAll({
+        // Buscar todos los marcajes del usuario en el rango de fechas
+        const marcajesUsuario = await RegistroMarcaje.findAll({
             where: { rut_usuario: rutUsuario },
             include: [{
                 model: Marcaje,
@@ -89,8 +100,10 @@ export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio =
             order: [[{ model: Marcaje, as: 'marcaje' }, 'fecha', 'DESC']]
         });
 
-        if (registrosMarcaje.length === 0) {
-            console.log('⚠️ [ASISTENCIA-SERVICE] No hay registros de marcaje');
+        console.log('📅 [ASISTENCIA-SERVICE] Marcajes del usuario encontrados:', marcajesUsuario.length);
+
+        if (marcajesUsuario.length === 0) {
+            console.log('⚠️ [ASISTENCIA-SERVICE] No hay marcajes para el usuario');
             
             return {
                 asistencias: [],
@@ -109,138 +122,113 @@ export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio =
             };
         }
 
-        // ✅ AGRUPAR MARCAJES POR FECHA (múltiples registros del mismo día)
-        const marcajesPorDia = {};
-        
-        registrosMarcaje.forEach(registro => {
-            const marcaje = registro.marcaje;
-            const fecha = marcaje.fecha;
-            
-            if (!marcajesPorDia[fecha]) {
-                marcajesPorDia[fecha] = {
-                    fecha: fecha,
-                    registros: [],
-                    observaciones: []
-                };
-            }
-            
-            // Agregar hora de ingreso si existe
-            if (marcaje.hora_ingreso) {
-                marcajesPorDia[fecha].registros.push({
-                    tipo: 'ingreso',
-                    hora: marcaje.hora_ingreso
-                });
-            }
-            
-            // Agregar hora de salida si existe
-            if (marcaje.hora_salida) {
-                marcajesPorDia[fecha].registros.push({
-                    tipo: 'salida',
-                    hora: marcaje.hora_salida
-                });
-            }
-            
-            if (marcaje.observacion) {
-                marcajesPorDia[fecha].observaciones.push(marcaje.observacion);
-            }
+        // Buscar asistencias relacionadas con estos marcajes
+        const idsMarce = marcajesUsuario.map(m => m.marcaje.id_marcaje);
+        const asistenciasDB = await Asistencia.findAll({
+            where: {
+                id_marcaje: {
+                    [Op.in]: idsMarce
+                }
+            },
+            include: [{
+                model: Marcaje,
+                as: 'marcajeAsistencia',
+                required: true
+            }],
+            order: [
+                [{ model: Marcaje, as: 'marcajeAsistencia' }, 'fecha', 'DESC'],
+                [{ model: Marcaje, as: 'marcajeAsistencia' }, 'hora_ingreso', 'DESC']
+            ]
         });
 
-        console.log('📅 [ASISTENCIA-SERVICE] Días con marcajes:', Object.keys(marcajesPorDia).length);
+        console.log('📅 [ASISTENCIA-SERVICE] Asistencias encontradas:', asistenciasDB.length);
+        console.log('📅 [ASISTENCIA-SERVICE] IDs de marcajes usados:', idsMarce);
 
-        // ✅ PROCESAR CADA DÍA Y CALCULAR HORAS TRABAJADAS
-        const asistencias = Object.values(marcajesPorDia).map(dia => {
-            // Ordenar registros por hora
-            dia.registros.sort((a, b) => {
-                const horaAStr = formatTimeToString(a.hora) || '00:00:00';
-                const horaBStr = formatTimeToString(b.hora) || '00:00:00';
-                const horaA = horaAStr.split(':').map(Number);
-                const horaB = horaBStr.split(':').map(Number);
-                return (horaA[0] * 60 + horaA[1]) - (horaB[0] * 60 + horaB[1]);
-            });
-
-            // Separar entradas y salidas
-            const entradas = dia.registros.filter(r => r.tipo === 'ingreso');
-            const salidas = dia.registros.filter(r => r.tipo === 'salida');
-
-            // Primera entrada del día
-            const primeraEntrada = entradas.length > 0 ? entradas[0].hora : null;
+        if (asistenciasDB.length === 0) {
+            console.log('⚠️ [ASISTENCIA-SERVICE] No hay registros de asistencia');
             
-            // Última salida del día
-            const ultimaSalida = salidas.length > 0 ? salidas[salidas.length - 1].hora : null;
-
-            // ✅ CALCULAR HORAS TRABAJADAS CORRECTAMENTE
-            let horasTrabajadas = 0;
-
-            if (entradas.length > 0 && salidas.length > 0) {
-                // Emparejar entradas con salidas
-                const pares = Math.min(entradas.length, salidas.length);
-                
-                for (let i = 0; i < pares; i++) {
-                    const entradaStr = formatTimeToString(entradas[i].hora);
-                    const salidaStr = formatTimeToString(salidas[i].hora);
-
-                    // Evitar errores si algún valor no es válido
-                    if (!entradaStr || !salidaStr) {
-                        console.warn("Registro inválido:", entradas[i], salidas[i]);
-                        continue;
-                    }
-
-                    const [hE, mE] = entradaStr.split(':').map(Number);
-                    const [hS, mS] = salidaStr.split(':').map(Number);
-
-                    
-                    const minutosEntrada = hE * 60 + mE;
-                    const minutosSalida = hS * 60 + mS;
-                    
-                    // Calcular diferencia en minutos
-                    let diff = minutosSalida - minutosEntrada;
-                    
-                    // Si la salida es antes que la entrada, asumimos que cruzó medianoche
-                    if (diff < 0) {
-                        diff += 24 * 60;
-                    }
-                    
-                    horasTrabajadas += diff / 60;
+            return {
+                asistencias: [],
+                resumen: {
+                    diasTrabajados: 0,
+                    horasTotales: 0,
+                    horasPromedio: 0,
+                    faltas: 0
+                },
+                periodo: {
+                    mes: targetMes,
+                    anio: targetAnio,
+                    fechaInicio: startDate.toISOString().split('T')[0],
+                    fechaFin: endDate.toISOString().split('T')[0]
                 }
-            } else if (entradas.length > 0 && !ultimaSalida) {
-                // Solo entrada, sin salida - considerar 0 horas
-                horasTrabajadas = 0;
-            }
+            };
+        }
 
-            // Limitar horas trabajadas a un rango razonable (0-14 horas)
-            horasTrabajadas = Math.max(0, Math.min(14, horasTrabajadas));
-
-            // Determinar estado
+        // ✅ PROCESAR CADA REGISTRO DE ASISTENCIA
+        const asistencias = asistenciasDB.map(asistenciaDB => {
+            const marcaje = asistenciaDB.marcajeAsistencia;
+            
+            console.log('📊 [ASISTENCIA-SERVICE] Procesando registro:', {
+                id_asist: asistenciaDB.id_asist,
+                fecha: marcaje.fecha,
+                hora_ingreso: marcaje.hora_ingreso,
+                hora_salida: marcaje.hora_salida,
+                horas_diarias: asistenciaDB.horas_diarias
+            });
+            
+            // Determinar estado basado en horas trabajadas
             let estado = 'presente';
-            if (entradas.length === 0) {
+            if (asistenciaDB.horas_diarias === 0 || (!marcaje.hora_ingreso && !marcaje.hora_salida)) {
                 estado = 'falta';
             }
 
+            const horaIngresoFormateada = formatTimeToString(marcaje.hora_ingreso);
+            const horaSalidaFormateada = formatTimeToString(marcaje.hora_salida);
+
+            console.log('📊 [ASISTENCIA-SERVICE] Horas formateadas:', {
+                original_ingreso: marcaje.hora_ingreso,
+                formateada_ingreso: horaIngresoFormateada,
+                original_salida: marcaje.hora_salida,
+                formateada_salida: horaSalidaFormateada
+            });
+
             return {
-                fecha: dia.fecha,
-                horaIngreso: primeraEntrada,
-                horaSalida: ultimaSalida,
-                horasTrabajadas: Math.round(horasTrabajadas * 100) / 100,
+                fecha: marcaje.fecha,
+                horaIngreso: horaIngresoFormateada,
+                horaSalida: horaSalidaFormateada,
+                horasTrabajadas: parseFloat(asistenciaDB.horas_diarias) || 0,
                 estado: estado,
-                observacion: dia.observaciones.length > 0 ? dia.observaciones.join(' | ') : null,
+                observacion: asistenciaDB.observacion || marcaje.observacion || null,
                 tipoMarcaje: 'qr',
                 ubicacion: 'Campus',
-                detalleRegistros: {
-                    totalEntradas: entradas.length,
-                    totalSalidas: salidas.length,
-                    registros: dia.registros
+                colacion: asistenciaDB.colacion || false,
+                detalleAsistencia: {
+                    id_asist: asistenciaDB.id_asist,
+                    id_marcaje: asistenciaDB.id_marcaje,
+                    tuvoColacion: asistenciaDB.colacion
                 }
             };
         });
 
-        // Ordenar por fecha descendente
-        asistencias.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-
         // ✅ CALCULAR RESUMEN CORRECTO
-        const diasTrabajados = asistencias.filter(a => a.estado === 'presente' && a.horasTrabajadas > 0).length;
+        // Contar días únicos trabajados (no registros)
+        const fechasUnicasTrabajadas = new Set(
+            asistencias
+                .filter(a => a.estado === 'presente' && a.horasTrabajadas > 0)
+                .map(a => a.fecha)
+        );
+        const diasTrabajados = fechasUnicasTrabajadas.size;
+        
         const horasTotales = asistencias.reduce((sum, a) => sum + a.horasTrabajadas, 0);
         const horasPromedio = diasTrabajados > 0 ? horasTotales / diasTrabajados : 0;
-        const faltas = asistencias.filter(a => a.estado === 'falta').length;
+        
+        // Contar días únicos con faltas
+        const fechasUnicasConFaltas = new Set(
+            asistencias
+                .filter(a => a.estado === 'falta')
+                .map(a => a.fecha)
+        );
+        const faltas = fechasUnicasConFaltas.size;
 
         const resumen = {
             diasTrabajados,
@@ -249,7 +237,10 @@ export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio =
             faltas
         };
 
+        console.log('✅ [ASISTENCIA-SERVICE] Fechas únicas trabajadas:', Array.from(fechasUnicasTrabajadas));
+        console.log('✅ [ASISTENCIA-SERVICE] Fechas únicas con faltas:', Array.from(fechasUnicasConFaltas));
         console.log('✅ [ASISTENCIA-SERVICE] Resumen:', resumen);
+        console.log('✅ [ASISTENCIA-SERVICE] Asistencias procesadas:', asistencias.length);
 
         return {
             asistencias,

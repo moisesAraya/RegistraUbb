@@ -45,6 +45,10 @@ export async function getAsistenciaController(req, res) {
         
         console.log('📅 [ASISTENCIA-CTRL] Usuario:', rutUsuario);
         console.log('📅 [ASISTENCIA-CTRL] Filtros:', { mes, anio });
+        console.log('📅 [ASISTENCIA-CTRL] Headers:', {
+            authorization: req.headers.authorization ? 'Presente' : 'Ausente',
+            contentType: req.headers['content-type']
+        });
         
         if (!rutUsuario) {
             return res.status(400).json({
@@ -58,6 +62,11 @@ export async function getAsistenciaController(req, res) {
         
         const duration = `${Date.now() - startTime}ms`;
         
+        console.log('✅ [ASISTENCIA-CTRL] Resultado del servicio:', {
+            asistencias: resultado.asistencias.length,
+            periodo: resultado.periodo,
+            resumen: resultado.resumen
+        });
         console.log('✅ [ASISTENCIA-CTRL] Respuesta enviada en', duration);
         
         res.status(200).json({
@@ -72,6 +81,7 @@ export async function getAsistenciaController(req, res) {
 
     } catch (error) {
         console.error('❌ [ASISTENCIA-CTRL] Error:', error);
+        console.error('❌ [ASISTENCIA-CTRL] Stack:', error.stack);
         
         const duration = `${Date.now() - startTime}ms`;
         

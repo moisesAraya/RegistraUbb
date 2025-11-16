@@ -53,6 +53,8 @@ export const useAsistencia = () => {
   const [error, setError] = useState<string | null>(null);
 
   const API_BASE_URL = import.meta.env.VITE_API_URL;
+  
+  console.log('🔧 useAsistencia - Hook inicializado, API URL:', API_BASE_URL);
 
   const getAuthToken = () => {
     return localStorage.getItem('token');
@@ -61,8 +63,11 @@ export const useAsistencia = () => {
   const makeApiCall = async (endpoint: string, options: RequestInit = {}) => {
     const token = getAuthToken();
     if (!token) {
+      console.log('❌ useAsistencia - No hay token de autenticación');
       throw new Error('No hay token de autenticación');
     }
+
+    console.log('🔑 useAsistencia - Token encontrado:', token ? '✅' : '❌');
 
     const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
       headers: {
@@ -73,14 +78,25 @@ export const useAsistencia = () => {
       ...options,
     });
 
+    console.log('📡 useAsistencia - Respuesta HTTP:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok
+    });
+
     if (!response.ok) {
+      const errorText = await response.text();
+      console.log('❌ useAsistencia - Error HTTP response:', errorText);
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log('📄 useAsistencia - Datos JSON recibidos:', data);
+    return data;
   };
 
   const fetchAsistencia = async (mes?: number, anio?: number) => {
+    console.log('🔄 useAsistencia - fetchAsistencia iniciado:', { mes, anio });
     setIsLoading(true);
     setError(null);
     
@@ -90,9 +106,13 @@ export const useAsistencia = () => {
       if (anio) params.append('anio', anio.toString());
       
       const endpoint = `asistencia${params.toString() ? `?${params.toString()}` : ''}`;
+      console.log('🌐 useAsistencia - Llamando endpoint:', `${API_BASE_URL}/${endpoint}`);
+      
       const result = await makeApiCall(endpoint);
+      console.log('📥 useAsistencia - Respuesta recibida:', result);
       
       if (result.success) {
+        console.log('✅ useAsistencia - Datos de asistencia establecidos:', result.data);
         setAsistenciaData(result.data);
       } else {
         throw new Error(result.error || 'Error obteniendo asistencia');

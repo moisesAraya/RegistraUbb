@@ -19,6 +19,7 @@ const AttendanceList: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
+    console.log('🔄 AttendanceList - useEffect ejecutado con:', { selectedMonth, selectedYear });
     fetchAsistencia(selectedMonth, selectedYear);
     fetchEstadisticas(selectedMonth, selectedYear);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -48,16 +49,28 @@ const AttendanceList: React.FC = () => {
     }
   };
 
-  // ✅ FORMATO: "15 Nov, 08:30"
+  // ✅ FORMATO: "16 Nov" - Sin problemas de zona horaria
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    // Crear fecha directamente desde el string YYYY-MM-DD sin conversión de zona horaria
+    const [, month, day] = dateString.split('-').map(Number);
     const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    return `${date.getDate()} ${months[date.getMonth()]}`;
+    return `${day} ${months[month - 1]}`;
   };
 
-  // ✅ FORMATO: "08:30" desde "08:30:00"
+  // ✅ FORMATO: "00:30" desde "00:30:00" o timestamp
   const formatTime = (timeString: string | null) => {
     if (!timeString) return '-';
+    
+    // Si viene como timestamp ISO (2025-11-16T00:32:07.940-0300)
+    if (timeString.includes('T')) {
+      const date = new Date(timeString);
+      return date.toLocaleTimeString('es-CL', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false 
+      });
+    }
+    
     // Si viene como "HH:MM:SS", tomar solo "HH:MM"
     return timeString.substring(0, 5);
   };
@@ -232,9 +245,26 @@ const AttendanceList: React.FC = () => {
             )}
           </h3>
 
+          {(() => {
+            console.log('📊 AttendanceList - Datos de asistencia:', {
+              asistenciaData,
+              hasAsistencias: asistenciaData?.asistencias,
+              asistenciasLength: asistenciaData?.asistencias?.length,
+              period: asistenciaData?.periodo
+            });
+            return null;
+          })()}
+          
           {asistenciaData?.asistencias && asistenciaData.asistencias.length > 0 ? (
             <ul className="divide-y divide-gray-200">
-              {asistenciaData.asistencias.map((asistencia, index) => (
+              {asistenciaData.asistencias
+                .sort((a, b) => {
+                  // Ordenar por fecha descendente (más reciente primero)
+                  const fechaA = new Date(a.fecha + 'T' + (a.horaIngreso || '00:00:00'));
+                  const fechaB = new Date(b.fecha + 'T' + (b.horaIngreso || '00:00:00'));
+                  return fechaB.getTime() - fechaA.getTime();
+                })
+                .map((asistencia, index) => (
                 <li key={index} className="py-4">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-4">
                     <div className="flex-shrink-0">
