@@ -25,15 +25,6 @@ SECRET_KEY = 'django-insecure-g-xo9*6zdqi0+39a!!*(kb$=$+d*bmt@grp1n4*b_h)#6z9c1q
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True  # Cambiar a True temporalmente para depurar
 
-<<<<<<< HEAD
-ALLOWED_HOSTS = ['146.83.194.142', 'localhost', '127.0.0.1']
-
-# Remover configuraciones HTTPS
-# CSRF_TRUSTED_ORIGINS = [
-#     'https://146.83.194.142',
-#     'https://146.83.194.142:1779',
-# ]
-=======
 ALLOWED_HOSTS = ['146.83.194.142', 'localhost', '127.0.0.1', '0.0.0.0', '*']
 
 # Configuraciones CSRF para HTTP
@@ -50,7 +41,6 @@ CSRF_TRUSTED_ORIGINS = [
 # Configuraciones CSRF más permisivas
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
->>>>>>> 89df166004e46036ba945dd5e78c18945085b4ef
 
 CSRF_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SAMESITE = 'Lax'
@@ -210,53 +200,6 @@ import os
 
 ENABLE_BACKEND_SYNC = False
 
-<<<<<<< HEAD
-# Solo aplicar configuraciones de seguridad en producción
-if not DEBUG:  # Cuando DEBUG=False (producción)
-    
-    # Configuraciones HTTP (sin SSL)
-    SECURE_SSL_REDIRECT = False
-    SECURE_HSTS_SECONDS = 0
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
-    SECURE_HSTS_PRELOAD = False
-    
-    # Cookies no seguras para HTTP
-    SESSION_COOKIE_SECURE = False
-    CSRF_COOKIE_SECURE = False
-
-    # Headers de seguridad básicos
-    SECURE_CONTENT_TYPE_NOSNIFF = True
-    SECURE_BROWSER_XSS_FILTER = True
-    X_FRAME_OPTIONS = 'DENY'
-
-    # Sin configuración de proxy SSL
-    # SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
-    USE_TZ = True
-
-    # Hosts permitidos
-    ALLOWED_HOSTS = [ 
-        '146.83.194.142',
-        'localhost',
-        '127.0.0.1',
-    ]
-    
-    # Configuración mejorada de WhiteNoise para producción
-    WHITENOISE_USE_FINDERS = False  # Desactivar en producción
-    WHITENOISE_AUTOREFRESH = False  # Desactivar en producción
-    
-else:  # Desarrollo (DEBUG=True)
-    
-    # En desarrollo, permitir localhost
-    ALLOWED_HOSTS = [
-        'localhost',
-        '127.0.0.1',
-        '0.0.0.0',
-    ]
-    
-    # Configuración de WhiteNoise para desarrollo
-    WHITENOISE_USE_FINDERS = True
-    WHITENOISE_AUTOREFRESH = True
-=======
 # Configuraciones de seguridad para HTTP
 SECURE_SSL_REDIRECT = False
 SECURE_HSTS_SECONDS = 0
@@ -269,7 +212,6 @@ SECURE_BROWSER_XSS_FILTER = True
 X_FRAME_OPTIONS = 'SAMEORIGIN'  # Cambiar de DENY a SAMEORIGIN para evitar problemas
 
 USE_TZ = True
->>>>>>> 89df166004e46036ba945dd5e78c18945085b4ef
 
 # ==========================================
 # SECRET_KEY MEJORADA
@@ -282,8 +224,4 @@ USE_TZ = True
 # En desarrollo mantienes la actual, en producción debes cambiarla
 if not DEBUG:
     # ⚠️ CAMBIAR ESTA SECRET_KEY EN PRODUCCIÓN ⚠️
-<<<<<<< HEAD
     SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'tu-secret-key-super-segura-de-al-menos-50-caracteres-aqui')
-=======
-    SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'tu-secret-key-super-segura-de-al-menos-50-caracteres-aqui')
->>>>>>> 89df166004e46036ba945dd5e78c18945085b4ef

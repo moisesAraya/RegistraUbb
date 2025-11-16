@@ -23,6 +23,17 @@ console.log('🚀 [DASHBOARD-CONTROLLER] Controller cargado y conectado con serv
 /**
  * 📅 CONTROLLER - OBTENER ASISTENCIA DEL USUARIO
  */
+
+function buildTimestamp(fecha, hora) {
+    if (!fecha || !hora) return null;
+
+    // Normalizar hora a HH:MM:SS
+    const time = hora.length === 5 ? `${hora}:00` : hora;
+
+    // Construir timestamp ISO
+    return `${fecha}T${time}`;
+}
+
 export async function getAsistenciaController(req, res) {
     const startTime = Date.now();
     
@@ -34,6 +45,10 @@ export async function getAsistenciaController(req, res) {
         
         console.log('📅 [ASISTENCIA-CTRL] Usuario:', rutUsuario);
         console.log('📅 [ASISTENCIA-CTRL] Filtros:', { mes, anio });
+        console.log('📅 [ASISTENCIA-CTRL] Headers:', {
+            authorization: req.headers.authorization ? 'Presente' : 'Ausente',
+            contentType: req.headers['content-type']
+        });
         
         if (!rutUsuario) {
             return res.status(400).json({
@@ -47,6 +62,11 @@ export async function getAsistenciaController(req, res) {
         
         const duration = `${Date.now() - startTime}ms`;
         
+        console.log('✅ [ASISTENCIA-CTRL] Resultado del servicio:', {
+            asistencias: resultado.asistencias.length,
+            periodo: resultado.periodo,
+            resumen: resultado.resumen
+        });
         console.log('✅ [ASISTENCIA-CTRL] Respuesta enviada en', duration);
         
         res.status(200).json({
@@ -61,6 +81,7 @@ export async function getAsistenciaController(req, res) {
 
     } catch (error) {
         console.error('❌ [ASISTENCIA-CTRL] Error:', error);
+        console.error('❌ [ASISTENCIA-CTRL] Stack:', error.stack);
         
         const duration = `${Date.now() - startTime}ms`;
         
@@ -246,46 +267,75 @@ export async function marcar(req, res) {
 export async function createManualEntryController(req, res) {
   try {
     const rutUsuario = req.user?.rut_usuario;
-    const { fecha, hora_ingreso, hora_salida, observacion, id_totem } = req.body;
 
-    if (!rutUsuario) return res.status(400).json({ success: false, error: 'RUT de usuario requerido' });
-    if (!hora_ingreso) return res.status(400).json({ success: false, error: 'hora_ingreso es requerida' });
+    const { 
+      date, 
+      checkInTime, 
+      checkOutTime, 
+      activityType, 
+      location, 
+      notes, 
+      justificationReason 
+    } = req.body;
 
-    // Fecha por defecto: hoy
-    const fechaRegistro = fecha || new Date().toISOString().split('T')[0];
+    console.log("📥 BODY RECIBIDO:", req.body);
 
-    // Buscar o crear un totem para ingresos manuales si no se proporciona
-    let totemId = id_totem;
-    if (!totemId) {
-      const [totem, created] = await Totem.findOrCreate({
-        where: { ubicacion: 'INGRESO_MANUAL' },
-        defaults: { descripcion: 'Totem virtual para ingresos manuales' }
-      });
-      totemId = totem.id_totem;
-    }
+    if (!rutUsuario)
+      return res.status(400).json({ success: false, error: "RUT de usuario requerido" });
+
+    if (!date)
+      return res.status(400).json({ success: false, error: "'date' es requerido" });
+
+    if (!checkInTime)
+      return res.status(400).json({ success: false, error: "'checkInTime' es requerido" });
+
+    // Construcción de timestamps
+    const horaIngresoTS = buildTimestamp(date, checkInTime);
+    const horaSalidaTS = checkOutTime ? buildTimestamp(date, checkOutTime) : null;
+
+    if (!horaIngresoTS)
+      return res.status(400).json({ success: false, error: "Hora de ingreso inválida" });
+
+    // Asegurar totem
+    const [totem] = await Totem.findOrCreate({
+      where: { ubicacion: "INGRESO_MANUAL" },
+      defaults: { descripcion: "Tótem virtual para asistencias manuales" }
+    });
 
     // Crear marcaje
     const nuevoMarcaje = await Marcaje.create({
-      hora_ingreso,
-      hora_salida: hora_salida || null,
-      fecha: fechaRegistro,
-      observacion: observacion || 'Ingreso manual'
+      hora_ingreso: horaIngresoTS,
+      hora_salida: horaSalidaTS,
+      fecha: date,
+      observacion: `Actividad: ${activityType}${notes ? ` | ${notes}` : ''}${location ? ` | ${location}` : ''}`
     });
 
-    // Crear registro de marcaje
+    // Registro de marcaje (fecha_registro debe ser timestamp)
     await RegistroMarcaje.create({
       rut_usuario: rutUsuario,
       id_marcaje: nuevoMarcaje.id_marcaje,
-      id_totem: totemId,
-      fecha_registro: fechaRegistro
+      id_totem: totem.id_totem,
+      fecha_registro: new Date() // <-- CORRECTO
     });
 
-    return res.status(201).json({ success: true, message: 'Ingreso manual registrado', data: { marcaje: nuevoMarcaje } });
+    return res.status(201).json({
+      success: true,
+      message: "Asistencia manual registrada correctamente",
+      data: nuevoMarcaje
+    });
+
   } catch (error) {
-    console.error('❌ [MANUAL-ENTRY] Error:', error);
-    return res.status(500).json({ success: false, error: 'Error registrando ingreso manual', message: error.message });
+    console.error("❌ [MANUAL-ENTRY] Error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Error registrando ingreso manual",
+      message: error.message
+    });
   }
 }
+
+
+
 
 /**
  * 📊 OBTENER MÉTRICAS BÁSICAS DEL DASHBOARD

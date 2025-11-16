@@ -55,7 +55,7 @@ const Justificacion = sequelize.define('Justificacion', {
     }
 }, {
     tableName: 'Justificacions',
-    timestamps: true
+    timestamps: false // ✅ DESACTIVAR TIMESTAMPS AUTOMÁTICOS
 });
 
 export default Justificacion;

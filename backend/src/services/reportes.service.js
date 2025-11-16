@@ -9,6 +9,50 @@ import Justificacion from '../entities/justificacion.entity.js';
  * 📊 SERVICIO DE REPORTES PERSONALES
  */
 
+    function formatTimeToString(value) {
+        if (!value) return null;
+
+        // Si ya es string en formato HH:MM o HH:MM:SS
+        if (typeof value === "string") {
+            // Si viene como "08:32", lo extiendo a "08:32:00"
+            if (/^\d{2}:\d{2}$/.test(value)) {
+                return value + ":00";
+            }
+
+            // Si viene completo como "08:32:12", lo dejo
+            if (/^\d{2}:\d{2}:\d{2}$/.test(value)) {
+                return value;
+            }
+
+            // Si viene como ISO
+            if (value.includes("T")) {
+                try {
+                    const date = new Date(value);
+                    return date.toISOString().split("T")[1].split(".")[0];
+                } catch {
+                    return null;
+                }
+            }
+
+            return null;
+        }
+
+        // Si viene como Date
+        if (value instanceof Date) {
+            return value.toISOString().split("T")[1].split(".")[0];
+        }
+
+        // Si viene como objeto { hours, minutes }
+        if (typeof value === "object" && value.hours !== undefined) {
+            const h = String(value.hours).padStart(2, "0");
+            const m = String(value.minutes).padStart(2, "0");
+            const s = String(value.seconds || 0).padStart(2, "0");
+            return `${h}:${m}:${s}`;
+        }
+
+        return null;
+    }
+
 // ✅ OBTENER REPORTE MENSUAL DETALLADO O POR RANGO DE FECHAS
 export async function getReportePersonalMensual(rut_usuario, mes, anio, fecha_inicio = null, fecha_fin = null) {
     console.log('📊 [REPORTES] Generando reporte:', { rut_usuario, mes, anio, fecha_inicio, fecha_fin });
@@ -164,8 +208,8 @@ function procesarAsistenciasDetalle(marcajesPorFecha) {
     Object.entries(marcajesPorFecha).forEach(([fecha, marcajes]) => {
         // Ordenar marcajes por hora de entrada
         marcajes.sort((a, b) => {
-            const horaA = a.hora_entrada || '00:00:00';
-            const horaB = b.hora_entrada || '00:00:00';
+            const horaA = formatTimeToString(a.hora_entrada) || '00:00:00';
+            const horaB = formatTimeToString(b.hora_entrada) || '00:00:00';
             return horaA.localeCompare(horaB);
         });
 

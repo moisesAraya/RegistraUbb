@@ -5,6 +5,7 @@ from django.utils import timezone
 from .models import QR, Usuario, Marcaje, Totem, Registro_marcaje
 from django.views.decorators.csrf import csrf_exempt
 import json
+import pytz
 
 def configuracion_totem_view(request):
     """Vista para configurar el totem del dispositivo"""
@@ -145,8 +146,9 @@ def verificar_pin(request):
                 usuario.bloqueado_hasta = None
                 usuario.save()
                 
-                # Obtener la hora actual
-                ahora = timezone.now()
+                # Obtener la hora actual en zona horaria de Chile
+                chile_tz = pytz.timezone('America/Santiago')
+                ahora = timezone.now().astimezone(chile_tz)
                 fecha_hoy = ahora.date()
                 
                 # Obtener el totem
@@ -212,6 +214,7 @@ def verificar_pin(request):
                     'hora': ahora.strftime("%H:%M:%S"),
                     'fecha': fecha_hoy.strftime("%d/%m/%Y"),
                     'total_marcajes_hoy': total_marcajes_hoy,
+                    'timezone_info': str(ahora.tzinfo),  # Para debug
                 })
             
             else:
@@ -267,8 +270,9 @@ def obtener_marcajes_usuario(request):
             qr_obj = get_object_or_404(QR, codigo_unico=codigo_qr, estado_qr=True)
             usuario = qr_obj.rut_usuario
             
-            # Obtener marcajes de hoy
-            fecha_hoy = timezone.now().date()
+            # Obtener marcajes de hoy en zona horaria de Chile
+            chile_tz = pytz.timezone('America/Santiago')
+            fecha_hoy = timezone.now().astimezone(chile_tz).date()
             # Obtenemos los IDs de marcajes del usuario a través de Registro_marcaje
             marcajes_ids = Registro_marcaje.objects.filter(
                 rut_usuario=usuario.rut_usuario
@@ -279,12 +283,19 @@ def obtener_marcajes_usuario(request):
                 fecha=fecha_hoy
             ).order_by('createdAt')
             
+            # Configurar zona horaria de Chile para mostrar las horas correctamente
+            chile_tz = pytz.timezone('America/Santiago')
+            
             historial = []
             for i, marcaje in enumerate(marcajes_hoy, 1):
+                # Convertir las horas a zona horaria de Chile antes de formatear
+                hora_ingreso_chile = marcaje.hora_ingreso.astimezone(chile_tz) if marcaje.hora_ingreso else None
+                hora_salida_chile = marcaje.hora_salida.astimezone(chile_tz) if marcaje.hora_salida else None
+                
                 historial.append({
                     'numero': i,
-                    'ingreso': marcaje.hora_ingreso.strftime("%H:%M:%S") if marcaje.hora_ingreso else None,
-                    'salida': marcaje.hora_salida.strftime("%H:%M:%S") if marcaje.hora_salida else None,
+                    'ingreso': hora_ingreso_chile.strftime("%H:%M:%S") if hora_ingreso_chile else None,
+                    'salida': hora_salida_chile.strftime("%H:%M:%S") if hora_salida_chile else None,
                     'completo': marcaje.hora_salida is not None
                 })
             

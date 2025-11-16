@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lector QR - RegistraUBB</title>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
     <style>
         * {
             margin: 0;
@@ -12,23 +16,24 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #2563eb 0%, #6d56d4 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            color: #333;
+            color: #1a202c;
             display: flex;
             justify-content: center;
             align-items: center;
+            overflow: hidden;
         }
 
         .container {
-            background: white;
-            padding: 40px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            background: #ffffff;
+            padding: 2.5rem;
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
             width: 90%;
-            max-width: 800px;
-            min-height: 80vh;
+            max-width: 600px;
+            min-height: 85vh;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -36,32 +41,51 @@
 
         .header {
             text-align: center;
-            margin-bottom: 40px;
+            margin-bottom: 2rem;
         }
 
         .header h1 {
-            color: #2c3e50;
-            font-size: 3em;
-            margin-bottom: 20px;
+            color: #2d3748;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            letter-spacing: -0.025em;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 0.95rem;
+            margin-top: 0.5rem;
         }
 
         .totem-info {
-            margin: 20px 0;
+            margin: 0 0 2rem 0;
         }
 
         .totem-badge {
-            background: linear-gradient(135deg, #17a2b8, #20c997);
+            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
             color: white;
-            padding: 15px 20px;
-            border-radius: 10px;
+            padding: 1.25rem 1.5rem;
+            border-radius: 16px;
             display: flex;
             align-items: center;
-            gap: 15px;
-            box-shadow: 0 4px 12px rgba(23, 162, 184, 0.3);
+            gap: 1rem;
+            box-shadow: 0 10px 25px -5px rgba(66, 153, 225, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .totem-badge:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px -5px rgba(66, 153, 225, 0.5);
         }
 
         .totem-icon {
             font-size: 1.5em;
+            opacity: 0.95;
         }
 
         .totem-details {
@@ -69,115 +93,190 @@
             text-align: left;
         }
 
-        .totem-details small {
+        .totem-details strong {
+            font-size: 1.1rem;
             display: block;
-            opacity: 0.8;
-            font-size: 0.9em;
+            margin-bottom: 0.25rem;
+        }
+
+        .totem-nombre {
+            font-weight: 600;
+        }
+
+        .totem-details small {
+            opacity: 0.9;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .btn-reconfig {
-            background: rgba(255,255,255,0.2);
-            border: none;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
             color: white;
-            padding: 8px 12px;
-            border-radius: 5px;
+            padding: 10px;
+            border-radius: 10px;
             cursor: pointer;
-            font-size: 14px;
             transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .btn-reconfig:hover {
-            background: rgba(255,255,255,0.3);
+            background: rgba(255, 255, 255, 0.3);
             transform: scale(1.05);
         }
 
-        .instructions {
+        .status-section {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: #f7fafc;
+            border-radius: 12px;
+            border: 2px dashed #e2e8f0;
         }
 
         .status-indicator {
             display: inline-block;
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
             margin-right: 10px;
         }
 
         .status-ready {
-            background: #28a745;
+            background: #48bb78;
+            box-shadow: 0 0 10px rgba(72, 187, 120, 0.5);
             animation: pulse 2s infinite;
         }
 
         .status-waiting {
-            background: #ffc107;
+            background: #ed8936;
+            box-shadow: 0 0 10px rgba(237, 137, 54, 0.5);
         }
 
         @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(0.95); }
+        }
+
+        .status-text {
+            color: #4a5568;
+            font-size: 1rem;
+            font-weight: 600;
         }
 
         .scanner-section {
             text-align: center;
-            margin: 40px 0;
+            margin: 2.5rem 0;
+        }
+
+        .scanner-icon-wrapper {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 24px;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 10px 30px -5px rgba(102, 126, 234, 0.4);
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
         }
 
         .scanner-icon {
-            font-size: 4em;
-            color: #6c757d;
-            margin-bottom: 20px;
+            color: white;
         }
 
         .scanner-section h2 {
-            color: #495057;
-            margin-bottom: 20px;
+            color: #2d3748;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
 
         .qr-input {
             width: 100%;
-            padding: 20px;
-            font-size: 18px;
-            border: 3px solid #e9ecef;
-            border-radius: 10px;
+            padding: 1.25rem;
+            font-size: 1.125rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
             text-align: center;
-            background: #f8f9fa;
+            background: #f7fafc;
             transition: all 0.3s ease;
+            font-weight: 500;
+            color: #2d3748;
+            -webkit-text-security: disc;
+            text-security: disc;
         }
 
         .qr-input:focus {
             outline: none;
-            border-color: #007bff;
+            border-color: #667eea;
             background: white;
-            box-shadow: 0 0 10px rgba(0,123,255,0.1);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .qr-input::placeholder {
+            color: #a0aec0;
         }
 
         .usuario-info {
-            background: #e8f5e8;
-            border: 2px solid #28a745;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 20px 0;
+            background: linear-gradient(135deg, #e6fffa 0%, #d3f9d8 100%);
+            border: 2px solid #48bb78;
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
             display: none;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .usuario-info h3 {
-            color: #155724;
-            margin-bottom: 15px;
-            
+            color: #22543d;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-size: 1.25rem;
         }
 
         .info-row {
             display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            padding: 5px 0;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem 0;
         }
 
         .info-label {
-            font-weight: bold;
-            color: #495057;
+            font-size: 1.125rem;
+            color: #2d3748;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
         }
 
         .modal-overlay {
@@ -186,63 +285,103 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.7);
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
             display: none;
             justify-content: center;
             align-items: center;
             z-index: 1000;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
         .modal-content {
             background: white;
-            padding: 40px;
-            border-radius: 15px;
+            padding: 2.5rem;
+            border-radius: 24px;
             text-align: center;
-            min-width: 350px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            min-width: 380px;
+            max-width: 90vw;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.3s ease;
         }
 
-        .modal-content h2 {
-            color: #2c3e50;
-            margin-bottom: 20px;
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
-        .pin-display {
-            font-size: 2em;
-            font-family: monospace;
-            background: #f8f9fa;
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-            min-height: 60px;
+        .modal-content h1 {
             display: flex;
             align-items: center;
             justify-content: center;
-            border: 2px solid #e9ecef;
+            gap: 12px;
+            margin-bottom: 0.5rem;
+            color: #2d3748;
+            font-size: 1.75rem;
+        }
+
+        .modal-content h2 {
+            color: #4a5568;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .pin-display {
+            font-size: 2.5rem;
+            font-family: 'Courier New', monospace;
+            background: #f7fafc;
+            padding: 1.25rem;
+            border-radius: 12px;
+            margin: 1.5rem 0;
+            min-height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #e2e8f0;
+            letter-spacing: 0.5rem;
+            color: #2d3748;
         }
 
         .keypad {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin: 20px 0;
+            gap: 12px;
+            margin: 1.5rem 0;
         }
 
         .key {
-            padding: 15px;
-            font-size: 18px;
-            font-weight: bold;
+            padding: 1.25rem;
+            font-size: 1.5rem;
+            font-weight: 600;
             border: none;
-            border-radius: 8px;
-            background: #f8f9fa;
-            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
+            color: #2d3748;
         }
 
         .key:hover {
-            background: #e9ecef;
-            border-color: #007bff;
+            background: #edf2f7;
+            border-color: #cbd5e0;
+            transform: scale(1.05);
         }
 
         .key:active {
@@ -250,130 +389,146 @@
         }
 
         .key.clear {
-            background: #dc3545;
+            background: linear-gradient(135deg, #fc8181 0%, #f56565 100%);
             color: white;
-            border-color: #dc3545;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .key.clear:hover {
-            background: #c82333;
-        }
-
-        .key.zero {
-            grid-column: span 1;
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
         }
 
         .modal-actions {
             display: flex;
-            gap: 10px;
+            gap: 12px;
             justify-content: center;
-            margin-top: 20px;
+            margin-top: 1.5rem;
         }
 
-        /* Notificaciones dentro del modal */
         .modal-notification {
-            margin: 15px 0 5px 0;
-            padding: 12px 15px;
-            border-radius: 8px;
-            font-weight: bold;
+            margin: 0 0 1rem 0;
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            font-weight: 600;
             text-align: center;
-            animation: slideIn 0.3s ease;
+            animation: slideDown 0.3s ease;
             display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
 
         .modal-notification.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+            background: #c6f6d5;
+            color: #22543d;
+            border: 2px solid #9ae6b4;
         }
 
         .modal-notification.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+            background: #fed7d7;
+            color: #742a2a;
+            border: 2px solid #fc8181;
         }
 
         .btn {
-            padding: 12px 25px;
+            padding: 0.875rem 1.75rem;
             border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
-            background: #007bff;
+            transition: all 0.2s ease;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
 
         .btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
         }
 
         .btn-danger {
-            background: #dc3545;
+            background: linear-gradient(135deg, #fc8181 0%, #f56565 100%);
+            box-shadow: 0 4px 12px rgba(245, 101, 101, 0.3);
         }
 
         .btn-danger:hover {
-            background: #c82333;
+            box-shadow: 0 8px 20px rgba(245, 101, 101, 0.4);
         }
 
         .btn-secondary {
-            background: #6c757d;
+            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
             position: fixed;
-            bottom: 20px;
-            right: 20px;
-            border-radius: 50px;
-            width: 60px;
-            height: 60px;
+            bottom: 24px;
+            right: 24px;
+            border-radius: 50%;
+            width: 64px;
+            height: 64px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            z-index: 999;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
         }
 
         .fullscreen-toggle {
             position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(0,0,0,0.7);
+            top: 24px;
+            right: 24px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
             color: white;
             border: none;
-            padding: 15px;
-            border-radius: 50%;
+            padding: 16px;
+            border-radius: 12px;
             cursor: pointer;
-            font-size: 20px;
             z-index: 1000;
             transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
 
         .fullscreen-toggle:hover {
-            background: rgba(0,0,0,0.9);
+            background: rgba(0, 0, 0, 0.8);
             transform: scale(1.1);
         }
 
         .alert {
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 8px;
-            font-weight: bold;
+            padding: 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 12px;
+            font-weight: 500;
+            animation: slideDown 0.3s ease;
         }
 
         .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+            background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%);
+            color: #22543d;
+            border: 2px solid #68d391;
         }
 
         .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        /* Pantalla completa */
-        body.fullscreen {
-            padding: 0;
+            background: linear-gradient(135deg, #fed7d7 0%, #fc8181 100%);
+            color: #742a2a;
+            border: 2px solid #f56565;
         }
 
         body.fullscreen .container {
@@ -385,57 +540,102 @@
             box-shadow: none;
         }
 
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        @media (max-width: 640px) {
+            .container {
+                padding: 1.5rem;
+            }
 
-        .container {
-            animation: slideIn 0.5s ease;
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .scanner-icon-wrapper {
+                width: 100px;
+                height: 100px;
+            }
+
+            .modal-content {
+                min-width: auto;
+                padding: 2rem;
+            }
+
+            .pin-display {
+                font-size: 2rem;
+            }
         }
     </style>
 </head>
 <body>
     <!-- Botón pantalla completa -->
-    <button class="fullscreen-toggle" id="fullscreen-btn" title="Pantalla completa">⛶</button>
+    <button class="fullscreen-toggle" id="fullscreen-btn" title="Pantalla completa">
+        <i data-lucide="maximize" style="width: 24px; height: 24px;"></i>
+    </button>
 
     <div class="container">
         <div class="header">
-            <h1> Sistema de Asistencia</h1>
+            <h1>
+                <i data-lucide="clipboard-check" style="width: 40px; height: 40px;"></i>
+                RegistraUBB
+            </h1>
+            <p>Sistema de Control de Asistencia</p>
         </div>
 
         {% if totem %}
         <div class="totem-info">
             <div class="totem-badge">
-                <span class="totem-icon">🖥️</span>
+                <i data-lucide="monitor" class="totem-icon" style="width: 32px; height: 32px;"></i>
                 <div class="totem-details">
                     <strong>{{ totem.nombre }}</strong>
-                    <small>📍 {{ totem.ubicacion }}</small>
+                    <small>
+                        <i data-lucide="map-pin" style="width: 16px; height: 16px;"></i>
+                        {{ totem.ubicacion }}
+                    </small>
                 </div>
-                <button onclick="reconfigurarTotem()" class="btn-reconfig" title="Cambiar totem">⚙️</button>
+                <button onclick="reconfigurarTotem()" class="btn-reconfig" title="Cambiar totem">
+                    <i data-lucide="settings" style="width: 20px; height: 20px;"></i>
+                </button>
             </div>
         </div>
         {% endif %}
 
         <!-- Estado del sistema -->
-        <div class="instructions">
-            <p><span class="status-indicator status-ready" id="status-indicator"></span>
-            <strong id="status-text">Escanea tu código QR</strong></p>
+        <div class="status-section">
+            <p>
+                <span class="status-indicator status-ready" id="status-indicator"></span>
+                <span class="status-text" id="status-text">Escanea tu código QR</span>
+            </p>
         </div>
 
         <!-- Área de escaneo -->
         <div class="scanner-section">
-            <div class="scanner-icon">📱</div>
-            <h2>Lector de Código QR</h2>
+            <div class="scanner-icon-wrapper">
+                <i data-lucide="scan" class="scanner-icon" style="width: 64px; height: 64px;"></i>
+            </div>
+            <h2>
+                <i data-lucide="qr-code" style="width: 28px; height: 28px;"></i>
+                Escanea tu Código
+            </h2>
             <input type="text" 
                    id="qr-input" 
                    class="qr-input" 
-                   placeholder="Escanea tu código aquí..." 
+                   placeholder="Acerca tu QR al lector..." 
                    autocomplete="off"
                    autofocus>
         </div>
 
-
+        <!-- Información del usuario (sin hash visible) -->
+        <div id="usuario-info" class="usuario-info">
+            <h3>
+                <i data-lucide="user-check" style="width: 28px; height: 28px;"></i>
+                Usuario Identificado
+            </h3>
+            <div class="info-row">
+                <span class="info-label" id="usuario-nombre">
+                    <i data-lucide="user" style="width: 22px; height: 22px;"></i>
+                    <span id="nombre-usuario-text"></span>
+                </span>
+            </div>
+        </div>
 
         <!-- Mensajes -->
         <div id="mensajes"></div>
@@ -444,16 +644,23 @@
     <!-- Modal PIN -->
     <div class="modal-overlay" id="pin-modal">
         <div class="modal-content">
-            <h1> Bienvenido </h1>  
+            <h1>
+                <i data-lucide="shield-check" style="width: 40px; height: 40px;"></i>
+                Verificación
+            </h1>
 
+            <!-- Mostrar nombre del usuario -->
+            <div style="background: linear-gradient(135deg, #e6fffa 0%, #d3f9d8 100%); border: 2px solid #48bb78; border-radius: 12px; padding: 1rem; margin: 1rem 0;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 10px; color: #22543d; font-weight: 600; font-size: 1.125rem;">
+                    <i data-lucide="user" style="width: 24px; height: 24px;"></i>
+                    <span id="nombre-usuario-modal">Usuario</span>
+                </div>
+            </div>
 
-        <!-- Información del usuario -->
-        <div id="usuario-info" class="usuario-info">
-            <span class="info-label" id="usuario-nombre" style="text-align: center;">Nombre:</span>        
-
-        </div>
-
-            <h2>Ingresa tu PIN</h2>
+            <h2>
+                <i data-lucide="lock" style="width: 24px; height: 24px;"></i>
+                Ingresa tu PIN
+            </h2>
             
             <!-- Área de notificaciones dentro del modal -->
             <div class="modal-notification" id="modal-notification"></div>
@@ -470,20 +677,30 @@
                 <button class="key" onclick="agregarDigito('7')">7</button>
                 <button class="key" onclick="agregarDigito('8')">8</button>
                 <button class="key" onclick="agregarDigito('9')">9</button>
-                <button class="key clear" onclick="limpiarPin()">⌫</button>
-                <button class="key zero" onclick="agregarDigito('0')">0</button>
+                <button class="key clear" onclick="limpiarPin()">
+                    <i data-lucide="delete" style="width: 24px; height: 24px;"></i>
+                </button>
+                <button class="key" onclick="agregarDigito('0')">0</button>
+                <button class="key" style="visibility: hidden;"></button>
             </div>
 
-            <div class="modal-actions" id="mensajes">
-                <button class="btn" onclick="verificarPin()">✅ Confirmar</button>
-                <button class="btn btn-danger" onclick="cerrarModal()">❌ Cancelar</button>
-                
+            <div class="modal-actions">
+                <button class="btn" onclick="verificarPin()">
+                    <i data-lucide="check-circle" style="width: 20px; height: 20px;"></i>
+                    Confirmar
+                </button>
+                <button class="btn btn-danger" onclick="cerrarModal()">
+                    <i data-lucide="x-circle" style="width: 20px; height: 20px;"></i>
+                    Cancelar
+                </button>
             </div>
         </div>
     </div>
 
     <!-- Botón limpiar -->
-    <button id="limpiar" class="btn btn-secondary">🔄</button>
+    <button id="limpiar" class="btn btn-secondary" title="Limpiar pantalla">
+        <i data-lucide="refresh-cw" style="width: 28px; height: 28px;"></i>
+    </button>
 
     <script>
         let codigoQRActual = '';
@@ -501,6 +718,13 @@
         const modalNotification = document.getElementById('modal-notification');
         const fullscreenBtn = document.getElementById('fullscreen-btn');
         const limpiarBtn = document.getElementById('limpiar');
+
+        // Inicializar iconos de Lucide
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+            qrInput.focus();
+            actualizarEstado('Escanea tu código QR', 'ready');
+        });
 
         // Event listeners
         qrInput.addEventListener('input', manejarEscaneoQR);
@@ -527,14 +751,16 @@
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().then(() => {
                     document.body.classList.add('fullscreen');
-                    fullscreenBtn.innerHTML = '❌';
+                    fullscreenBtn.innerHTML = '<i data-lucide="minimize" style="width: 24px; height: 24px;"></i>';
                     fullscreenBtn.title = 'Salir de pantalla completa';
+                    lucide.createIcons();
                 });
             } else {
                 document.exitFullscreen().then(() => {
                     document.body.classList.remove('fullscreen');
-                    fullscreenBtn.innerHTML = '⛶';
+                    fullscreenBtn.innerHTML = '<i data-lucide="maximize" style="width: 24px; height: 24px;"></i>';
                     fullscreenBtn.title = 'Pantalla completa';
+                    lucide.createIcons();
                 });
             }
         }
@@ -543,7 +769,8 @@
         document.addEventListener('fullscreenchange', function() {
             if (!document.fullscreenElement) {
                 document.body.classList.remove('fullscreen');
-                fullscreenBtn.innerHTML = '⛶';
+                fullscreenBtn.innerHTML = '<i data-lucide="maximize" style="width: 24px; height: 24px;"></i>';
+                lucide.createIcons();
             }
         });
 
@@ -565,7 +792,7 @@
             const codigo = qrInput.value.trim();
             
             if (!codigo) {
-                mostrarMensaje('Escanea un código QR válido', 'error');
+                mostrarMensaje('Escanea un código QR válido', 'error', 'alert-circle');
                 return;
             }
 
@@ -586,29 +813,40 @@
                     mostrarModalPin();
                     actualizarEstado('Ingresa tu PIN', 'ready');
                 } else {
-                    mostrarMensaje(data.error, 'error');
+                    mostrarMensaje(data.error, 'error', data.icon || 'x-circle');
                     actualizarEstado('Error - Intenta nuevamente', 'waiting');
                     setTimeout(limpiarPantalla, 3000);
                 }
             })
             .catch(error => {
-                mostrarMensaje('Error de conexión', 'error');
+                mostrarMensaje('Error de conexión', 'error', 'wifi-off');
                 actualizarEstado('Error de conexión', 'waiting');
                 setTimeout(limpiarPantalla, 3000);
             });
         }
 
         function mostrarUsuario(usuario) {
-            /* document.getElementById('usuario-rut').textContent = usuario.rut; */
-            document.getElementById('usuario-nombre').textContent = usuario.nombre;
+            // Mostrar el nombre en el modal
+            const nombreModal = document.getElementById('nombre-usuario-modal');
+            if (nombreModal) {
+                nombreModal.textContent = usuario.nombre;
+            }
+            
+            // Mantener compatibilidad con código anterior
+            const nombreText = document.getElementById('nombre-usuario-text');
+            if (nombreText) {
+                nombreText.textContent = usuario.nombre;
+            }
+            
             usuarioInfo.style.display = 'block';
+            lucide.createIcons();
         }
 
         function mostrarModalPin() {
             pinModal.style.display = 'flex';
             pinActual = '';
             actualizarDisplayPin();
-            ocultarNotificacionModal(); // Limpiar notificaciones anteriores
+            ocultarNotificacionModal();
         }
 
         function cerrarModal() {
@@ -640,12 +878,12 @@
 
         function verificarPin() {
             if (!pinActual) {
-                mostrarNotificacionModal('⚠️ Ingresa tu PIN', 'error');
+                mostrarNotificacionModal('Ingresa tu PIN', 'error', 'alert-triangle');
                 return;
             }
 
-            actualizarEstado('Verificando PIN...', 'waiting');
-            mostrarNotificacionModal('🔄 Verificando PIN...', 'success');
+            actualizarEstado('Verificando...', 'waiting');
+            mostrarNotificacionModal('Verificando PIN...', 'success', 'loader');
 
             fetch('/verificar_pin/', {
                 method: 'POST',
@@ -661,31 +899,40 @@
             .then(data => {
                 if (data.success) {
                     const tipoMarcaje = data.tipo_marcaje.toUpperCase();
-                    const icono = data.tipo_marcaje === 'ingreso' ? '🟢' : '🔴';
+                    const icono = data.tipo_marcaje === 'ingreso' ? 'log-in' : 'log-out';
                     
-                    // Mostrar mensaje de éxito en la pantalla principal
+                    // Mensaje de éxito mejorado
                     mostrarMensaje(
-                        `${icono} ${tipoMarcaje} #${data.numero_marcaje} registrado<br>
-                         <strong>${data.usuario}</strong><br>
-                         📅 ${data.fecha} - ⏰ ${data.hora}<br>
-                         📊 Total marcajes hoy: ${data.total_marcajes_hoy}`,
-                        'success'
+                        `<div style="text-align: center;">
+                            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">
+                                <strong>${tipoMarcaje} REGISTRADO</strong>
+                            </div>
+                            <div style="font-size: 1.125rem; margin-bottom: 0.25rem;">
+                                ${data.usuario}
+                            </div>
+                            <div style="font-size: 0.95rem; opacity: 0.9;">
+                                ${data.fecha} • ${data.hora}
+                            </div>
+                            <div style="margin-top: 0.75rem; font-size: 0.9rem; opacity: 0.8;">
+                                Marcaje #${data.numero_marcaje} • Total hoy: ${data.total_marcajes_hoy}
+                            </div>
+                        </div>`,
+                        'success',
+                        icono
                     );
                     
                     pinModal.style.display = 'none';
-                    actualizarEstado(`${tipoMarcaje} #${data.numero_marcaje} registrado`, 'ready');
+                    actualizarEstado(`${tipoMarcaje} registrado exitosamente`, 'ready');
                     setTimeout(limpiarPantalla, 5000);
                 } else {
-                    // Mostrar error dentro del modal
-                    mostrarNotificacionModal(`❌ ${data.error}`, 'error');
+                    mostrarNotificacionModal(data.error, 'error', data.icon || 'x-circle');
                     pinActual = '';
                     actualizarDisplayPin();
-                    actualizarEstado('Error en PIN - Intenta nuevamente', 'waiting');
+                    actualizarEstado('PIN incorrecto - Intenta nuevamente', 'waiting');
                 }
             })
             .catch(error => {
-                // Mostrar error de conexión dentro del modal
-                mostrarNotificacionModal('❌ Error de conexión', 'error');
+                mostrarNotificacionModal('Error de conexión', 'error', 'wifi-off');
                 actualizarEstado('Error de conexión', 'waiting');
             });
         }
@@ -697,7 +944,7 @@
             pinActual = '';
             codigoQRActual = '';
             mensajesDiv.innerHTML = '';
-            ocultarNotificacionModal(); // Limpiar notificaciones del modal
+            ocultarNotificacionModal();
             actualizarEstado('Escanea tu código QR', 'ready');
             
             setTimeout(() => {
@@ -705,20 +952,31 @@
             }, 100);
         }
 
-        function mostrarMensaje(mensaje, tipo) {
+        function mostrarMensaje(mensaje, tipo, icono) {
             const alertClass = tipo === 'success' ? 'alert-success' : 'alert-error';
-            mensajesDiv.innerHTML = `<div class="alert ${alertClass}">${mensaje}</div>`;
+            mensajesDiv.innerHTML = `
+                <div class="alert ${alertClass}" style="display: flex; align-items: center; gap: 12px;">
+                    <i data-lucide="${icono}" style="width: 28px; height: 28px; flex-shrink: 0;"></i>
+                    <div style="flex: 1;">${mensaje}</div>
+                </div>
+            `;
+            lucide.createIcons();
         }
 
-        function mostrarNotificacionModal(mensaje, tipo) {
+        function mostrarNotificacionModal(mensaje, tipo, icono) {
             modalNotification.className = `modal-notification ${tipo}`;
-            modalNotification.innerHTML = mensaje;
-            modalNotification.style.display = 'block';
+            modalNotification.innerHTML = `
+                <i data-lucide="${icono}" style="width: 20px; height: 20px;"></i>
+                ${mensaje}
+            `;
+            modalNotification.style.display = 'flex';
+            lucide.createIcons();
             
-            // Ocultar la notificación después de 3 segundos
-            setTimeout(() => {
-                modalNotification.style.display = 'none';
-            }, 3000);
+            if (tipo === 'error') {
+                setTimeout(() => {
+                    modalNotification.style.display = 'none';
+                }, 3000);
+            }
         }
 
         function ocultarNotificacionModal() {
@@ -745,16 +1003,10 @@
                     }
                 })
                 .catch(error => {
-                    mostrarMensaje('Error al reconfigurar', 'error');
+                    mostrarMensaje('Error al reconfigurar', 'error', 'alert-octagon');
                 });
             }
         }
-
-        // Inicializar
-        document.addEventListener('DOMContentLoaded', function() {
-            qrInput.focus();
-            actualizarEstado('Escanea tu código QR', 'ready');
-        });
 
         // Teclas del teclado para PIN
         document.addEventListener('keydown', function(e) {
