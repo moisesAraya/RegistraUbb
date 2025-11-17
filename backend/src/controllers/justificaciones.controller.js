@@ -24,10 +24,10 @@ export async function crearJustificacionController(req, res) {
         const datosJustificacion = req.body;
 
         // Validar datos requeridos
-        if (!datosJustificacion.fecha_justificacion || !datosJustificacion.motivo || !datosJustificacion.descripcion) {
+        if (!datosJustificacion.fecha_justificacion || !datosJustificacion.motivo) {
             return res.status(400).json({
-                success: false,
-                error: 'Fecha, motivo y descripción son requeridos'
+            success: false,
+            error: 'Fecha y motivo son requeridos'
             });
         }
 

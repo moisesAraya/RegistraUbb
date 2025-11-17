@@ -11,7 +11,7 @@ interface AttendanceFormProps {
 
 const AttendanceForm: React.FC<AttendanceFormProps> = ({ onSubmit }) => {
   const [formData, setFormData] = useState({
-    activityType: 'teaching',
+    activityType: 'Docencia',
     location: '',
     notes: ''
   });
@@ -26,7 +26,7 @@ const AttendanceForm: React.FC<AttendanceFormProps> = ({ onSubmit }) => {
       const result = await onSubmit(formData);
       if (result.success) {
         setIsSuccess(true);
-        setFormData({ activityType: 'teaching', location: '', notes: '' });
+        setFormData({ activityType: 'Docencia', location: '', notes: '' });
         setTimeout(() => setIsSuccess(false), 3000);
       }
     } catch (error) {
@@ -38,7 +38,7 @@ const AttendanceForm: React.FC<AttendanceFormProps> = ({ onSubmit }) => {
 
   const getActivityDescription = (type: string) => {
     const descriptions = {
-      teaching: 'Actividades de docencia como clases, tutorías, evaluaciones',
+      Docencia: 'Actividades de docencia como clases, tutorías, evaluaciones',
       research: 'Proyectos de investigación, estudios, publicaciones',
       management: 'Tareas administrativas, reuniones, gestión',
       other: 'Otras actividades académicas o profesionales'
@@ -104,7 +104,7 @@ const AttendanceForm: React.FC<AttendanceFormProps> = ({ onSubmit }) => {
             className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500 bg-white transition-colors"
             required
           >
-            <option value="teaching">Docencia</option>
+            <option value="Docencia">Docencia</option>
             <option value="research">Investigación</option>
             <option value="management">Gestión Administrativa</option>
             <option value="other">Otra actividad</option>

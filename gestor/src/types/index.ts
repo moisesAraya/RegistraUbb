@@ -15,7 +15,7 @@ export interface AttendanceRecord {
   date: Date;
   checkInTime: Date;
   checkOutTime?: Date;
-  activityType: 'teaching' | 'research' | 'management' | 'other';
+  activityType: 'Docencia' | 'research' | 'management' | 'other';
   location?: string;
   notes?: string;
   isJustified: boolean;

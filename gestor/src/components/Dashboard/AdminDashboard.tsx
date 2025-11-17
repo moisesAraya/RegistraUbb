@@ -14,26 +14,48 @@ const AdminDashboard: React.FC = () => {
   console.log('👑 [ADMIN-DASHBOARD] Renderizando para:', user?.nombres, 'Rol:', user?.id_rol);
 
   useEffect(() => {
-    fetchAdminStats();
-  }, []);
+    if (user?.id_rol === 1) {
+      fetchAdminStats();
+    } else {
+      setError('Acceso restringido: solo administradores');
+      setIsLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const fetchAdminStats = async () => {
     try {
       setIsLoading(true);
+      setError(null);
+
       const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/dashboard`, {
+      if (!token) throw new Error('Token no encontrado');
+
+      // 👈 IMPORTANTE: usamos el backend admin
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/dashboard/admin`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
 
-      if (!response.ok) throw new Error('Error al cargar estadísticas');
+      if (!response.ok) {
+        throw new Error(`Error al cargar estadísticas (HTTP ${response.status})`);
+      }
       
       const data = await response.json();
-      console.log('📊 [ADMIN-DASHBOARD] Datos recibidos:', data);
-      setStats(data);
+      console.log('📊 [ADMIN-DASHBOARD] Datos recibidos crudos:', data);
+
+      // Puede venir como { success, data } o directo
+      const payload = (data && typeof data === 'object' && 'data' in data)
+        ? data.data
+        : data;
+
+      console.log('📊 [ADMIN-DASHBOARD] Payload normalizado:', payload);
+
+      setStats(payload);
       setError(null);
     } catch (err) {
+      console.error('❌ [ADMIN-DASHBOARD] Error fetchAdminStats:', err);
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
       setIsLoading(false);
@@ -80,6 +102,21 @@ const AdminDashboard: React.FC = () => {
 
   const userName = user ? `${user.nombres} ${user.apellidos}` : 'Administrator';
 
+  // 🔐 Por si acaso, evitar que un no-admin vea algo aunque llegue aquí
+  if (user && user.id_rol !== 1) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="bg-white p-6 rounded-xl shadow-md flex flex-col items-center space-y-3">
+          <Shield className="h-10 w-10 text-red-500" />
+          <h2 className="text-xl font-semibold text-slate-900">Acceso restringido</h2>
+          <p className="text-slate-600 text-sm text-center">
+            Este panel está disponible solo para usuarios con rol de administrador.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -119,7 +156,7 @@ const AdminDashboard: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-slate-600">Total Usuarios</p>
                 <p className="text-3xl font-bold text-slate-900 mt-2">
-                  {stats?.organization_overview?.total_active_users || 0}
+                  {stats?.organization_overview?.total_active_users ?? 0}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">Académicos registrados</p>
               </div>
@@ -135,7 +172,7 @@ const AdminDashboard: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-slate-600">Horas Este Mes</p>
                 <p className="text-3xl font-bold text-slate-900 mt-2">
-                  {stats?.organization_overview?.total_hours_month || 0}
+                  {stats?.organization_overview?.total_hours_month ?? 0}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">Horas trabajadas totales</p>
               </div>
@@ -151,7 +188,7 @@ const AdminDashboard: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-slate-600">Registros Hoy</p>
                 <p className="text-3xl font-bold text-slate-900 mt-2">
-                  {stats?.attendance_analytics?.attendance_by_period?.today || 0}
+                  {stats?.attendance_analytics?.attendance_by_period?.today ?? 0}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">Marcajes realizados</p>
               </div>
@@ -167,7 +204,7 @@ const AdminDashboard: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-slate-600">Promedio Semanal</p>
                 <p className="text-3xl font-bold text-slate-900 mt-2">
-                  {stats?.organization_overview?.average_weekly_hours || 0}h
+                  {stats?.organization_overview?.average_weekly_hours ?? 0}h
                 </p>
                 <p className="text-xs text-slate-500 mt-1">Por usuario</p>
               </div>
@@ -195,7 +232,7 @@ const AdminDashboard: React.FC = () => {
                   <span className="text-sm font-medium text-slate-700">Hoy</span>
                 </div>
                 <span className="text-lg font-bold text-blue-600">
-                  {stats?.attendance_analytics?.attendance_by_period?.today || 0} registros
+                  {stats?.attendance_analytics?.attendance_by_period?.today ?? 0} registros
                 </span>
               </div>
 
@@ -205,7 +242,7 @@ const AdminDashboard: React.FC = () => {
                   <span className="text-sm font-medium text-slate-700">Esta Semana</span>
                 </div>
                 <span className="text-lg font-bold text-green-600">
-                  {stats?.attendance_analytics?.attendance_by_period?.this_week || 0} registros
+                  {stats?.attendance_analytics?.attendance_by_period?.this_week ?? 0} registros
                 </span>
               </div>
 
@@ -215,7 +252,7 @@ const AdminDashboard: React.FC = () => {
                   <span className="text-sm font-medium text-slate-700">Este Mes</span>
                 </div>
                 <span className="text-lg font-bold text-purple-600">
-                  {stats?.attendance_analytics?.attendance_by_period?.this_month || 0} registros
+                  {stats?.attendance_analytics?.attendance_by_period?.this_month ?? 0} registros
                 </span>
               </div>
             </div>
@@ -235,7 +272,7 @@ const AdminDashboard: React.FC = () => {
                   <span className="text-sm text-slate-700">Sistema Operativo</span>
                 </div>
                 <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-1 rounded">
-                  ACTIVO
+                  {stats?.organization_overview?.system_status === 'error' ? 'ERROR' : 'ACTIVO'}
                 </span>
               </div>
 
@@ -245,7 +282,7 @@ const AdminDashboard: React.FC = () => {
                   <span className="text-sm text-slate-700">QR Codes Activos</span>
                 </div>
                 <span className="text-sm font-bold text-slate-900">
-                  {stats?.organization_overview?.qr_code_stats?.active || 0}
+                  {stats?.organization_overview?.qr_code_stats?.active ?? 0}
                 </span>
               </div>
 
@@ -255,7 +292,7 @@ const AdminDashboard: React.FC = () => {
                   <span className="text-sm text-slate-700">Totems Disponibles</span>
                 </div>
                 <span className="text-sm font-bold text-slate-900">
-                  {stats?.organization_overview?.totems_count || 0}
+                  {stats?.organization_overview?.totems_count ?? 0}
                 </span>
               </div>
 
@@ -325,7 +362,7 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Footer con información */}
+        {/* Footer */}
         <div className="bg-white rounded-xl shadow-md p-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-sm text-slate-600">
             <div className="flex items-center space-x-4">

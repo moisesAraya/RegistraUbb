@@ -27,7 +27,7 @@ export const useAttendance = () => {
         date: new Date(2024, 0, 15), // 15 de enero
         checkInTime: new Date(2024, 0, 15, 8, 30),
         checkOutTime: new Date(2024, 0, 15, 17, 45),
-        activityType: 'teaching',
+        activityType: 'Docencia',
         location: 'Sala 101',
         notes: 'Clase de Programación',
         isJustified: false,
@@ -65,7 +65,7 @@ export const useAttendance = () => {
         userName: 'Prof. Ana López',
         date: new Date(2024, 0, 18), // 18 de enero
         checkInTime: new Date(2024, 0, 18, 9, 30),
-        activityType: 'teaching',
+        activityType: 'Docencia',
         location: 'Sala 205',
         notes: 'Clase de Base de Datos',
         isJustified: true,
@@ -79,7 +79,7 @@ export const useAttendance = () => {
         date: new Date(2024, 0, 19), // 19 de enero
         checkInTime: new Date(2024, 0, 19, 8, 15),
         checkOutTime: new Date(2024, 0, 19, 17, 0),
-        activityType: 'teaching',
+        activityType: 'Docencia',
         location: 'Sala 101',
         notes: 'Laboratorio de programación',
         isJustified: false,

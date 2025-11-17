@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Calendar, CheckCircle, XCircle, TrendingUp, BarChart3 } from 'lucide-react';
+import { Clock, Calendar, CheckCircle, XCircle, TrendingUp, BarChart3, Shield } from 'lucide-react';
 import { useAsistencia } from '../../hooks/useAsistencia';
 import ManualAttendanceButton from './ManualAttendanceButton';
 
@@ -25,13 +25,25 @@ const AttendanceList: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth, selectedYear]);
 
+  // ---------- HELPERS ----------
+
+  const normalizeFecha = (value: any): string | null => {
+    if (!value) return null;
+    if (typeof value === 'string') return value.substring(0, 10);
+    if (value instanceof Date) return value.toISOString().substring(0, 10);
+    return null;
+  };
+
   const getStatusIcon = (estado: string) => {
     switch (estado) {
       case 'presente':
         return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'falta':
       case 'ausente':
+      case 'no_justificada':
         return <XCircle className="h-5 w-5 text-red-500" />;
+      case 'justificada':
+        return <Shield className="h-5 w-5 text-green-500" />;
       default:
         return <Clock className="h-5 w-5 text-gray-500" />;
     }
@@ -41,6 +53,9 @@ const AttendanceList: React.FC = () => {
     switch (estado) {
       case 'presente':
         return 'bg-green-100 text-green-800';
+      case 'justificada':
+        return 'bg-green-50 text-green-800 border border-green-300';
+      case 'no_justificada':
       case 'falta':
       case 'ausente':
         return 'bg-red-100 text-red-800';
@@ -51,8 +66,7 @@ const AttendanceList: React.FC = () => {
 
   // ✅ FORMATO: "16 Nov" - Sin problemas de zona horaria
   const formatDate = (dateString: string) => {
-    // Crear fecha directamente desde el string YYYY-MM-DD sin conversión de zona horaria
-    const [, month, day] = dateString.split('-').map(Number);
+    const [year, month, day] = dateString.split('-').map(Number);
     const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
     return `${day} ${months[month - 1]}`;
   };
@@ -60,20 +74,64 @@ const AttendanceList: React.FC = () => {
   // ✅ FORMATO: "00:30" desde "00:30:00" o timestamp
   const formatTime = (timeString: string | null) => {
     if (!timeString) return '-';
-    
-    // Si viene como timestamp ISO (2025-11-16T00:32:07.940-0300)
+
     if (timeString.includes('T')) {
       const date = new Date(timeString);
-      return date.toLocaleTimeString('es-CL', { 
-        hour: '2-digit', 
+      return date.toLocaleTimeString('es-CL', {
+        hour: '2-digit',
         minute: '2-digit',
-        hour12: false 
+        hour12: false
       });
     }
-    
-    // Si viene como "HH:MM:SS", tomar solo "HH:MM"
+
     return timeString.substring(0, 5);
   };
+
+  // ---------- MERGE ASISTENCIAS + JUSTIFICACIONES ----------
+
+  const registrosAsistencia = asistenciaData?.asistencias || [];
+
+  // Aquí tratamos de tomar las justificaciones tal como vengan del backend.
+  // Si el backend usa otro nombre (ej: faltas), lo cubrimos igual.
+  const rawJustificaciones: any[] =
+    (asistenciaData as any)?.justificaciones ||
+    (asistenciaData as any)?.faltas ||
+    [];
+
+  const registrosJustificados = rawJustificaciones.map((j: any) => {
+    const fecha =
+      normalizeFecha(j.fecha) ||
+      normalizeFecha(j.fecha_justificacion) ||
+      '';
+
+    return {
+      fecha,
+      horaIngreso: null,
+      horaSalida: null,
+      horasTrabajadas: j.horas_compensadas || 0,
+      estado: j.es_justificada ? 'justificada' : 'no_justificada',
+      observacion: j.descripcion || '',
+      justificacion: {
+        motivo: j.motivo,
+        descripcion: j.descripcion,
+        es_justificada: !!j.es_justificada,
+        horas_compensadas: j.horas_compensadas || 0
+      }
+    };
+  });
+
+  // Mezclamos ambos arreglos y ordenamos
+  const allRegistros = [...registrosAsistencia, ...registrosJustificados].sort(
+    (a: any, b: any) => {
+      const fechaA = normalizeFecha(a.fecha) || '';
+      const fechaB = normalizeFecha(b.fecha) || '';
+      if (fechaA > fechaB) return -1;
+      if (fechaA < fechaB) return 1;
+      return 0;
+    }
+  );
+
+  // ---------- RENDER ----------
 
   if (isLoading) {
     return (
@@ -233,7 +291,7 @@ const AttendanceList: React.FC = () => {
         </div>
       )}
 
-      {/* Lista de asistencias */}
+      {/* Lista de asistencias + justificadas */}
       <div className="bg-white shadow overflow-hidden sm:rounded-md">
         <div className="px-4 py-5 sm:p-6">
           <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
@@ -245,64 +303,70 @@ const AttendanceList: React.FC = () => {
             )}
           </h3>
 
-          {(() => {
-            console.log('📊 AttendanceList - Datos de asistencia:', {
-              asistenciaData,
-              hasAsistencias: asistenciaData?.asistencias,
-              asistenciasLength: asistenciaData?.asistencias?.length,
-              period: asistenciaData?.periodo
-            });
-            return null;
-          })()}
-          
-          {asistenciaData?.asistencias && asistenciaData.asistencias.length > 0 ? (
+          {allRegistros && allRegistros.length > 0 ? (
             <ul className="divide-y divide-gray-200">
-              {asistenciaData.asistencias
-                .sort((a, b) => {
-                  // Ordenar por fecha descendente (más reciente primero)
-                  const fechaA = new Date(a.fecha + 'T' + (a.horaIngreso || '00:00:00'));
-                  const fechaB = new Date(b.fecha + 'T' + (b.horaIngreso || '00:00:00'));
-                  return fechaB.getTime() - fechaA.getTime();
-                })
-                .map((asistencia, index) => (
-                <li key={index} className="py-4">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-4">
-                    <div className="flex-shrink-0">
-                      {getStatusIcon(asistencia.estado)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900">
-                        {formatDate(asistencia.fecha)}
-                      </p>
-                      <div className="flex flex-wrap items-center mt-1 gap-x-4 gap-y-1">
-                        <span className="text-sm text-gray-500">
-                          Ingreso: {formatTime(asistencia.horaIngreso)}
-                        </span>
-                        <span className="text-sm text-gray-500">
-                          Salida: {formatTime(asistencia.horaSalida)}
-                        </span>
-                        <span className="text-sm font-semibold text-gray-700">
-                          Total: {asistencia.horasTrabajadas}h
+              {allRegistros.map((asistencia: any, index: number) => {
+                const fechaNorm = normalizeFecha(asistencia.fecha) || asistencia.fecha;
+                const estado = asistencia.estado || (asistencia.justificacion
+                  ? (asistencia.justificacion.es_justificada ? 'justificada' : 'no_justificada')
+                  : 'presente');
+
+                return (
+                  <li key={index} className="py-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-4">
+                      <div className="flex-shrink-0">
+                        {getStatusIcon(estado)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900">
+                          {fechaNorm ? formatDate(fechaNorm) : '-'}
+                        </p>
+                        <div className="flex flex-wrap items-center mt-1 gap-x-4 gap-y-1">
+                          <span className="text-sm text-gray-500">
+                            Ingreso: {formatTime(asistencia.horaIngreso)}
+                          </span>
+                          <span className="text-sm text-gray-500">
+                            Salida: {formatTime(asistencia.horaSalida)}
+                          </span>
+                          <span className="text-sm font-semibold text-gray-700">
+                            Total: {asistencia.horasTrabajadas ?? asistencia.horas_diarias ?? 0}h
+                            {asistencia.justificacion?.es_justificada &&
+                              asistencia.justificacion.horas_compensadas > 0 && (
+                                <span className="ml-1 text-xs text-green-600">
+                                  (+{asistencia.justificacion.horas_compensadas}h compensadas)
+                                </span>
+                              )}
+                          </span>
+                        </div>
+
+                        {/* Texto extra para las justificadas */}
+                        {asistencia.justificacion && (
+                          <p className={`text-xs mt-1 ${
+                            asistencia.justificacion.es_justificada ? 'text-green-700' : 'text-red-700'
+                          }`}>
+                            Falta {asistencia.justificacion.es_justificada ? 'Justificada' : 'No Justificada'}: {asistencia.justificacion.motivo}
+                          </p>
+                        )}
+
+                        {asistencia.observacion && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            {asistencia.observacion}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex-shrink-0 mt-2 sm:mt-0">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${getStatusColor(
+                            estado
+                          )}`}
+                        >
+                          {estado.replace('_', ' ')}
                         </span>
                       </div>
-                      {asistencia.observacion && (
-                        <p className="text-xs text-gray-400 mt-1">
-                          {asistencia.observacion}
-                        </p>
-                      )}
                     </div>
-                    <div className="flex-shrink-0 mt-2 sm:mt-0">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${getStatusColor(
-                          asistencia.estado
-                        )}`}
-                      >
-                        {asistencia.estado}
-                      </span>
-                    </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <div className="text-center py-8">

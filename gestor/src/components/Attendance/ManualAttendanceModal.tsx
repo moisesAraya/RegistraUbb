@@ -12,6 +12,7 @@ interface ManualAttendanceModalProps {
     location?: string;
     notes?: string;
     justificationReason: string;
+    registroTipo: string;
   }) => Promise<{ success: boolean }>;
 }
 
@@ -24,10 +25,11 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
     date: new Date().toISOString().split('T')[0],
     checkInTime: '',
     checkOutTime: '',
-    activityType: 'teaching',
+    activityType: 'Docencia',
     location: '',
     notes: '',
-    justificationReason: ''
+    justificationReason: '',
+    registroTipo: 'entrada_manana'
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -56,10 +58,11 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
       date: new Date().toISOString().split('T')[0],
       checkInTime: '',
       checkOutTime: '',
-      activityType: 'teaching',
+      activityType: 'Docencia',
       location: '',
       notes: '',
-      justificationReason: ''
+      justificationReason: '',
+      registroTipo: 'entrada_manana'
     });
     setIsSubmitting(false);
     setIsSuccess(false);
@@ -87,7 +90,7 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
     setIsSubmitting(true);
 
     try {
-      console.log('📝 Enviando datos del modal:', formData);
+      console.log('📝 Enviando datos del modal (marcaje manual):', formData);
       const result = await onSubmit(formData);
       if (result.success) {
         setIsSuccess(true);
@@ -96,7 +99,7 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
         }, 2000);
       }
     } catch (error) {
-      console.error('Error al registrar asistencia manual:', error);
+      console.error('Error al registrar marcaje manual:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -125,7 +128,7 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
               <AlertTriangle className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-amber-900">Registro Manual de Asistencia</h3>
+              <h3 className="text-lg font-bold text-amber-900">Marcaje Manual</h3>
               <p className="text-sm text-amber-700">Complete los datos requeridos</p>
             </div>
           </div>
@@ -138,6 +141,7 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
             <X className="w-5 h-5 text-amber-700" />
           </button>
         </div>
+
         {/* Contenido del Modal */}
         <div className="p-6">
           {isSuccess ? (
@@ -146,14 +150,14 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
                 <CheckCircle className="w-12 h-12 text-green-600" />
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-2">
-                ¡Ingreso Registrado!
+                ¡Marcaje registrado!
               </h3>
               <p className="text-slate-600 leading-relaxed mb-4">
-                El ingreso se registró correctamente y ya aparece en su historial.
+                El marcaje se registró correctamente y ya aparece en tu historial.
               </p>
               <div className="bg-green-50 border border-green-200 rounded-lg p-3 inline-block">
                 <p className="text-sm text-green-800">
-                  <strong>Confirmado:</strong> Registro procesado exitosamente
+                  <strong>Confirmado:</strong> Marcaje procesado exitosamente
                 </p>
               </div>
             </div>
@@ -166,16 +170,16 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-amber-900 mb-1">Importante</p>
                     <ul className="text-sm text-amber-800 space-y-1">
-                      <li>• Use esta opción solo cuando no pueda usar el código QR</li>
-                      <li>• Verifique que la fecha y hora sean correctas</li>
-                      <li>• El registro será guardado inmediatamente</li>
+                      <li>• Usa esta opción solo cuando no puedas usar el código QR</li>
+                      <li>• Verifica que la fecha y hora sean correctas</li>
+                      <li>• El marcaje será guardado inmediatamente</li>
                     </ul>
                   </div>
                 </div>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Fecha y Hora de entrada */}
+                {/* Fecha y Hora del marcaje */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -193,7 +197,7 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
 
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      Hora de entrada *
+                      Hora del marcaje *
                     </label>
                     <input
                       type="time"
@@ -206,19 +210,24 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
                   </div>
                 </div>
 
-                {/* Hora de salida y Actividad */}
+                {/* Tipo de marcaje y Actividad */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      Hora de salida (opcional)
+                      Tipo de marcaje *
                     </label>
-                    <input
-                      type="time"
-                      value={formData.checkOutTime}
-                      onChange={(e) => setFormData({ ...formData, checkOutTime: e.target.value })}
+                    <select
+                      value={formData.registroTipo}
+                      onChange={(e) => setFormData({ ...formData, registroTipo: e.target.value })}
                       className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm transition-all"
+                      required
                       disabled={isSubmitting}
-                    />
+                    >
+                      <option value="entrada_manana">Entrada mañana</option>
+                      <option value="salida_almuerzo">Salida a colación</option>
+                      <option value="entrada_tarde">Entrada después de colación</option>
+                      <option value="salida_dia">Salida fin de jornada</option>
+                    </select>
                   </div>
 
                   <div>
@@ -232,14 +241,13 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
                       required
                       disabled={isSubmitting}
                     >
-                      <option value="teaching">Docencia</option>
+                      <option value="Docencia">Docencia</option>
                       <option value="research">Investigación</option>
                       <option value="management">Gestión Administrativa</option>
                       <option value="other">Otra actividad</option>
                     </select>
                   </div>
                 </div>
-
 
                 {/* Descripción */}
                 <div>
@@ -251,14 +259,13 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
                     <textarea
                       value={formData.notes}
                       onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      placeholder="Describa brevemente el detalle del registro manual"
+                      placeholder="Describa brevemente el detalle del marcaje manual"
                       rows={3}
                       className="w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm resize-none transition-all"
                       disabled={isSubmitting}
                     />
                   </div>
                 </div>
-
 
                 {/* Botones de acción */}
                 <div className="flex gap-3 pt-4 border-t border-slate-200">
@@ -287,7 +294,7 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
                         <span>Procesando...</span>
                       </div>
                     ) : (
-                      'Registrar Asistencia'
+                      'Registrar Marcaje'
                     )}
                   </button>
                 </div>

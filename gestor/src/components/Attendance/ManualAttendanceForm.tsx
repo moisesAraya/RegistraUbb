@@ -10,6 +10,7 @@ interface ManualAttendanceFormProps {
     location?: string;
     notes?: string;
     justificationReason: string;
+    registroTipo: string;
   }) => Promise<{ success: boolean }>;
   onClose?: () => void;
 }
@@ -18,11 +19,12 @@ const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ onSubmit, o
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     checkInTime: '',
-    checkOutTime: '',
-    activityType: 'teaching',
+    checkOutTime: '', // seguirá yendo vacío, pero ya no se muestra en el formulario
+    activityType: 'Docencia',
     location: '',
     notes: '',
-    justificationReason: ''
+    justificationReason: '',
+    registroTipo: 'entrada_manana'
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -39,20 +41,20 @@ const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ onSubmit, o
           date: new Date().toISOString().split('T')[0],
           checkInTime: '',
           checkOutTime: '',
-          activityType: 'teaching',
+          activityType: 'Docencia',
           location: '',
           notes: '',
-          justificationReason: ''
+          justificationReason: '',
+          registroTipo: 'entrada_manana'
         });
         
-        // Cerrar automáticamente después de mostrar éxito
         setTimeout(() => {
           setIsSuccess(false);
           onClose?.();
         }, 2500);
       }
     } catch (error) {
-      console.error('Error al registrar asistencia manual:', error);
+      console.error('Error al registrar marcaje manual:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -66,14 +68,14 @@ const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ onSubmit, o
             <CheckCircle className="w-12 h-12 text-green-600" />
           </div>
           <h3 className="text-xl font-bold text-slate-900 mb-3">
-            ¡Registro Exitoso!
+            ¡Marcaje registrado!
           </h3>
           <p className="text-slate-600 leading-relaxed mb-4">
-            Su asistencia manual ha sido registrada correctamente en el sistema.
+            Tu marcaje manual ha sido registrado correctamente en el sistema.
           </p>
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <p className="text-sm text-green-800">
-              <strong>Confirmación:</strong> El registro ya aparece en su historial de asistencia.
+              <strong>Confirmación:</strong> El marcaje ya aparece en tu historial de asistencia.
             </p>
           </div>
         </div>
@@ -91,7 +93,7 @@ const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ onSubmit, o
               <AlertTriangle className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-amber-900">Registro Manual de Asistencia</h3>
+              <h3 className="text-lg font-bold text-amber-900">Marcaje Manual</h3>
               <p className="text-sm text-amber-700">Complete los datos requeridos</p>
             </div>
           </div>
@@ -111,11 +113,11 @@ const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ onSubmit, o
         {/* Alerta informativa */}
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
           <p className="text-xs text-amber-800">
-            <strong>Importante:</strong> Este registro requiere justificación y será validado por el sistema.
+            <strong>Importante:</strong> Este marcaje se usa solo cuando no puedas utilizar el sistema QR normal.
           </p>
         </div>
 
-        {/* Fecha y hora de entrada */}
+        {/* Fecha y hora del marcaje */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -132,7 +134,7 @@ const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ onSubmit, o
 
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Hora de entrada *
+              Hora del marcaje *
             </label>
             <input
               type="time"
@@ -144,18 +146,23 @@ const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ onSubmit, o
           </div>
         </div>
 
-        {/* Hora de salida y actividad */}
+        {/* Tipo de marcaje y actividad */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Hora de salida (opcional)
+              Tipo de marcaje *
             </label>
-            <input
-              type="time"
-              value={formData.checkOutTime}
-              onChange={(e) => setFormData({ ...formData, checkOutTime: e.target.value })}
+            <select
+              value={formData.registroTipo}
+              onChange={(e) => setFormData({ ...formData, registroTipo: e.target.value })}
               className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm transition-all"
-            />
+              required
+            >
+              <option value="entrada_manana">Entrada mañana</option>
+              <option value="salida_almuerzo">Salida a colación</option>
+              <option value="entrada_tarde">Entrada después de colación</option>
+              <option value="salida_dia">Salida fin de jornada</option>
+            </select>
           </div>
 
           <div>
@@ -168,7 +175,7 @@ const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ onSubmit, o
               className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm transition-all"
               required
             >
-              <option value="teaching">Docencia</option>
+              <option value="Docencia">Docencia</option>
               <option value="research">Investigación</option>
               <option value="management">Gestión Administrativa</option>
               <option value="other">Otra actividad</option>
@@ -210,26 +217,6 @@ const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ onSubmit, o
           </div>
         </div>
 
-        {/* Justificación */}
-        <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-2">
-            Justificación *
-          </label>
-          <div className="relative">
-            <AlertTriangle className="absolute left-3 top-3 w-4 h-4 text-amber-500" />
-            <textarea
-              value={formData.justificationReason}
-              onChange={(e) => setFormData({ ...formData, justificationReason: e.target.value })}
-              placeholder="Explique por qué no pudo utilizar el sistema QR normal (ej: problema técnico, lector no disponible, etc.)"
-              rows={4}
-              className="w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm resize-none transition-all"
-              required
-            />
-          </div>
-          <p className="mt-2 text-xs text-slate-500">
-            Esta justificación es obligatoria para registros manuales
-          </p>
-        </div>
 
         {/* Botón de envío */}
         <div className="pt-2">
@@ -247,10 +234,10 @@ const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ onSubmit, o
             {isSubmitting ? (
               <div className="flex items-center justify-center space-x-2">
                 <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                <span>Procesando registro...</span>
+                <span>Procesando marcaje...</span>
               </div>
             ) : (
-              'Registrar Asistencia Manual'
+              'Registrar Marcaje Manual'
             )}
           </button>
         </div>

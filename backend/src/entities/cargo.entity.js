@@ -34,3 +34,6 @@ const Cargo = sequelize.define("Cargo", {
 });
 
 export default Cargo;
+
+
+

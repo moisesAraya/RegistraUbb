@@ -4,20 +4,20 @@ import {
   getCompleteMetrics, 
   getRealTimeData, 
   getAdvancedAnalytics, 
-  getDebugInfo 
+  getDebugInfo,
+  getAdminDashboardMetrics
 } from '../services/dashboard.service.js';
 
 console.log('🚀 [DASHBOARD-CONTROLLER] ✅ CONTROLLER CONFIGURADO CON SERVICIO REAL ✅');
 
 /**
- * 📊 OBTENER MÉTRICAS BÁSICAS DEL DASHBOARD
+ * 📊 OBTENER MÉTRICAS BÁSICAS DEL DASHBOARD (usuario)
  */
 export async function getBasicStats(req, res) {
   console.log('📊 [DASHBOARD-CONTROLLER] ===== GET BASIC STATS =====');
   console.log('👤 Usuario del request:', req.user);
   
   try {
-    // ✅ OBTENER USUARIO DEL TOKEN
     const user = req.user;
     const rut_usuario = user?.rut_usuario || user?.rut;
     
@@ -37,7 +37,6 @@ export async function getBasicStats(req, res) {
 
     console.log('🔥 [DASHBOARD-CONTROLLER] Llamando a getCompleteMetrics con RUT:', rut_usuario);
 
-    // ✅ LLAMAR AL SERVICIO REAL QUE CONFIGURAMOS
     const metrics = await getCompleteMetrics(rut_usuario);
     
     console.log('✅ [DASHBOARD-CONTROLLER] Métricas obtenidas del servicio:', {
@@ -52,7 +51,6 @@ export async function getBasicStats(req, res) {
 
     console.log('📤 [DASHBOARD-CONTROLLER] Enviando respuesta con métricas reales');
 
-    // ✅ DEVOLVER EN EL FORMATO ESPERADO
     return res.status(200).json({
       success: true,
       data: metrics
@@ -168,6 +166,41 @@ export async function getDebug(req, res) {
       success: false,
       error: 'Error obteniendo información de debug',
       details: error.message
+    });
+  }
+}
+
+/**
+ * 👑 DASHBOARD ADMIN - MÉTRICAS GLOBALES
+ */
+export async function getAdminDashboard(req, res) {
+  console.log('👑 [ADMIN-DASHBOARD-CTRL] Solicitud de dashboard admin');
+
+  try {
+    const user = req.user;
+    const rut_usuario = user?.rut_usuario || user?.rut;
+    const id_rol = user?.id_rol;
+
+    console.log('👑 [ADMIN-DASHBOARD-CTRL] Usuario:', { rut_usuario, id_rol });
+
+    // Ajusta este check si tu rol de admin no es 1
+    if (!id_rol || id_rol !== 1) {
+      return res.status(403).json({
+        success: false,
+        error: 'Acceso restringido al panel de administración'
+      });
+    }
+
+    const stats = await getAdminDashboardMetrics();
+
+    return res.status(200).json(stats);
+
+  } catch (error) {
+    console.error('❌ [ADMIN-DASHBOARD-CTRL] Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Error obteniendo estadísticas administrativas',
+      message: error.message
     });
   }
 }

@@ -73,8 +73,15 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
     if (import.meta.env.VITE_ENABLE_MINIO === 'true') {
       const fetchFotoPerfil = async () => {
         try {
+          // Some User types may not expose `rut_usuario` — try common fallbacks and cast to any to avoid TS errors.
+          const rut = (user as any).rut_usuario ?? (user as any).rut ?? user.email ?? '';
+          if (!rut) {
+            setFotoPerfilUrl(null);
+            return;
+          }
+
           const res = await fetch(
-            `${import.meta.env.VITE_API_URL}/profile/foto-perfil-url/${user.rut_usuario}`
+            `${import.meta.env.VITE_API_URL}/profile/foto-perfil-url/${encodeURIComponent(rut)}`
           );
           const json = await res.json();
           setFotoPerfilUrl(json.success && json.foto_url ? json.foto_url : null);
@@ -87,7 +94,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
     } else {
       setFotoPerfilUrl(null);
     }
-  }, [user.rut_usuario]);
+  }, [user]);
 
   const getRoleLabel = (id_rol: number) => {
     const roles = {

@@ -21,319 +21,430 @@ console.log('👤 [ASISTENCIA-CTRL] ✅ CONTROLLER CARGADO ✅');
 console.log('🚀 [DASHBOARD-CONTROLLER] Controller cargado y conectado con service real');
 
 /**
- * 📅 CONTROLLER - OBTENER ASISTENCIA DEL USUARIO
+ * 🧱 Helper: construir timestamp ISO a partir de fecha + hora
  */
-
+/**
+ * 🧱 Helper: construir timestamp local CL a partir de fecha + hora
+ */
 function buildTimestamp(fecha, hora) {
-    if (!fecha || !hora) return null;
+  if (!fecha || !hora) return null;
 
-    // Normalizar hora a HH:MM:SS
-    const time = hora.length === 5 ? `${hora}:00` : hora;
+  // Normalizar hora a HH:MM:SS
+  const time = hora.length === 5 ? `${hora}:00` : hora;
 
-    // Construir timestamp ISO
-    return `${fecha}T${time}`;
+  // 📌 Forzamos zona horaria Chile (-03:00) para evitar desfase 8 → 5
+  const isoWithOffset = `${fecha}T${time}-03:00`;
+
+  // Devolvemos un Date; Sequelize lo mapea a timestamptz sin drama
+  return new Date(isoWithOffset);
 }
 
+
+/**
+ * 📅 CONTROLLER - OBTENER ASISTENCIA DEL USUARIO
+ */
 export async function getAsistenciaController(req, res) {
-    const startTime = Date.now();
+  const startTime = Date.now();
+  
+  try {
+    console.log('📅 [ASISTENCIA-CTRL] === INICIANDO ===');
     
-    try {
-        console.log('📅 [ASISTENCIA-CTRL] === INICIANDO ===');
-        
-        const rutUsuario = req.user?.rut_usuario || req.rut_usuario;
-        const { mes, anio } = req.query;
-        
-        console.log('📅 [ASISTENCIA-CTRL] Usuario:', rutUsuario);
-        console.log('📅 [ASISTENCIA-CTRL] Filtros:', { mes, anio });
-        console.log('📅 [ASISTENCIA-CTRL] Headers:', {
-            authorization: req.headers.authorization ? 'Presente' : 'Ausente',
-            contentType: req.headers['content-type']
-        });
-        
-        if (!rutUsuario) {
-            return res.status(400).json({
-                success: false,
-                error: 'RUT de usuario requerido'
-            });
-        }
-
-        // Llamar al servicio
-        const resultado = await getAsistenciaUsuarioService(rutUsuario, mes, anio);
-        
-        const duration = `${Date.now() - startTime}ms`;
-        
-        console.log('✅ [ASISTENCIA-CTRL] Resultado del servicio:', {
-            asistencias: resultado.asistencias.length,
-            periodo: resultado.periodo,
-            resumen: resultado.resumen
-        });
-        console.log('✅ [ASISTENCIA-CTRL] Respuesta enviada en', duration);
-        
-        res.status(200).json({
-            success: true,
-            data: resultado,
-            meta: {
-                duration,
-                asistencias_count: resultado.asistencias.length,
-                periodo: resultado.periodo
-            }
-        });
-
-    } catch (error) {
-        console.error('❌ [ASISTENCIA-CTRL] Error:', error);
-        console.error('❌ [ASISTENCIA-CTRL] Stack:', error.stack);
-        
-        const duration = `${Date.now() - startTime}ms`;
-        
-        res.status(500).json({
-            success: false,
-            error: 'Error obteniendo asistencia',
-            message: error.message,
-            meta: { duration }
-        });
+    const rutUsuario = req.user?.rut_usuario || req.rut_usuario;
+    const { mes, anio } = req.query;
+    
+    console.log('📅 [ASISTENCIA-CTRL] Usuario:', rutUsuario);
+    console.log('📅 [ASISTENCIA-CTRL] Filtros:', { mes, anio });
+    console.log('📅 [ASISTENCIA-CTRL] Headers:', {
+      authorization: req.headers.authorization ? 'Presente' : 'Ausente',
+      contentType: req.headers['content-type']
+    });
+    
+    if (!rutUsuario) {
+      return res.status(400).json({
+        success: false,
+        error: 'RUT de usuario requerido'
+      });
     }
+
+    // Llamar al servicio
+    const resultado = await getAsistenciaUsuarioService(rutUsuario, mes, anio);
+    
+    const duration = `${Date.now() - startTime}ms`;
+    
+    console.log('✅ [ASISTENCIA-CTRL] Resultado del servicio:', {
+      asistencias: resultado.asistencias.length,
+      periodo: resultado.periodo,
+      resumen: resultado.resumen
+    });
+    console.log('✅ [ASISTENCIA-CTRL] Respuesta enviada en', duration);
+    
+    res.status(200).json({
+      success: true,
+      data: resultado,
+      meta: {
+        duration,
+        asistencias_count: resultado.asistencias.length,
+        periodo: resultado.periodo
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ [ASISTENCIA-CTRL] Error:', error);
+    console.error('❌ [ASISTENCIA-CTRL] Stack:', error.stack);
+    
+    const duration = `${Date.now() - startTime}ms`;
+    
+    res.status(500).json({
+      success: false,
+      error: 'Error obteniendo asistencia',
+      message: error.message,
+      meta: { duration }
+    });
+  }
 }
 
 /**
  * 📊 CONTROLLER - OBTENER ESTADÍSTICAS DE ASISTENCIA
  */
 export async function getEstadisticasAsistenciaController(req, res) {
-    const startTime = Date.now();
+  const startTime = Date.now();
+  
+  try {
+    console.log('📊 [ESTADISTICAS-CTRL] === INICIANDO ===');
     
-    try {
-        console.log('📊 [ESTADISTICAS-CTRL] === INICIANDO ===');
-        
-        const rutUsuario = req.user?.rut_usuario || req.rut_usuario;
-        
-        console.log('📊 [ESTADISTICAS-CTRL] Usuario:', rutUsuario);
-        
-        if (!rutUsuario) {
-            return res.status(400).json({
-                success: false,
-                error: 'RUT de usuario requerido'
-            });
-        }
-
-        // Llamar al servicio
-        const estadisticas = await getEstadisticasAsistenciaService(rutUsuario);
-        
-        const duration = `${Date.now() - startTime}ms`;
-        
-        console.log('✅ [ESTADISTICAS-CTRL] Respuesta enviada en', duration);
-        
-        res.status(200).json({
-            success: true,
-            data: estadisticas,
-            meta: { duration }
-        });
-
-    } catch (error) {
-        console.error('❌ [ESTADISTICAS-CTRL] Error:', error);
-        
-        const duration = `${Date.now() - startTime}ms`;
-        
-        res.status(500).json({
-            success: false,
-            error: 'Error obteniendo estadísticas',
-            message: error.message,
-            meta: { duration }
-        });
+    const rutUsuario = req.user?.rut_usuario || req.rut_usuario;
+    
+    console.log('📊 [ESTADISTICAS-CTRL] Usuario:', rutUsuario);
+    
+    if (!rutUsuario) {
+      return res.status(400).json({
+        success: false,
+        error: 'RUT de usuario requerido'
+      });
     }
+
+    const { mes, anio } = req.query;
+
+    // Llamar al servicio con filtros
+    const estadisticas = await getEstadisticasAsistenciaService(rutUsuario, mes, anio);
+    
+    const duration = `${Date.now() - startTime}ms`;
+    
+    console.log('✅ [ESTADISTICAS-CTRL] Respuesta enviada en', duration);
+    
+    res.status(200).json({
+      success: true,
+      data: estadisticas,
+      meta: { duration }
+    });
+
+  } catch (error) {
+    console.error('❌ [ESTADISTICAS-CTRL] Error:', error);
+    
+    const duration = `${Date.now() - startTime}ms`;
+    
+    res.status(500).json({
+      success: false,
+      error: 'Error obteniendo estadísticas',
+      message: error.message,
+      meta: { duration }
+    });
+  }
 }
 
 /**
  * 📝 CONTROLLER - SOLICITAR JUSTIFICACIÓN
  */
 export async function solicitarJustificacionController(req, res) {
-    const startTime = Date.now();
+  const startTime = Date.now();
+  
+  try {
+    console.log('📝 [JUSTIFICACION-CTRL] === INICIANDO ===');
     
-    try {
-        console.log('📝 [JUSTIFICACION-CTRL] === INICIANDO ===');
-        
-        const rutUsuario = req.user?.rut_usuario || req.rut_usuario;
-        const datosJustificacion = req.body;
-        
-        console.log('📝 [JUSTIFICACION-CTRL] Usuario:', rutUsuario);
-        console.log('📝 [JUSTIFICACION-CTRL] Datos:', datosJustificacion);
-        
-        if (!rutUsuario) {
-            return res.status(400).json({
-                success: false,
-                error: 'RUT de usuario requerido'
-            });
-        }
-
-        // Llamar al servicio
-        const resultado = await crearJustificacionService(rutUsuario, datosJustificacion);
-        
-        const duration = `${Date.now() - startTime}ms`;
-        
-        console.log('✅ [JUSTIFICACION-CTRL] Creada en', duration);
-        
-        res.status(201).json({
-            success: true,
-            message: 'Justificación enviada correctamente',
-            data: resultado,
-            meta: { duration }
-        });
-
-    } catch (error) {
-        console.error('❌ [JUSTIFICACION-CTRL] Error:', error);
-        
-        const duration = `${Date.now() - startTime}ms`;
-        
-        res.status(500).json({
-            success: false,
-            error: 'Error creando justificación',
-            message: error.message,
-            meta: { duration }
-        });
+    const rutUsuario = req.user?.rut_usuario || req.rut_usuario;
+    const datosJustificacion = req.body;
+    
+    console.log('📝 [JUSTIFICACION-CTRL] Usuario:', rutUsuario);
+    console.log('📝 [JUSTIFICACION-CTRL] Datos:', datosJustificacion);
+    
+    if (!rutUsuario) {
+      return res.status(400).json({
+        success: false,
+        error: 'RUT de usuario requerido'
+      });
     }
+
+    // Llamar al servicio
+    const resultado = await crearJustificacionService(rutUsuario, datosJustificacion);
+    
+    const duration = `${Date.now() - startTime}ms`;
+    
+    console.log('✅ [JUSTIFICACION-CTRL] Creada en', duration);
+    
+    res.status(201).json({
+      success: true,
+      message: 'Justificación enviada correctamente',
+      data: resultado,
+      meta: { duration }
+    });
+
+  } catch (error) {
+    console.error('❌ [JUSTIFICACION-CTRL] Error:', error);
+    
+    const duration = `${Date.now() - startTime}ms`;
+    
+    res.status(500).json({
+      success: false,
+      error: 'Error creando justificación',
+      message: error.message,
+      meta: { duration }
+    });
+  }
 }
 
 /**
  * 📋 CONTROLLER - OBTENER JUSTIFICACIONES DEL USUARIO
  */
 export async function getJustificacionesController(req, res) {
-    const startTime = Date.now();
+  const startTime = Date.now();
+  
+  try {
+    console.log('📋 [JUSTIFICACIONES-CTRL] === INICIANDO ===');
     
-    try {
-        console.log('📋 [JUSTIFICACIONES-CTRL] === INICIANDO ===');
-        
-        const rutUsuario = req.user?.rut_usuario || req.rut_usuario;
-        
-        console.log('📋 [JUSTIFICACIONES-CTRL] Usuario:', rutUsuario);
-        
-        if (!rutUsuario) {
-            return res.status(400).json({
-                success: false,
-                error: 'RUT de usuario requerido'
-            });
-        }
-
-        // Llamar al servicio
-        const justificaciones = await getJustificacionesUsuarioService(rutUsuario);
-        
-        const duration = `${Date.now() - startTime}ms`;
-        
-        console.log('✅ [JUSTIFICACIONES-CTRL] Respuesta enviada en', duration);
-        
-        res.status(200).json({
-            success: true,
-            data: justificaciones,
-            meta: { 
-                duration,
-                count: justificaciones.length
-            }
-        });
-
-    } catch (error) {
-        console.error('❌ [JUSTIFICACIONES-CTRL] Error:', error);
-        
-        const duration = `${Date.now() - startTime}ms`;
-        
-        res.status(500).json({
-            success: false,
-            error: 'Error obteniendo justificaciones',
-            message: error.message,
-            meta: { duration }
-        });
+    const rutUsuario = req.user?.rut_usuario || req.rut_usuario;
+    
+    console.log('📋 [JUSTIFICACIONES-CTRL] Usuario:', rutUsuario);
+    
+    if (!rutUsuario) {
+      return res.status(400).json({
+        success: false,
+        error: 'RUT de usuario requerido'
+      });
     }
+
+    // Llamar al servicio
+    const justificaciones = await getJustificacionesUsuarioService(rutUsuario);
+    
+    const duration = `${Date.now() - startTime}ms`;
+    
+    console.log('✅ [JUSTIFICACIONES-CTRL] Respuesta enviada en', duration);
+    
+    res.status(200).json({
+      success: true,
+      data: justificaciones,
+      meta: { 
+        duration,
+        count: justificaciones.length
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ [JUSTIFICACIONES-CTRL] Error:', error);
+    
+    const duration = `${Date.now() - startTime}ms`;
+    
+    res.status(500).json({
+      success: false,
+      error: 'Error obteniendo justificaciones',
+      message: error.message,
+      meta: { duration }
+    });
+  }
 }
 
 /**
  * 🏷️ CONTROLLER ORIGINAL - MARCAR ASISTENCIA (QR)
  */
 export async function marcar(req, res) {
-    try {
-        const { codigo_unico } = req.body;
+  try {
+    const { codigo_unico } = req.body;
 
-        console.log('🏷️ [MARCAR] Código recibido:', codigo_unico);
-        
-        res.json({ 
-            ok: true, 
-            message: `Marcaje procesado para código: ${codigo_unico}`,
-            timestamp: new Date().toISOString()
-        });
-    } catch (err) {
-        console.error('❌ [MARCAR] Error:', err);
-        res.status(500).json({ ok: false, error: err.message });
-    }
+    console.log('🏷️ [MARCAR] Código recibido:', codigo_unico);
+    
+    res.json({ 
+      ok: true, 
+      message: `Marcaje procesado para código: ${codigo_unico}`,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('❌ [MARCAR] Error:', err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
 }
 
 /**
- * 🖊️ CONTROLLER - INGRESO MANUAL DE ASISTENCIA (sin confirmación)
+ * 🖊️ CONTROLLER - INGRESO MANUAL DE ASISTENCIA
+ */
+/**
+ * 🖊️ CONTROLLER - MARCAJE MANUAL (una sola marca de entrada/salida)
+ */
+/**
+ * 🖊️ CONTROLLER - MARCAJE MANUAL (una sola marca)
+ */
+/**
+ * 🖊️ CONTROLLER - MARCAJE MANUAL (una sola marca que abre o cierra)
+ */
+/**
+ * 🖊️ CONTROLLER - MARCAJE MANUAL (abre/cierra par en el día)
+ */
+/**
+ * 🖊️ CONTROLLER - MARCAJE MANUAL (abre o cierra marcaje del día)
  */
 export async function createManualEntryController(req, res) {
   try {
-    const rutUsuario = req.user?.rut_usuario;
+    const user = req.user;
+    const rutUsuario = user?.rut_usuario || user?.rut;
+
+    console.log("📥 [MANUAL-ENTRY] BODY RECIBIDO:", req.body);
+    console.log("👤 [MANUAL-ENTRY] Usuario del token:", rutUsuario);
+
+    if (!rutUsuario) {
+      return res.status(400).json({ success: false, error: "RUT de usuario requerido" });
+    }
 
     const { 
-      date, 
-      checkInTime, 
-      checkOutTime, 
-      activityType, 
-      location, 
-      notes, 
-      justificationReason 
+      date,              // '2025-11-16'
+      checkInTime,       // '08:00'
+      activityType,      // 'teaching' | 'research' | ...
+      location,
+      notes,
+      registroTipo,      // 'entrada_manana', 'salida_almuerzo', etc.
+      justificationReason
     } = req.body;
 
-    console.log("📥 BODY RECIBIDO:", req.body);
-
-    if (!rutUsuario)
-      return res.status(400).json({ success: false, error: "RUT de usuario requerido" });
-
-    if (!date)
+    if (!date) {
       return res.status(400).json({ success: false, error: "'date' es requerido" });
+    }
 
-    if (!checkInTime)
+    if (!checkInTime) {
       return res.status(400).json({ success: false, error: "'checkInTime' es requerido" });
+    }
 
-    // Construcción de timestamps
-    const horaIngresoTS = buildTimestamp(date, checkInTime);
-    const horaSalidaTS = checkOutTime ? buildTimestamp(date, checkOutTime) : null;
+    // 🕒 Timestamp completo local CL (fecha + hora -03:00)
+    const timestamp = buildTimestamp(date, checkInTime);
+    if (!timestamp || isNaN(timestamp.getTime())) {
+      return res.status(400).json({
+        success: false,
+        error: "Fecha u hora inválidas"
+      });
+    }
 
-    if (!horaIngresoTS)
-      return res.status(400).json({ success: false, error: "Hora de ingreso inválida" });
+    // 🎭 Labels bonitos
+    const activityLabels = {
+      teaching: "Docencia",
+      research: "Investigación",
+      management: "Gestión Administrativa",
+      other: "Otra actividad"
+    };
 
-    // Asegurar totem
-    const [totem] = await Totem.findOrCreate({
+    const registroTipoLabels = {
+      entrada_manana: "Entrada mañana",
+      salida_almuerzo: "Salida a almorzar",
+      entrada_tarde: "Entrada tarde",
+      salida_dia: "Salida día",
+      entrada_otro: "Entrada (otro)",
+      salida_otro: "Salida (otro)"
+    };
+
+    const actividadTexto = activityLabels[activityType] || "Actividad no especificada";
+    const tipoTexto = registroTipoLabels[registroTipo] || registroTipo || "Marcaje manual";
+
+    const observacionBase = `Actividad: ${actividadTexto} | Tipo: ${tipoTexto}`;
+    const observacionExtra = [
+      notes ? `Notas: ${notes}` : null,
+      location ? `Ubicación: ${location}` : null,
+      justificationReason ? `Justificación: ${justificationReason}` : null
+    ].filter(Boolean).join(" | ");
+
+    const observacion = observacionExtra
+      ? `${observacionBase} | ${observacionExtra}`
+      : observacionBase;
+
+    // 🏷️ Tótem virtual para registros manuales
+    const [totemManual] = await Totem.findOrCreate({
       where: { ubicacion: "INGRESO_MANUAL" },
-      defaults: { descripcion: "Tótem virtual para asistencias manuales" }
+      defaults: {
+        descripcion: "Tótem virtual para registros manuales",
+      },
     });
 
-    // Crear marcaje
-    const nuevoMarcaje = await Marcaje.create({
-      hora_ingreso: horaIngresoTS,
-      hora_salida: horaSalidaTS,
-      fecha: date,
-      observacion: `Actividad: ${activityType}${notes ? ` | ${notes}` : ''}${location ? ` | ${location}` : ''}`
+    // 🔍 Buscar marcaje ABIERTO (sin hora_salida) ese día
+    const marcajeAbierto = await Marcaje.findOne({
+      where: {
+        rut_usuario: rutUsuario,
+        fecha: date,
+        hora_salida: null
+      },
+      order: [["hora_ingreso", "DESC"]],
     });
 
-    // Registro de marcaje (fecha_registro debe ser timestamp)
+    // Helper: ver si este registro es de salida
+    const esSalida = registroTipo && registroTipo.startsWith("salida");
+
+    let marcajeFinal;
+
+    if (marcajeAbierto && esSalida) {
+      // ✅ CERRAR MARCAJE EXISTENTE
+      console.log("🔒 [MANUAL-ENTRY] Cerrando marcaje abierto:", marcajeAbierto.id_marcaje);
+
+      marcajeAbierto.hora_salida = timestamp; // usamos timestamp completo
+      marcajeAbierto.observacion = [
+        marcajeAbierto.observacion,
+        observacion
+      ].filter(Boolean).join(" | ");
+
+      await marcajeAbierto.save();
+      marcajeFinal = marcajeAbierto;
+
+    } else {
+      // ✅ CREAR NUEVO MARCAJE (entrada)
+      console.log("🆕 [MANUAL-ENTRY] Creando nuevo marcaje para el día", date);
+
+      marcajeFinal = await Marcaje.create({
+        rut_usuario: rutUsuario,
+        fecha: date,
+        hora_ingreso: timestamp,
+        hora_salida: null,
+        observacion,
+        id_totem: totemManual.id_totem ?? null
+      });
+    }
+
+    // 🧾 Registrar en RegistroMarcaje
     await RegistroMarcaje.create({
       rut_usuario: rutUsuario,
-      id_marcaje: nuevoMarcaje.id_marcaje,
-      id_totem: totem.id_totem,
-      fecha_registro: new Date() // <-- CORRECTO
+      id_marcaje: marcajeFinal.id_marcaje,
+      id_totem: totemManual.id_totem,
+      fecha_registro: new Date()
+    });
+
+    console.log("✅ [MANUAL-ENTRY] Marcaje procesado correctamente:", {
+      id_marcaje: marcajeFinal.id_marcaje,
+      fecha: marcajeFinal.fecha,
+      hora_ingreso: marcajeFinal.hora_ingreso,
+      hora_salida: marcajeFinal.hora_salida
     });
 
     return res.status(201).json({
       success: true,
-      message: "Asistencia manual registrada correctamente",
-      data: nuevoMarcaje
+      message: "Marcaje manual registrado correctamente",
+      data: {
+        id_marcaje: marcajeFinal.id_marcaje,
+        fecha: marcajeFinal.fecha,
+        hora_ingreso: marcajeFinal.hora_ingreso,
+        hora_salida: marcajeFinal.hora_salida
+      }
     });
 
   } catch (error) {
     console.error("❌ [MANUAL-ENTRY] Error:", error);
     return res.status(500).json({
       success: false,
-      error: "Error registrando ingreso manual",
+      error: "Error registrando marcaje manual",
       message: error.message
     });
   }
 }
-
 
 
 

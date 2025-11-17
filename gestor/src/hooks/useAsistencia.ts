@@ -6,10 +6,19 @@ interface AsistenciaItem {
   horaSalida: string | null;
   horasTrabajadas: number;
   estado: 'presente' | 'ausente' | 'falta';
-  observacion?: string;
+  observacion?: string | null;
   tipoMarcaje: string;
   ubicacion: string;
+  colacion?: boolean;
+  justificacion?: {
+    motivo: string;
+    descripcion: string | null;
+    es_justificada: boolean;
+    horas_compensadas: number;
+  } | null;
 }
+
+
 
 interface ResumenAsistencia {
   diasTrabajados: number;
@@ -150,29 +159,35 @@ export const useAsistencia = () => {
     }
   };
 
-  const registrarMarcajeManual = async (data: {
-    date: string;
-    checkInTime: string;
-    checkOutTime?: string;
-    location?: string;
-    notes?: string;
-    activityType?: string;
-    id_totem?: number | null;
-  }) => {
+const registrarMarcajeManual = async (data: {
+  date: string;
+  checkInTime: string;
+  checkOutTime?: string;
+  location?: string;
+  notes?: string;
+  activityType?: string;
+  registroTipo?: 'entrada_manana' | 'salida_almuerzo' | 'entrada_tarde' | 'salida_dia';
+  justificationReason?: string;
+  id_totem?: number | null;
+}) => {
+
     setIsLoading(true);
     setError(null);
 
     try {
       // El backend espera estos nombres:
       const body = {
-        date: data.date,
-        checkInTime: data.checkInTime,
-        checkOutTime: data.checkOutTime || null,
-        location: data.location || null,
-        notes: data.notes || null,
-        activityType: data.activityType || null,
-        id_totem: data.id_totem || null,
-      };
+  date: data.date,
+  checkInTime: data.checkInTime,
+  checkOutTime: data.checkOutTime || null,
+  location: data.location || null,
+  notes: data.notes || null,
+  activityType: data.activityType || null,
+  id_totem: data.id_totem || null,
+  registroTipo: data.registroTipo || 'entrada_manana',
+  justificationReason: data.justificationReason || ''
+};
+
 
       console.log("📤 Datos enviados al backend:", body);
 

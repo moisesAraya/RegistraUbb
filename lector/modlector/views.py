@@ -7,10 +7,22 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 import pytz
 
+
+def _ocultar_codigo_qr(codigo_qr):
+    """
+    Oculta el código QR mostrando solo los primeros y últimos caracteres.
+    Ejemplo: abc123...xyz789
+    """
+    if not codigo_qr or len(codigo_qr) <= 8:
+        return "****"
+    return f"{codigo_qr[:4]}...{codigo_qr[-4:]}"
+
+
 def configuracion_totem_view(request):
     """Vista para configurar el totem del dispositivo"""
     totems = Totem.objects.all()
     return render(request, 'lector/configuracion_totem.html', {'totems': totems})
+
 
 @csrf_exempt
 def guardar_totem(request):
@@ -28,6 +40,7 @@ def guardar_totem(request):
             
             return JsonResponse({
                 'success': True,
+                'icon': 'check-circle',
                 'totem': {
                     'id': totem.id_totem,
                     'ubicacion': totem.ubicacion
@@ -37,15 +50,22 @@ def guardar_totem(request):
         except Totem.DoesNotExist:
             return JsonResponse({
                 'success': False,
+                'icon': 'alert-circle',
                 'error': 'Totem no encontrado'
-            })
+            }, status=404)
         except Exception as e:
             return JsonResponse({
                 'success': False,
+                'icon': 'x-circle',
                 'error': 'Error al guardar configuración'
-            })
+            }, status=500)
     
-    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+    return JsonResponse({
+        'success': False,
+        'icon': 'alert-triangle',
+        'error': 'Método no permitido'
+    }, status=405)
+
 
 def lector_qr_view(request):
     """Vista para mostrar la página del lector QR con código de barras"""
@@ -69,6 +89,7 @@ def lector_qr_view(request):
     
     return render(request, 'lector/lector_qr.html', context)
 
+
 @csrf_exempt
 def procesar_qr(request):
     """Procesa el código QR escaneado y solicita PIN"""
@@ -79,8 +100,9 @@ def procesar_qr(request):
             if not totem_id:
                 return JsonResponse({
                     'success': False,
+                    'icon': 'settings',
                     'error': 'Dispositivo no configurado. Configurar totem primero.'
-                })
+                }, status=400)
             
             data = json.loads(request.body)
             codigo_qr = data.get('codigo_qr')
@@ -89,27 +111,39 @@ def procesar_qr(request):
             qr_obj = get_object_or_404(QR, codigo_unico=codigo_qr, estado_qr=True)
             usuario = qr_obj.rut_usuario
             
+            # Ocultar el código QR para no mostrarlo completo
+            codigo_oculto = _ocultar_codigo_qr(codigo_qr)
+            
             return JsonResponse({
                 'success': True,
+                'icon': 'user-check',
                 'usuario': {
                     'rut': usuario.rut_usuario,
                     'nombre': f"{usuario.first_name} {usuario.last_name}",
-                    'cargo': usuario.id_cargo.nombre_cargo if usuario.id_cargo else 'Sin cargo'
+                    'cargo': usuario.id_cargo.nombre_cargo if usuario.id_cargo else 'Sin cargo',
+                    'codigo_visual': codigo_oculto
                 }
             })
             
         except QR.DoesNotExist:
             return JsonResponse({
                 'success': False,
+                'icon': 'x-circle',
                 'error': 'Código QR no válido o inactivo'
-            })
+            }, status=404)
         except Exception as e:
             return JsonResponse({
                 'success': False,
+                'icon': 'alert-octagon',
                 'error': 'Error al procesar el código QR'
-            })
+            }, status=500)
     
-    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+    return JsonResponse({
+        'success': False,
+        'icon': 'alert-triangle',
+        'error': 'Método no permitido'
+    }, status=405)
+
 
 @csrf_exempt
 def verificar_pin(request):
@@ -121,8 +155,9 @@ def verificar_pin(request):
             if not totem_id:
                 return JsonResponse({
                     'success': False,
+                    'icon': 'settings',
                     'error': 'Dispositivo no configurado'
-                })
+                }, status=400)
             
             data = json.loads(request.body)
             codigo_qr = data.get('codigo_qr')
@@ -134,10 +169,12 @@ def verificar_pin(request):
             
             # Verificar si el usuario está bloqueado
             if usuario.bloqueado_hasta and usuario.bloqueado_hasta > timezone.now():
+                tiempo_restante = (usuario.bloqueado_hasta - timezone.now()).seconds // 60 + 1
                 return JsonResponse({
                     'success': False,
-                    'error': f'Usuario bloqueado hasta {usuario.bloqueado_hasta.strftime("%H:%M:%S")}'
-                })
+                    'icon': 'lock',
+                    'error': f'Usuario bloqueado. Tiempo restante: {tiempo_restante} minuto(s)'
+                }, status=403)
             
             # Verificar PIN
             if usuario.pin == pin_ingresado:
@@ -170,6 +207,7 @@ def verificar_pin(request):
                     # No hay marcajes hoy, es el primer ingreso
                     tipo_marcaje = 'ingreso'
                     crear_nuevo_marcaje = True
+                    icon = 'log-in'
                 else:
                     # Hay marcajes previos, verificar el último
                     ultimo_marcaje = marcajes_hoy.last()
@@ -180,10 +218,12 @@ def verificar_pin(request):
                         ultimo_marcaje.save()
                         tipo_marcaje = 'salida'
                         crear_nuevo_marcaje = False
+                        icon = 'log-out'
                     else:
                         # El último marcaje ya tiene salida, es un nuevo ingreso
                         tipo_marcaje = 'ingreso'
                         crear_nuevo_marcaje = True
+                        icon = 'log-in'
                 
                 # Crear nuevo marcaje si es necesario
                 if crear_nuevo_marcaje:
@@ -208,13 +248,14 @@ def verificar_pin(request):
                 
                 return JsonResponse({
                     'success': True,
+                    'icon': icon,
                     'tipo_marcaje': tipo_marcaje,
                     'numero_marcaje': numero_marcaje,
                     'usuario': f"{usuario.first_name} {usuario.last_name}",
                     'hora': ahora.strftime("%H:%M:%S"),
                     'fecha': fecha_hoy.strftime("%d/%m/%Y"),
                     'total_marcajes_hoy': total_marcajes_hoy,
-                    'timezone_info': str(ahora.tzinfo),  # Para debug
+                    'totem': totem.ubicacion
                 })
             
             else:
@@ -230,33 +271,43 @@ def verificar_pin(request):
                     usuario.save()
                     return JsonResponse({
                         'success': False,
+                        'icon': 'lock',
                         'error': 'PIN incorrecto. Usuario bloqueado por 5 minutos'
-                    })
+                    }, status=403)
                 else:
                     usuario.save()
                     intentos_restantes = 3 - usuario.intentos_pin
                     return JsonResponse({
                         'success': False,
+                        'icon': 'alert-circle',
                         'error': f'PIN incorrecto. Intentos restantes: {intentos_restantes}'
-                    })
+                    }, status=401)
                     
         except QR.DoesNotExist:
             return JsonResponse({
                 'success': False,
+                'icon': 'x-circle',
                 'error': 'Código QR no válido'
-            })
+            }, status=404)
         except Totem.DoesNotExist:
             return JsonResponse({
                 'success': False,
+                'icon': 'alert-triangle',
                 'error': 'Totem no encontrado'
-            })
+            }, status=404)
         except Exception as e:
             return JsonResponse({
                 'success': False,
-                'error': f'Error interno del servidor: {str(e)}'
-            })
+                'icon': 'alert-octagon',
+                'error': 'Error interno del servidor'
+            }, status=500)
     
-    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+    return JsonResponse({
+        'success': False,
+        'icon': 'alert-triangle',
+        'error': 'Método no permitido'
+    }, status=405)
+
 
 @csrf_exempt
 def obtener_marcajes_usuario(request):
@@ -283,9 +334,6 @@ def obtener_marcajes_usuario(request):
                 fecha=fecha_hoy
             ).order_by('createdAt')
             
-            # Configurar zona horaria de Chile para mostrar las horas correctamente
-            chile_tz = pytz.timezone('America/Santiago')
-            
             historial = []
             for i, marcaje in enumerate(marcajes_hoy, 1):
                 # Convertir las horas a zona horaria de Chile antes de formatear
@@ -296,11 +344,14 @@ def obtener_marcajes_usuario(request):
                     'numero': i,
                     'ingreso': hora_ingreso_chile.strftime("%H:%M:%S") if hora_ingreso_chile else None,
                     'salida': hora_salida_chile.strftime("%H:%M:%S") if hora_salida_chile else None,
-                    'completo': marcaje.hora_salida is not None
+                    'completo': marcaje.hora_salida is not None,
+                    'icon_ingreso': 'log-in',
+                    'icon_salida': 'log-out' if marcaje.hora_salida else 'clock'
                 })
             
             return JsonResponse({
                 'success': True,
+                'icon': 'list',
                 'marcajes': historial,
                 'total': len(historial)
             })
@@ -308,14 +359,24 @@ def obtener_marcajes_usuario(request):
         except Exception as e:
             return JsonResponse({
                 'success': False,
+                'icon': 'x-circle',
                 'error': 'Error al obtener marcajes'
-            })
+            }, status=500)
     
-    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+    return JsonResponse({
+        'success': False,
+        'icon': 'alert-triangle',
+        'error': 'Método no permitido'
+    }, status=405)
+
 
 def reset_session(request):
     """Reinicia la sesión del lector"""
-    return JsonResponse({'success': True})
+    return JsonResponse({
+        'success': True,
+        'icon': 'refresh-cw'
+    })
+
 
 @csrf_exempt
 def reconfigurar_totem(request):
@@ -325,4 +386,8 @@ def reconfigurar_totem(request):
     if 'totem_nombre' in request.session:
         del request.session['totem_nombre']
     
-    return JsonResponse({'success': True, 'redirect': True})
+    return JsonResponse({
+        'success': True,
+        'redirect': True,
+        'icon': 'settings'
+    })

@@ -42,20 +42,25 @@ const JustificationManager: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       
-      try {
-        await crearJustificacion(formData);
-        setMostrarFormulario(false);
-        
-        // Resetear formulario
-        setFormData({
-          fecha_justificacion: '',
-          motivo: '',
-          descripcion: ''
-        });
-      } catch (err) {
-        console.error('Error guardando justificación:', err);
-      }
-    };
+    try {
+    await crearJustificacion({
+      // El backend ahora acepta cualquiera de los dos, pero mandemos ambos por claridad
+      fecha: formData.fecha_justificacion,
+      fecha_justificacion: formData.fecha_justificacion,
+      motivo: formData.motivo,
+      descripcion: formData.descripcion.trim() || null
+    });
+
+    setMostrarFormulario(false);
+    setFormData({
+      fecha_justificacion: '',
+      motivo: '',
+      descripcion: ''
+    });
+  } catch (err) {
+    console.error('Error guardando justificación:', err);
+  }
+};
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
