@@ -34,17 +34,11 @@ function buildTimestamp(fecha, hora) {
   // Normalizar hora a HH:MM:SS
   const time = hora.length === 5 ? `${hora}:00` : hora;
 
-<<<<<<< HEAD
   // 📌 Forzamos zona horaria Chile (-03:00) para evitar desfase 8 → 5
   const isoWithOffset = `${fecha}T${time}-03:00`;
 
   // Devolvemos un Date; Sequelize lo mapea a timestamptz sin drama
   return new Date(isoWithOffset);
-=======
-    // Construir timestamp con zona horaria de Chile (UTC-3)
-    // Esto asegura que la hora se guarde correctamente en la base de datos
-    return `${fecha}T${time}-03:00`;
->>>>>>> d507211fdafab25cd2047ae7d4ce45c0916a34ee
 }
 
 
@@ -376,7 +370,6 @@ export async function createManualEntryController(req, res) {
       },
     });
 
-<<<<<<< HEAD
     // 🔍 Buscar marcaje ABIERTO (sin hora_salida) ese día
     const marcajeAbierto = await Marcaje.findOne({
       where: {
@@ -385,7 +378,8 @@ export async function createManualEntryController(req, res) {
         hora_salida: null
       },
       order: [["hora_ingreso", "DESC"]],
-=======
+    });
+
     // Crear marcaje
     const nuevoMarcaje = await Marcaje.create({
       hora_ingreso: horaIngresoTS,
@@ -394,7 +388,6 @@ export async function createManualEntryController(req, res) {
       observacion: `Actividad: ${activityType}${notes ? ` | ${notes}` : ''}${location ? ` | ${location}` : ''}`,
       id_totem: totem.id_totem,
       rut_usuario: rutUsuario
->>>>>>> d507211fdafab25cd2047ae7d4ce45c0916a34ee
     });
 
     // Helper: ver si este registro es de salida
@@ -471,20 +464,12 @@ export async function createManualEntryController(req, res) {
 
     return res.status(201).json({
       success: true,
-<<<<<<< HEAD
       message: "Marcaje manual registrado correctamente",
       data: {
         id_marcaje: marcajeFinal.id_marcaje,
         fecha: marcajeFinal.fecha,
         hora_ingreso: marcajeFinal.hora_ingreso,
         hora_salida: marcajeFinal.hora_salida
-=======
-      message: "Asistencia manual registrada correctamente",
-      data: {
-        marcaje: nuevoMarcaje,
-        horas_trabajadas: horasTrabajadas,
-        tuvo_colacion: tuvoColacion
->>>>>>> d507211fdafab25cd2047ae7d4ce45c0916a34ee
       }
     });
 

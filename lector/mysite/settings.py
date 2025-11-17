@@ -104,9 +104,9 @@ if DEBUG:  # DESARROLLO - Base de datos local
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'registra',
-            'USER': 'maraya',
-            'PASSWORD': 'qdgpzkeer8',
+            'NAME': 'RegistraUbb',
+            'USER': 'postgres',
+            'PASSWORD': 'holiwis',
             'HOST': 'localhost',
             'PORT': '5432',
         }

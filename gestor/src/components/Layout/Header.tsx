@@ -36,6 +36,8 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [showNotificaciones, setShowNotificaciones] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [fotoPerfilUrl, setFotoPerfilUrl] = useState<string | null>(null);
+
   // Obtener notificaciones reales del backend
   useEffect(() => {
     const fetchNotificaciones = async () => {
@@ -68,16 +70,18 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
         if (json.success && json.url) {
           setLogoUrl(json.url);
         } else {
-          // Fallback: intentar acceso directo a MinIO
-          // Reemplaza MINIO_IP:PORT con tu IP de MinIO
-          const directUrl = `${import.meta.env.VITE_MINIO_ENDPOINT || 'http://localhost:9000'}/${LOGO_BUCKET}/${LOGO_FILENAME}`;
+          // Fallback: intento directo a MinIO
+          const directUrl = `${
+            import.meta.env.VITE_MINIO_ENDPOINT || 'http://localhost:9000'
+          }/${LOGO_BUCKET}/${LOGO_FILENAME}`;
           console.log('🔄 Intentando acceso directo al logo:', directUrl);
           setLogoUrl(directUrl);
         }
       } catch (error) {
         console.error('❌ Error obteniendo logo:', error);
-        // Fallback: intentar acceso directo a MinIO
-        const directUrl = `${import.meta.env.VITE_MINIO_ENDPOINT || 'http://localhost:9000'}/${LOGO_BUCKET}/${LOGO_FILENAME}`;
+        const directUrl = `${
+          import.meta.env.VITE_MINIO_ENDPOINT || 'http://localhost:9000'
+        }/${LOGO_BUCKET}/${LOGO_FILENAME}`;
         console.log('🔄 Intentando acceso directo al logo (fallback):', directUrl);
         setLogoUrl(directUrl);
       }
@@ -85,37 +89,45 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
     fetchLogo();
   }, []);
 
-<<<<<<< HEAD
-  // Obtener foto de perfil desde el backend / MinIO (si está habilitado)
+  // Obtener foto de perfil desde backend / MinIO
   useEffect(() => {
-    if (import.meta.env.VITE_ENABLE_MINIO === 'true') {
-      const fetchFotoPerfil = async () => {
-        try {
-          // Some User types may not expose `rut_usuario` — try common fallbacks and cast to any to avoid TS errors.
-          const rut = (user as any).rut_usuario ?? (user as any).rut ?? user.email ?? '';
-          if (!rut) {
-            setFotoPerfilUrl(null);
-            return;
-          }
+    if (import.meta.env.VITE_ENABLE_MINIO !== 'true') {
+      setFotoPerfilUrl(null);
+      return;
+    }
 
-          const res = await fetch(
-            `${import.meta.env.VITE_API_URL}/profile/foto-perfil-url/${encodeURIComponent(rut)}`
-          );
-          const json = await res.json();
-          setFotoPerfilUrl(json.success && json.foto_url ? json.foto_url : null);
-        } catch {
+    const fetchFotoPerfil = async () => {
+      try {
+        const rut =
+          (user as any).rut_usuario ??
+          (user as any).rut ??
+          user.email ??
+          '';
+
+        if (!rut) {
+          setFotoPerfilUrl(null);
+          return;
+        }
+
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/profile/foto-perfil-url/${encodeURIComponent(rut)}`
+        );
+        const json = await res.json();
+
+        if (json.success && json.foto_url) {
+          setFotoPerfilUrl(json.foto_url);
+        } else {
           setFotoPerfilUrl(null);
         }
-      };
+      } catch (err) {
+        console.error('❌ Error obteniendo foto de perfil:', err);
+        setFotoPerfilUrl(null);
+      }
+    };
 
-      fetchFotoPerfil();
-    } else {
-      setFotoPerfilUrl(null);
-    }
+    fetchFotoPerfil();
   }, [user]);
 
-=======
->>>>>>> d507211fdafab25cd2047ae7d4ce45c0916a34ee
   const getRoleLabel = (id_rol: number) => {
     const roles = {
       1: 'Administrador',
@@ -135,7 +147,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
   };
 
   const nombreCompleto = `${user.nombres || ''} ${user.apellidos || ''}`.trim();
-
   const unreadCount = notificaciones.filter(n => !n.leida).length;
 
   return (
@@ -150,7 +161,8 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
             >
               {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
-            {/* Logo desde MinIO - Más grande y sin burbuja */}
+
+            {/* Logo desde MinIO */}
             <div className="hidden lg:flex items-center">
               {logoUrl ? (
                 <img
@@ -183,7 +195,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
                   </span>
                 )}
               </button>
-              {/* Dropdown de notificaciones */}
+
               {showNotificaciones && (
                 <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 py-2 z-50 max-h-96 overflow-y-auto">
                   <div className="px-4 py-2 border-b border-slate-100 font-semibold text-slate-900">
@@ -228,16 +240,18 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
                   </span>
                 </div>
               </div>
+
               {/* User Avatar */}
               <div className="relative">
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                   className="flex items-center space-x-2 p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-200"
                 >
-                  <UserAvatar 
-                    nombres={user.nombres} 
-                    apellidos={user.apellidos} 
+                  <UserAvatar
+                    nombres={user.nombres}
+                    apellidos={user.apellidos}
                     rut_usuario={user.rut_usuario}
+                    // fotoUrl={fotoPerfilUrl} // si tu componente lo soporta
                     size="sm"
                     className="bg-gradient-to-br from-slate-500 to-slate-600 text-white shadow-md border border-slate-200"
                   />
@@ -247,14 +261,15 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
                     }`}
                   />
                 </button>
-                {/* Dropdown Menu */}
+
                 {isUserMenuOpen && (
                   <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-2xl border border-slate-200 py-2 z-50">
                     <div className="px-4 py-3 border-b border-slate-100 flex items-center space-x-3">
-                      <UserAvatar 
-                        nombres={user.nombres} 
-                        apellidos={user.apellidos} 
+                      <UserAvatar
+                        nombres={user.nombres}
+                        apellidos={user.apellidos}
                         rut_usuario={user.rut_usuario}
+                        // fotoUrl={fotoPerfilUrl} // si tu componente lo soporta
                         size="md"
                         className="bg-gradient-to-br from-slate-500 to-slate-600 text-white shadow-md border border-slate-200"
                       />
@@ -280,8 +295,8 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
                           className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
                           onClick={() => setIsUserMenuOpen(false)}
                         >
-                          <HelpCircle className="w-4 h-4 text-slate-500" />
-                          <span>Ayuda</span>
+                            <HelpCircle className="w-4 h-4 text-slate-500" />
+                            <span>Ayuda</span>
                         </button>
                       </Link>
                     </div>
@@ -304,10 +319,11 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
 
             {/* User avatar - Mobile */}
             <div className="sm:hidden flex items-center space-x-2">
-              <UserAvatar 
-                nombres={user.nombres} 
-                apellidos={user.apellidos} 
+              <UserAvatar
+                nombres={user.nombres}
+                apellidos={user.apellidos}
                 rut_usuario={user.rut_usuario}
+                // fotoUrl={fotoPerfilUrl} // si tu componente lo soporta
                 size="sm"
                 className="bg-gradient-to-br from-slate-500 to-slate-600 text-white shadow-md"
               />
@@ -321,6 +337,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
           </div>
         </div>
       </div>
+
       {/* Click outside to close dropdown */}
       {(isUserMenuOpen || showNotificaciones) && (
         <div
