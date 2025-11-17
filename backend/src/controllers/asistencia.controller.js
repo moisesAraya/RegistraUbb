@@ -307,6 +307,7 @@ export async function createManualEntryController(req, res) {
     const { 
       date,              // '2025-11-16'
       checkInTime,       // '08:00'
+      checkOutTime,      // '18:00' o null
       activityType,      // 'teaching' | 'research' | ...
       location,
       notes,
@@ -380,18 +381,20 @@ export async function createManualEntryController(req, res) {
       order: [["hora_ingreso", "DESC"]],
     });
 
+    // 🕒 Determinar si es entrada o salida
+    const esSalida = registroTipo && registroTipo.startsWith("salida");
+    const horaIngresoTS = esSalida ? null : timestamp;
+    const horaSalidaTS = esSalida ? timestamp : null;
+
     // Crear marcaje
     const nuevoMarcaje = await Marcaje.create({
       hora_ingreso: horaIngresoTS,
       hora_salida: horaSalidaTS,
       fecha: date,
-      observacion: `Actividad: ${activityType}${notes ? ` | ${notes}` : ''}${location ? ` | ${location}` : ''}`,
-      id_totem: totem.id_totem,
+      observacion: observacion,
+      id_totem: totemManual.id_totem,
       rut_usuario: rutUsuario
     });
-
-    // Helper: ver si este registro es de salida
-    const esSalida = registroTipo && registroTipo.startsWith("salida");
 
     let marcajeFinal;
 
@@ -437,30 +440,28 @@ export async function createManualEntryController(req, res) {
       hora_salida: marcajeFinal.hora_salida
     });
 
-    // ✅ CALCULAR HORAS TRABAJADAS Y CREAR REGISTRO DE ASISTENCIA
+    // ✅ CALCULAR HORAS TRABAJADAS Y CREAR REGISTRO DE ASISTENCIA (solo si hay marcaje completo)
     let horasTrabajadas = 0;
     let tuvoColacion = false;
 
-    if (checkOutTime && checkInTime) {
-      // Calcular horas trabajadas
-      const ingreso = new Date(`${date}T${checkInTime}:00`);
-      const salida = new Date(`${date}T${checkOutTime}:00`);
-      const diffMs = salida.getTime() - ingreso.getTime();
-      horasTrabajadas = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100; // Convertir a horas con 2 decimales
-      
-      // Si trabajó más de 6 horas, asumimos que tuvo colación
+    // Solo calcular horas si el marcaje final tiene tanto entrada como salida
+    if (marcajeFinal.hora_ingreso && marcajeFinal.hora_salida) {
+      const diffMs = marcajeFinal.hora_salida.getTime() - marcajeFinal.hora_ingreso.getTime();
+      horasTrabajadas = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
       tuvoColacion = horasTrabajadas > 6;
+
+      await Asistencia.create({
+        colacion: tuvoColacion,
+        observacion: observacion,
+        horas_diarias: horasTrabajadas,
+        id_marcaje: marcajeFinal.id_marcaje,
+        id_justificacion: null
+      });
+
+      console.log(`✅ [MANUAL-ENTRY] Asistencia creada: ${horasTrabajadas}h, colación: ${tuvoColacion}`);
+    } else {
+      console.log(`ℹ️ [MANUAL-ENTRY] Marcaje parcial registrado, sin cálculo de horas`);
     }
-
-    await Asistencia.create({
-      colacion: tuvoColacion,
-      observacion: `Ingreso manual: ${activityType}${notes ? ` | ${notes}` : ''}`,
-      horas_diarias: horasTrabajadas,
-      id_marcaje: nuevoMarcaje.id_marcaje,
-      id_justificacion: null
-    });
-
-    console.log(`✅ [MANUAL-ENTRY] Asistencia creada: ${horasTrabajadas}h, colación: ${tuvoColacion}`);
 
     return res.status(201).json({
       success: true,
