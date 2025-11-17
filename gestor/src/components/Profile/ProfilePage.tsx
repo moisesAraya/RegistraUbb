@@ -1,6 +1,7 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useAuth } from "../Context/AuthContext";
 import { Camera, Lock, Eye, EyeOff, X } from "lucide-react";
+import { UserAvatar } from "../Common/UserAvatar";
 
 // ✅ Mappings de roles y cargos
 const rolesMap: Record<number, string> = {
@@ -21,8 +22,9 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api"
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(user?.foto_url || null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Estados para cambio de contraseña
@@ -36,6 +38,32 @@ const ProfilePage: React.FC = () => {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+
+  // Cargar imagen del servidor al montar el componente
+  React.useEffect(() => {
+    const loadProfileImage = async () => {
+      if (!user?.rut_usuario) return;
+      
+      setImageLoading(true);
+      try {
+        const response = await fetch(`${API_BASE_URL}/profile/foto-perfil-url/${user.rut_usuario}`);
+        const data = await response.json();
+        
+        if (data.success && data.foto_url) {
+          setPreviewUrl(data.foto_url);
+        } else {
+          setPreviewUrl(null);
+        }
+      } catch (error) {
+        console.error('Error cargando imagen de perfil:', error);
+        setPreviewUrl(null);
+      } finally {
+        setImageLoading(false);
+      }
+    };
+    
+    loadProfileImage();
+  }, [user?.rut_usuario]);
 
   if (!user) {
     return (
@@ -68,13 +96,23 @@ const ProfilePage: React.FC = () => {
       });
       const data = await response.json();
       if (data.success) {
-        setPreviewUrl(data.data.imageUrl);
-        alert("✅ Foto actualizada correctamente");
+        // Recargar la imagen desde el servidor para asegurar que se muestre
+        const imageResponse = await fetch(`${API_BASE_URL}/profile/foto-perfil-url/${user.rut_usuario}`);
+        const imageData = await imageResponse.json();
+        
+        if (imageData.success && imageData.foto_url) {
+          setPreviewUrl(imageData.foto_url);
+          alert("✅ Foto actualizada correctamente");
+        } else {
+          setPreviewUrl(data.data.imageUrl);
+          alert("✅ Foto actualizada correctamente");
+        }
       } else {
         alert("❌ " + data.message);
       }
     } catch (error) {
       console.error("Error subiendo imagen:", error);
+      alert("❌ Error al subir la imagen");
     } finally {
       setLoading(false);
       setSelectedFile(null);
@@ -143,16 +181,29 @@ const ProfilePage: React.FC = () => {
       {/* FOTO DE PERFIL */}
       <div className="flex flex-col items-center gap-4">
         <div className="relative group">
-          {previewUrl ? (
+          {imageLoading ? (
+            <div className="w-32 h-32 bg-gray-200 rounded-full flex items-center justify-center border-4 border-blue-300 shadow-lg">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : previewUrl ? (
             <img
               src={previewUrl}
               alt="Foto de perfil"
               className="w-32 h-32 rounded-full border-4 border-blue-300 shadow-lg object-cover"
+              onError={() => {
+                console.log('Error cargando imagen, mostrando inicial');
+                setPreviewUrl(null);
+              }}
             />
           ) : (
-            <div className="w-32 h-32 bg-gray-200 rounded-full flex items-center justify-center text-5xl text-gray-400 font-bold">
-              {user.nombres?.charAt(0).toUpperCase() || "U"}
-            </div>
+            <UserAvatar
+              nombres={user.nombres}
+              apellidos={user.apellidos}
+              rut_usuario={user.rut_usuario}
+              size="xl"
+              showBorder={true}
+              className="bg-gray-200 text-gray-400"
+            />
           )}
           <button
             type="button"

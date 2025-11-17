@@ -14,6 +14,7 @@ console.log("🎯 [ASISTENCIA-SERVICE] v3 CARGADO (Marcaje + Justificacion, sin 
 function formatTimeToString(value) {
   if (!value) return null;
 
+<<<<<<< HEAD
   // Si ya es string
   if (typeof value === "string") {
     // "HH:MM" → "HH:MM:00"
@@ -27,6 +28,55 @@ function formatTimeToString(value) {
         const h = String(d.getHours()).padStart(2, "0");
         const m = String(d.getMinutes()).padStart(2, "0");
         const s = String(d.getSeconds()).padStart(2, "0");
+=======
+    // Si ya es string en formato HH:MM o HH:MM:SS
+    if (typeof value === "string") {
+        // Si viene como "08:32", lo extiendo a "08:32:00"
+        if (/^\d{2}:\d{2}$/.test(value)) {
+            return value + ":00";
+        }
+
+        // Si viene completo como "08:32:12", lo dejo
+        if (/^\d{2}:\d{2}:\d{2}$/.test(value)) {
+            return value;
+        }
+
+        // Si viene como ISO timestamp (2025-11-11T09:01:00-03:00)
+        if (value.includes("T")) {
+            try {
+                // Extraer directamente la parte de la hora del timestamp
+                const timePart = value.split('T')[1];
+                if (timePart) {
+                    // Remover la zona horaria y obtener HH:MM:SS
+                    const timeOnly = timePart.split(/[+-]/)[0]; // Divide por + o -
+                    return timeOnly.length >= 8 ? timeOnly.substring(0, 8) : timeOnly;
+                }
+                return null;
+            } catch {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    // Si viene como Date
+    if (value instanceof Date) {
+        return value.toLocaleTimeString('es-CL', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+            timeZone: 'America/Santiago'
+        });
+    }
+
+    // Si viene como objeto { hours, minutes }
+    if (typeof value === "object" && value.hours !== undefined) {
+        const h = String(value.hours).padStart(2, "0");
+        const m = String(value.minutes).padStart(2, "0");
+        const s = String(value.seconds || 0).padStart(2, "0");
+>>>>>>> d507211fdafab25cd2047ae7d4ce45c0916a34ee
         return `${h}:${m}:${s}`;
       } catch {
         return null;

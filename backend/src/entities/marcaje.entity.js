@@ -27,6 +27,7 @@ const Marcaje = sequelize.define(
     },
     id_totem: {
       type: DataTypes.INTEGER,
+<<<<<<< HEAD
       allowNull: true, // 👈 puede ser null en marcaje manual
       references: {
         model: "Totems",
@@ -37,11 +38,30 @@ const Marcaje = sequelize.define(
     rut_usuario: {
       type: DataTypes.STRING(30),
       allowNull: false,
+=======
+      allowNull: false,
+      references: {
+        model: 'Totems',
+        key: 'id_totem',
+      },
+    },
+    rut_usuario: {
+      type: DataTypes.STRING(30),
+      allowNull: false,
+      references: {
+        model: 'Usuarios',
+        key: 'rut_usuario',
+      },
+>>>>>>> d507211fdafab25cd2047ae7d4ce45c0916a34ee
     },
   },
   {
     tableName: "Marcajes",
+<<<<<<< HEAD
     timestamps: true, // createdAt / updatedAt
+=======
+    timestamps: true, // ✅ HABILITAR TIMESTAMPS PORQUE LA TABLA LOS REQUIERE
+>>>>>>> d507211fdafab25cd2047ae7d4ce45c0916a34ee
   }
 );
 

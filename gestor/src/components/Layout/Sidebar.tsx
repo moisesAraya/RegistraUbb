@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Context/AuthContext';
 import { useDashboard } from '../../hooks/useDashboard';
+import { UserAvatar } from '../Common/UserAvatar';
 import {
   Home,
   Clock,
@@ -44,35 +45,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
-  const [fotoPerfilUrl, setFotoPerfilUrl] = useState<string | null>(null);
-
-  // ✅ OBTENER FOTO DE PERFIL DESDE MINIO
-  useEffect(() => {
-    if (!user?.rut_usuario) return;
-
-    const fetchFotoPerfil = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/minio/foto-perfil-url/${user.rut_usuario}`,
-          {
-            headers: { Authorization: `Bearer ${token}` }
-          }
-        );
-        const json = await res.json();
-        if (json.success && json.foto_url) {
-          setFotoPerfilUrl(json.foto_url);
-        } else {
-          setFotoPerfilUrl(null);
-        }
-      } catch (error) {
-        console.error('Error cargando foto de perfil:', error);
-        setFotoPerfilUrl(null);
-      }
-    };
-
-    fetchFotoPerfil();
-  }, [user?.rut_usuario]);
 
   const getRoleName = (id_rol: number): string => {
     const roles: { [key: number]: string } = {
@@ -274,7 +246,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const menuItems = getMenuItems();
   const roleInfo = user ? getRoleInfo(user.id_rol) : getRoleInfo(3);
   const nombreCompleto = user ? `${user.nombres || ''} ${user.apellidos || ''}`.trim() : '';
-  const initials = user ? `${user.nombres?.charAt(0) || ''}${user.apellidos?.charAt(0) || ''}`.toUpperCase() : 'U';
 
   // ✅ DATOS REALES DEL DASHBOARD
   const attendanceRate =
@@ -305,20 +276,12 @@ const Sidebar: React.FC<SidebarProps> = ({
         {/* Header del sidebar - Info del usuario con foto */}
         <div className="bg-gradient-to-br from-slate-50 to-slate-100 border-b border-slate-200 p-6 mt-16 lg:mt-0 flex-shrink-0">
           <div className="flex items-center space-x-4">
-            {/* ✅ FOTO DE PERFIL DESDE MINIO */}
-            {fotoPerfilUrl ? (
-              <img
-                src={fotoPerfilUrl}
-                alt="Foto de perfil"
-                className="w-14 h-14 rounded-xl object-cover shadow-lg border-2 border-white"
-              />
-            ) : (
-              <div className={`w-14 h-14 bg-gradient-to-r ${roleInfo.color} rounded-xl flex items-center justify-center text-white shadow-lg`}>
-                <div className="text-xl font-bold">
-                  {initials}
-                </div>
-              </div>
-            )}
+            {/* ✅ USANDO EL COMPONENTE USERAVATAR */}
+            <UserAvatar 
+              user={user} 
+              size="lg"
+              className="shadow-lg border-2 border-white"
+            />
             
             <div className="flex-1 min-w-0">
               <p className="text-lg font-bold text-slate-900 truncate">

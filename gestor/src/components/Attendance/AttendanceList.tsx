@@ -17,6 +17,8 @@ const AttendanceList: React.FC = () => {
 
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [dateFilter, setDateFilter] = useState('');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
   useEffect(() => {
     console.log('🔄 AttendanceList - useEffect ejecutado con:', { selectedMonth, selectedYear });
@@ -64,6 +66,30 @@ const AttendanceList: React.FC = () => {
     }
   };
 
+  // Función para filtrar y ordenar asistencias
+  const getFilteredAndSortedAsistencias = () => {
+    if (!asistenciaData?.asistencias) return [];
+    
+    let filtered = asistenciaData.asistencias;
+    
+    // Filtrar por fecha si hay filtro
+    if (dateFilter) {
+      filtered = filtered.filter(asistencia => asistencia.fecha === dateFilter);
+    }
+    
+    // Ordenar
+    return filtered.sort((a, b) => {
+      const fechaA = new Date(a.fecha + 'T' + (a.horaIngreso || '00:00:00'));
+      const fechaB = new Date(b.fecha + 'T' + (b.horaIngreso || '00:00:00'));
+      
+      if (sortOrder === 'desc') {
+        return fechaB.getTime() - fechaA.getTime();
+      } else {
+        return fechaA.getTime() - fechaB.getTime();
+      }
+    });
+  };
+
   // ✅ FORMATO: "16 Nov" - Sin problemas de zona horaria
   const formatDate = (dateString: string) => {
     const [year, month, day] = dateString.split('-').map(Number);
@@ -71,9 +97,10 @@ const AttendanceList: React.FC = () => {
     return `${day} ${months[month - 1]}`;
   };
 
-  // ✅ FORMATO: "00:30" desde "00:30:00" o timestamp
+  // ✅ FORMATO: "09:01" desde "09:01:00" o timestamp
   const formatTime = (timeString: string | null) => {
     if (!timeString) return '-';
+<<<<<<< HEAD
 
     if (timeString.includes('T')) {
       const date = new Date(timeString);
@@ -82,6 +109,14 @@ const AttendanceList: React.FC = () => {
         minute: '2-digit',
         hour12: false
       });
+=======
+    
+    // Si viene como timestamp ISO, extraer solo la hora
+    if (timeString.includes('T')) {
+      // Extraer la parte de la hora del timestamp (ej: "2025-11-11T09:01:00-03:00" -> "09:01")
+      const timePart = timeString.split('T')[1];
+      return timePart ? timePart.substring(0, 5) : '-';
+>>>>>>> d507211fdafab25cd2047ae7d4ce45c0916a34ee
     }
 
     return timeString.substring(0, 5);
@@ -294,15 +329,53 @@ const AttendanceList: React.FC = () => {
       {/* Lista de asistencias + justificadas */}
       <div className="bg-white shadow overflow-hidden sm:rounded-md">
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-            Registro Detallado
-            {asistenciaData?.periodo && (
-              <span className="text-sm text-gray-500 ml-2">
-                ({asistenciaData.periodo.mes}/{asistenciaData.periodo.anio})
-              </span>
-            )}
-          </h3>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+            <h3 className="text-lg leading-6 font-medium text-gray-900">
+              Registro Detallado
+              {asistenciaData?.periodo && (
+                <span className="text-sm text-gray-500 ml-2">
+                  ({asistenciaData.periodo.mes}/{asistenciaData.periodo.anio})
+                </span>
+              )}
+            </h3>
+            
+            {/* Controles de filtro y ordenamiento */}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Filtro por fecha */}
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-gray-500" />
+                <input
+                  type="date"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Filtrar por fecha"
+                />
+                {dateFilter && (
+                  <button
+                    onClick={() => setDateFilter('')}
+                    className="text-gray-400 hover:text-gray-600"
+                    title="Limpiar filtro"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              
+              {/* Ordenamiento */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                  className="flex items-center gap-1 px-3 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <TrendingUp className="h-4 w-4" />
+                  {sortOrder === 'desc' ? 'Más reciente' : 'Más antiguo'}
+                </button>
+              </div>
+            </div>
+          </div>
 
+<<<<<<< HEAD
           {allRegistros && allRegistros.length > 0 ? (
             <ul className="divide-y divide-gray-200">
               {allRegistros.map((asistencia: any, index: number) => {
@@ -361,9 +434,45 @@ const AttendanceList: React.FC = () => {
                           )}`}
                         >
                           {estado.replace('_', ' ')}
+=======
+          {(() => {
+            const filteredAsistencias = getFilteredAndSortedAsistencias();
+            console.log('📊 AttendanceList - Datos de asistencia:', {
+              asistenciaData,
+              hasAsistencias: asistenciaData?.asistencias,
+              asistenciasLength: asistenciaData?.asistencias?.length,
+              filteredLength: filteredAsistencias.length,
+              dateFilter,
+              sortOrder,
+              period: asistenciaData?.periodo
+            });
+            
+            return filteredAsistencias.length > 0 ? (
+              <ul className="divide-y divide-gray-200">
+                {filteredAsistencias.map((asistencia, index) => (
+                <li key={index} className="py-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-4">
+                    <div className="flex-shrink-0">
+                      {getStatusIcon(asistencia.estado)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900">
+                        {formatDate(asistencia.fecha)}
+                      </p>
+                      <div className="flex flex-wrap items-center mt-1 gap-x-4 gap-y-1">
+                        <span className="text-sm text-gray-500">
+                          Ingreso: {formatTime(asistencia.horaIngreso)}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          Salida: {formatTime(asistencia.horaSalida)}
+                        </span>
+                        <span className="text-sm font-semibold text-gray-700">
+                          Total: {asistencia.horasTrabajadas}h
+>>>>>>> d507211fdafab25cd2047ae7d4ce45c0916a34ee
                         </span>
                       </div>
                     </div>
+<<<<<<< HEAD
                   </li>
                 );
               })}
@@ -377,6 +486,44 @@ const AttendanceList: React.FC = () => {
               </p>
             </div>
           )}
+=======
+                    <div className="flex-shrink-0 mt-2 sm:mt-0">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${getStatusColor(
+                          asistencia.estado
+                        )}`}
+                      >
+                        {asistencia.estado}
+                      </span>
+                    </div>
+                  </div>
+                </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="text-center py-8">
+                <Calendar className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-sm font-medium text-gray-900">
+                  {dateFilter ? 'No hay registros para esta fecha' : 'No hay registros'}
+                </h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  {dateFilter 
+                    ? `No se encontraron registros para ${formatDate(dateFilter)}.`
+                    : 'No se encontraron registros de asistencia para este período.'
+                  }
+                </p>
+                {dateFilter && (
+                  <button
+                    onClick={() => setDateFilter('')}
+                    className="mt-3 text-blue-600 hover:text-blue-500 text-sm font-medium"
+                  >
+                    Mostrar todos los registros
+                  </button>
+                )}
+              </div>
+            );
+          })()}
+>>>>>>> d507211fdafab25cd2047ae7d4ce45c0916a34ee
         </div>
       </div>
     </div>

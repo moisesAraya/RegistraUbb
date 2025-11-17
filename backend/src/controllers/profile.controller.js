@@ -1,27 +1,7 @@
-// Endpoint para obtener la URL de la foto de perfil
-export async function getProfilePhotoUrlController(req, res) {
-  try {
-    const { rut_usuario } = req.params;
-    if (!rut_usuario) {
-      return res.status(400).json({ success: false, message: "Falta rut_usuario" });
-    }
-    const usuario = await Usuario.findOne({ where: { rut_usuario } });
-    if (!usuario) {
-      return res.status(404).json({ success: false, message: "Usuario no encontrado" });
-    }
-    return res.status(200).json({
-      success: true,
-      foto_url: usuario.foto_url || null
-    });
-  } catch (error) {
-    console.error("💥 Error en getProfilePhotoUrlController:", error);
-    res.status(500).json({ success: false, message: "Error interno del servidor" });
-  }
-}
 import multer from "multer";
-import { uploadProfileImage } from "../services/minio.service.js";
+import { uploadProfileImage, getProfileImageUrl } from "../services/minio.service.js";
 import Usuario from "../entities/usuario.entity.js";
-import { hashPassword, comparePassword } from "../helpers/bcrypt.helper.js";
+import { encryptPassword, comparePassword } from "../helpers/bcrypt.helper.js";
 
 const upload = multer({ dest: "uploads/" });
 
@@ -30,28 +10,47 @@ export const uploadMiddleware = upload.single("foto");
 // Controlador para subir foto
 export async function uploadProfilePictureController(req, res) {
   try {
+    console.log('📸 [UPLOAD] Iniciando upload de foto de perfil');
+    
     const { rut_usuario } = req.params;
     const file = req.file;
 
+    console.log('📸 [UPLOAD] Datos recibidos:', {
+      rut_usuario,
+      file: file ? {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
+        path: file.path
+      } : null
+    });
+
     if (!file) {
+      console.log('❌ [UPLOAD] No se envió archivo');
       return res.status(400).json({ success: false, message: "No se envió ninguna imagen" });
     }
 
+    console.log('📤 [UPLOAD] Llamando a uploadProfileImage...');
     const [imageUrl, error] = await uploadProfileImage(file, rut_usuario);
+    
     if (error) {
+      console.log('❌ [UPLOAD] Error en uploadProfileImage:', error);
       return res.status(500).json({ success: false, message: error });
     }
 
+    console.log('💾 [UPLOAD] Guardando URL en base de datos:', imageUrl);
     // Guardar URL en el usuario
     await Usuario.update({ foto_url: imageUrl }, { where: { rut_usuario } });
 
+    console.log('✅ [UPLOAD] Upload completado exitosamente');
     return res.status(200).json({
       success: true,
       message: "Foto de perfil actualizada correctamente",
       data: { imageUrl },
     });
   } catch (error) {
-    console.error("💥 Error en uploadProfilePictureController:", error);
+    console.error("💥 [UPLOAD] Error en uploadProfilePictureController:", error);
+    console.error("💥 [UPLOAD] Stack:", error.stack);
     res.status(500).json({ success: false, message: "Error interno del servidor" });
   }
 }
@@ -95,7 +94,7 @@ export async function changePasswordController(req, res) {
     }
 
     // Hashear y actualizar
-    const hashedPassword = await hashPassword(newPassword);
+    const hashedPassword = await encryptPassword(newPassword);
     await Usuario.update(
       { password: hashedPassword },
       { where: { rut_usuario } }
@@ -111,5 +110,54 @@ export async function changePasswordController(req, res) {
       success: false, 
       message: "Error interno del servidor" 
     });
+  }
+}
+
+// Endpoint para obtener la URL de la foto de perfil
+export async function getProfilePhotoUrlController(req, res) {
+  try {
+    const { rut_usuario } = req.params;
+    if (!rut_usuario) {
+      return res.status(400).json({ success: false, message: "Falta rut_usuario" });
+    }
+    
+    console.log('🔍 [PROFILE] Obteniendo foto para RUT:', rut_usuario);
+    
+    // Primero intentar obtener desde base de datos
+    const usuario = await Usuario.findOne({ where: { rut_usuario } });
+    if (!usuario) {
+      return res.status(404).json({ success: false, message: "Usuario no encontrado" });
+    }
+    
+    // Si hay URL en BD, usarla
+    if (usuario.foto_url) {
+      console.log('✅ [PROFILE] URL encontrada en BD:', usuario.foto_url);
+      return res.status(200).json({
+        success: true,
+        foto_url: usuario.foto_url
+      });
+    }
+    
+    // Si no hay URL en BD, buscar en MinIO directamente
+    const [imageUrl, error] = await getProfileImageUrl(rut_usuario);
+    
+    if (imageUrl) {
+      console.log('✅ [PROFILE] URL encontrada en MinIO:', imageUrl);
+      // Actualizar BD con la URL encontrada
+      await Usuario.update({ foto_url: imageUrl }, { where: { rut_usuario } });
+      return res.status(200).json({
+        success: true,
+        foto_url: imageUrl
+      });
+    }
+    
+    console.log('📭 [PROFILE] No se encontró foto para RUT:', rut_usuario);
+    return res.status(200).json({
+      success: true,
+      foto_url: null
+    });
+  } catch (error) {
+    console.error("💥 Error en getProfilePhotoUrlController:", error);
+    res.status(500).json({ success: false, message: "Error interno del servidor" });
   }
 }

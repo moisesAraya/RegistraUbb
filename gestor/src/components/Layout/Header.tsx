@@ -1,7 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { User, LogOut, Bell, Menu, X, ChevronDown, HelpCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import type { User as UserType } from '../../types';
+import { UserAvatar } from '../Common/UserAvatar';
+
+// ✅ Interfaz correcta del Usuario
+interface UserType {
+  rut_usuario: string;
+  nombres: string;
+  apellidos: string;
+  email: string;
+  id_rol: number;
+  id_cargo: number;
+  horas_atrabajar?: number;
+}
 
 interface HeaderProps {
   user: UserType;
@@ -17,16 +28,14 @@ interface Notificacion {
   fecha: string;
 }
 
-const LOGO_FILENAME = 'logo-registraubb.png'; // nombre en MinIO
-const LOGO_BUCKET = 'logos';
+const LOGO_FILENAME = 'logo_registraubb.png'; // nombre en MinIO
+const LOGO_BUCKET = 'registraubb';
 
 const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggleSidebar }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [showNotificaciones, setShowNotificaciones] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [fotoPerfilUrl, setFotoPerfilUrl] = useState<string | null>(null);
-
   // Obtener notificaciones reales del backend
   useEffect(() => {
     const fetchNotificaciones = async () => {
@@ -59,15 +68,24 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
         if (json.success && json.url) {
           setLogoUrl(json.url);
         } else {
-          setLogoUrl(null);
+          // Fallback: intentar acceso directo a MinIO
+          // Reemplaza MINIO_IP:PORT con tu IP de MinIO
+          const directUrl = `${import.meta.env.VITE_MINIO_ENDPOINT || 'http://localhost:9000'}/${LOGO_BUCKET}/${LOGO_FILENAME}`;
+          console.log('🔄 Intentando acceso directo al logo:', directUrl);
+          setLogoUrl(directUrl);
         }
-      } catch {
-        setLogoUrl(null);
+      } catch (error) {
+        console.error('❌ Error obteniendo logo:', error);
+        // Fallback: intentar acceso directo a MinIO
+        const directUrl = `${import.meta.env.VITE_MINIO_ENDPOINT || 'http://localhost:9000'}/${LOGO_BUCKET}/${LOGO_FILENAME}`;
+        console.log('🔄 Intentando acceso directo al logo (fallback):', directUrl);
+        setLogoUrl(directUrl);
       }
     };
     fetchLogo();
   }, []);
 
+<<<<<<< HEAD
   // Obtener foto de perfil desde el backend / MinIO (si está habilitado)
   useEffect(() => {
     if (import.meta.env.VITE_ENABLE_MINIO === 'true') {
@@ -96,6 +114,8 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
     }
   }, [user]);
 
+=======
+>>>>>>> d507211fdafab25cd2047ae7d4ce45c0916a34ee
   const getRoleLabel = (id_rol: number) => {
     const roles = {
       1: 'Administrador',
@@ -114,11 +134,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
     return colors[id_rol as keyof typeof colors] || 'bg-slate-50 text-slate-700 border-slate-200';
   };
 
-  const getInitials = (nombres?: string, apellidos?: string) => {
-    const initials = `${nombres?.charAt(0) || ''}${apellidos?.charAt(0) || ''}`.toUpperCase();
-    return initials || 'U';
-  };
-
   const nombreCompleto = `${user.nombres || ''} ${user.apellidos || ''}`.trim();
 
   const unreadCount = notificaciones.filter(n => !n.leida).length;
@@ -135,27 +150,21 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
             >
               {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
-            {/* Logo desde MinIO */}
-            <div className="hidden lg:flex items-center space-x-3">
+            {/* Logo desde MinIO - Más grande y sin burbuja */}
+            <div className="hidden lg:flex items-center">
               {logoUrl ? (
                 <img
                   src={logoUrl}
                   alt="Logo RegistraUBB"
-                  className="w-10 h-10 object-contain rounded-lg shadow-md bg-white"
-                  style={{ background: '#fff' }}
+                  className="h-12 w-auto object-contain"
                 />
               ) : (
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-md">
-                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
                   </svg>
                 </div>
               )}
-              <div>
-                <h1 className="text-lg font-bold text-slate-900 leading-tight">
-                  RegistraUBB
-                </h1>
-              </div>
             </div>
           </div>
 
@@ -225,17 +234,13 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                   className="flex items-center space-x-2 p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-200"
                 >
-                  {fotoPerfilUrl ? (
-                    <img
-                      src={fotoPerfilUrl}
-                      alt="Foto de perfil"
-                      className="w-8 h-8 rounded-lg object-cover shadow-md border border-slate-200"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-md">
-                      {getInitials(user.nombres, user.apellidos)}
-                    </div>
-                  )}
+                  <UserAvatar 
+                    nombres={user.nombres} 
+                    apellidos={user.apellidos} 
+                    rut_usuario={user.rut_usuario}
+                    size="sm"
+                    className="bg-gradient-to-br from-slate-500 to-slate-600 text-white shadow-md border border-slate-200"
+                  />
                   <ChevronDown
                     className={`w-4 h-4 transition-transform duration-200 ${
                       isUserMenuOpen ? 'rotate-180' : ''
@@ -246,17 +251,13 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
                 {isUserMenuOpen && (
                   <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-2xl border border-slate-200 py-2 z-50">
                     <div className="px-4 py-3 border-b border-slate-100 flex items-center space-x-3">
-                      {fotoPerfilUrl ? (
-                        <img
-                          src={fotoPerfilUrl}
-                          alt="Foto de perfil"
-                          className="w-10 h-10 rounded-lg object-cover shadow-md border border-slate-200"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg flex items-center justify-center text-white text-lg font-bold shadow-md">
-                          {getInitials(user.nombres, user.apellidos)}
-                        </div>
-                      )}
+                      <UserAvatar 
+                        nombres={user.nombres} 
+                        apellidos={user.apellidos} 
+                        rut_usuario={user.rut_usuario}
+                        size="md"
+                        className="bg-gradient-to-br from-slate-500 to-slate-600 text-white shadow-md border border-slate-200"
+                      />
                       <div>
                         <p className="text-sm font-semibold text-slate-900">{nombreCompleto}</p>
                         <p className="text-xs text-slate-500">
@@ -303,9 +304,13 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
 
             {/* User avatar - Mobile */}
             <div className="sm:hidden flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-md">
-                {getInitials(user.nombres, user.apellidos)}
-              </div>
+              <UserAvatar 
+                nombres={user.nombres} 
+                apellidos={user.apellidos} 
+                rut_usuario={user.rut_usuario}
+                size="sm"
+                className="bg-gradient-to-br from-slate-500 to-slate-600 text-white shadow-md"
+              />
               <button
                 onClick={onLogout}
                 className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-200"

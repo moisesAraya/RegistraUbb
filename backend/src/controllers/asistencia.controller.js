@@ -13,9 +13,11 @@ import {
   getDebugInfo 
 } from '../services/dashboard.service.js';
 
+import { Op } from 'sequelize';
 import Marcaje from '../entities/marcaje.entity.js';
 import RegistroMarcaje from '../entities/registro_marcaje.entity.js';
 import Totem from '../entities/totem.entity.js';
+import Asistencia from '../entities/asistencia.entity.js';
 
 console.log('👤 [ASISTENCIA-CTRL] ✅ CONTROLLER CARGADO ✅');
 console.log('🚀 [DASHBOARD-CONTROLLER] Controller cargado y conectado con service real');
@@ -32,11 +34,17 @@ function buildTimestamp(fecha, hora) {
   // Normalizar hora a HH:MM:SS
   const time = hora.length === 5 ? `${hora}:00` : hora;
 
+<<<<<<< HEAD
   // 📌 Forzamos zona horaria Chile (-03:00) para evitar desfase 8 → 5
   const isoWithOffset = `${fecha}T${time}-03:00`;
 
   // Devolvemos un Date; Sequelize lo mapea a timestamptz sin drama
   return new Date(isoWithOffset);
+=======
+    // Construir timestamp con zona horaria de Chile (UTC-3)
+    // Esto asegura que la hora se guarde correctamente en la base de datos
+    return `${fecha}T${time}-03:00`;
+>>>>>>> d507211fdafab25cd2047ae7d4ce45c0916a34ee
 }
 
 
@@ -368,6 +376,7 @@ export async function createManualEntryController(req, res) {
       },
     });
 
+<<<<<<< HEAD
     // 🔍 Buscar marcaje ABIERTO (sin hora_salida) ese día
     const marcajeAbierto = await Marcaje.findOne({
       where: {
@@ -376,6 +385,16 @@ export async function createManualEntryController(req, res) {
         hora_salida: null
       },
       order: [["hora_ingreso", "DESC"]],
+=======
+    // Crear marcaje
+    const nuevoMarcaje = await Marcaje.create({
+      hora_ingreso: horaIngresoTS,
+      hora_salida: horaSalidaTS,
+      fecha: date,
+      observacion: `Actividad: ${activityType}${notes ? ` | ${notes}` : ''}${location ? ` | ${location}` : ''}`,
+      id_totem: totem.id_totem,
+      rut_usuario: rutUsuario
+>>>>>>> d507211fdafab25cd2047ae7d4ce45c0916a34ee
     });
 
     // Helper: ver si este registro es de salida
@@ -425,14 +444,47 @@ export async function createManualEntryController(req, res) {
       hora_salida: marcajeFinal.hora_salida
     });
 
+    // ✅ CALCULAR HORAS TRABAJADAS Y CREAR REGISTRO DE ASISTENCIA
+    let horasTrabajadas = 0;
+    let tuvoColacion = false;
+
+    if (checkOutTime && checkInTime) {
+      // Calcular horas trabajadas
+      const ingreso = new Date(`${date}T${checkInTime}:00`);
+      const salida = new Date(`${date}T${checkOutTime}:00`);
+      const diffMs = salida.getTime() - ingreso.getTime();
+      horasTrabajadas = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100; // Convertir a horas con 2 decimales
+      
+      // Si trabajó más de 6 horas, asumimos que tuvo colación
+      tuvoColacion = horasTrabajadas > 6;
+    }
+
+    await Asistencia.create({
+      colacion: tuvoColacion,
+      observacion: `Ingreso manual: ${activityType}${notes ? ` | ${notes}` : ''}`,
+      horas_diarias: horasTrabajadas,
+      id_marcaje: nuevoMarcaje.id_marcaje,
+      id_justificacion: null
+    });
+
+    console.log(`✅ [MANUAL-ENTRY] Asistencia creada: ${horasTrabajadas}h, colación: ${tuvoColacion}`);
+
     return res.status(201).json({
       success: true,
+<<<<<<< HEAD
       message: "Marcaje manual registrado correctamente",
       data: {
         id_marcaje: marcajeFinal.id_marcaje,
         fecha: marcajeFinal.fecha,
         hora_ingreso: marcajeFinal.hora_ingreso,
         hora_salida: marcajeFinal.hora_salida
+=======
+      message: "Asistencia manual registrada correctamente",
+      data: {
+        marcaje: nuevoMarcaje,
+        horas_trabajadas: horasTrabajadas,
+        tuvo_colacion: tuvoColacion
+>>>>>>> d507211fdafab25cd2047ae7d4ce45c0916a34ee
       }
     });
 
@@ -609,6 +661,209 @@ export async function getDebug(req, res) {
     return res.status(500).json({
       success: false,
       error: 'Error obteniendo información de debug',
+      details: error.message
+    });
+  }
+}
+
+/**
+ * 🔓 CONTROLLER - VERIFICAR MARCAJE ABIERTO
+ */
+export async function getMarcajeAbiertoController(req, res) {
+  try {
+    const { rut_usuario } = req.params;
+    
+    console.log('🔓 [ASISTENCIA-CTRL] Verificando marcaje abierto para:', rut_usuario);
+    
+    // Obtener la fecha actual
+    const hoy = new Date().toISOString().split('T')[0];
+    console.log('🔓 [ASISTENCIA-CTRL] Fecha de hoy:', hoy);
+    
+    // Buscar marcajes del usuario hoy a través de RegistroMarcaje
+    const registrosMarcaje = await RegistroMarcaje.findAll({
+      where: { rut_usuario },
+      include: [{
+        model: Marcaje,
+        as: 'marcaje',
+        where: {
+          fecha: hoy,
+          [Op.or]: [
+            { hora_salida: null },
+            { hora_salida: { [Op.lt]: new Date('1971-01-01') } } // Considerar fechas de 1970 como marcajes abiertos
+          ]
+        },
+        required: true,
+        order: [['createdAt', 'DESC']]
+      }]
+    });
+
+    console.log('🔓 [ASISTENCIA-CTRL] Registros encontrados:', registrosMarcaje.length);
+    
+    // También buscar todos los marcajes del usuario para debug
+    const todosLosMarcajes = await RegistroMarcaje.findAll({
+      where: { rut_usuario },
+      include: [{
+        model: Marcaje,
+        as: 'marcaje',
+        required: true
+      }]
+    });
+    
+    console.log('🔓 [ASISTENCIA-CTRL] Todos los marcajes del usuario:', todosLosMarcajes.map(r => ({
+      id: r.marcaje.id_marcaje,
+      fecha: r.marcaje.fecha,
+      hora_ingreso: r.marcaje.hora_ingreso,
+      hora_salida: r.marcaje.hora_salida
+    })));
+
+    if (registrosMarcaje.length > 0) {
+      const marcajeAbierto = registrosMarcaje[0].marcaje;
+      
+      // Formatear hora_ingreso como string HH:MM:SS para el frontend
+      const horaIngresoFormatted = marcajeAbierto.hora_ingreso 
+        ? new Date(marcajeAbierto.hora_ingreso).toLocaleTimeString('en-GB', { 
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          })
+        : null;
+      
+      console.log('🔄 [ASISTENCIA-CTRL] Marcaje abierto encontrado:', {
+        id: marcajeAbierto.id_marcaje,
+        fecha: marcajeAbierto.fecha,
+        hora_ingreso_original: marcajeAbierto.hora_ingreso,
+        hora_ingreso_formatted: horaIngresoFormatted
+      });
+
+      return res.status(200).json({
+        success: true,
+        marcaje_abierto: {
+          id_marcaje: marcajeAbierto.id_marcaje,
+          fecha: marcajeAbierto.fecha,
+          hora_ingreso: horaIngresoFormatted,
+          hora_salida: marcajeAbierto.hora_salida,
+          tipo_marcaje: 'ingreso'
+        }
+      });
+    } else {
+      console.log('✅ [ASISTENCIA-CTRL] No hay marcajes abiertos');
+      
+      return res.status(200).json({
+        success: true,
+        marcaje_abierto: null
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ [ASISTENCIA-CTRL] Error verificando marcaje abierto:', error);
+    
+    return res.status(500).json({
+      success: false,
+      error: 'Error verificando marcaje abierto',
+      details: error.message
+    });
+  }
+}
+
+/**
+ * 🔄 CONTROLLER - AGREGAR SALIDA A MARCAJE PENDIENTE
+ */
+export async function agregarSalidaController(req, res) {
+  try {
+    const { id_marcaje, hora_salida, fecha } = req.body;
+    
+    console.log('🔄 [ASISTENCIA-CTRL] Agregando salida a marcaje:', {
+      id_marcaje,
+      hora_salida,
+      fecha
+    });
+    
+    console.log('🔄 [ASISTENCIA-CTRL] Body completo:', req.body);
+    
+    // Validar datos requeridos
+    if (!id_marcaje || !hora_salida || !fecha) {
+      return res.status(400).json({
+        success: false,
+        error: 'Faltan datos requeridos: id_marcaje, hora_salida, fecha'
+      });
+    }
+
+    // Buscar el marcaje
+    const marcaje = await Marcaje.findByPk(id_marcaje);
+    
+    if (!marcaje) {
+      console.log('❌ [ASISTENCIA-CTRL] Marcaje no encontrado:', id_marcaje);
+      return res.status(404).json({
+        success: false,
+        error: 'Marcaje no encontrado'
+      });
+    }
+
+    console.log('🔄 [ASISTENCIA-CTRL] Marcaje encontrado:', {
+      id: marcaje.id_marcaje,
+      hora_salida: marcaje.hora_salida,
+      fecha_hora_salida: new Date(marcaje.hora_salida)
+    });
+
+    // Verificar que el marcaje no tenga salida válida (permitir actualizar fechas de 1970)
+    if (marcaje.hora_salida && new Date(marcaje.hora_salida) > new Date('1971-01-01')) {
+      console.log('❌ [ASISTENCIA-CTRL] Marcaje ya tiene salida válida');
+      return res.status(400).json({
+        success: false,
+        error: 'Este marcaje ya tiene hora de salida registrada'
+      });
+    }
+
+    // Construir timestamp para la salida
+    const horaSalidaTimestamp = buildTimestamp(fecha, hora_salida);
+    
+    // Calcular horas trabajadas
+    // Extraer la hora del objeto Date de marcaje.hora_ingreso
+    const horaIngresoString = new Date(marcaje.hora_ingreso).toLocaleTimeString('en-GB', { 
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+    const horaIngresoTimestamp = buildTimestamp(fecha, horaIngresoString);
+    const ingreso = new Date(horaIngresoTimestamp);
+    const salida = new Date(horaSalidaTimestamp);
+    
+    const diffMs = salida.getTime() - ingreso.getTime();
+    const horas = diffMs / (1000 * 60 * 60);
+    
+    // Actualizar el marcaje
+    // Convertir hora_salida a timestamp del mismo día
+    const horaSalidaForDB = new Date(`${fecha}T${hora_salida}:00`);
+    
+    await marcaje.update({
+      hora_salida: horaSalidaForDB,
+      horas_trabajadas: parseFloat(horas.toFixed(2))
+    });
+
+    console.log('✅ [ASISTENCIA-CTRL] Salida agregada exitosamente:', {
+      id_marcaje,
+      hora_salida,
+      horas_trabajadas: horas.toFixed(2)
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Salida agregada exitosamente',
+      data: {
+        id_marcaje: marcaje.id_marcaje,
+        hora_salida: marcaje.hora_salida,
+        horas_trabajadas: marcaje.horas_trabajadas
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ [ASISTENCIA-CTRL] Error agregando salida:', error);
+    
+    return res.status(500).json({
+      success: false,
+      error: 'Error agregando salida al marcaje',
       details: error.message
     });
   }
