@@ -386,7 +386,7 @@ export async function createManualEntryController(req, res) {
     const horaIngresoTS = esSalida ? null : timestamp;
     const horaSalidaTS = esSalida ? timestamp : null;
 
-    // Crear marcaje
+/*     // Crear marcaje
     const nuevoMarcaje = await Marcaje.create({
       hora_ingreso: horaIngresoTS,
       hora_salida: horaSalidaTS,
@@ -394,7 +394,7 @@ export async function createManualEntryController(req, res) {
       observacion: observacion,
       id_totem: totemManual.id_totem,
       rut_usuario: rutUsuario
-    });
+    }); */
 
     let marcajeFinal;
 
