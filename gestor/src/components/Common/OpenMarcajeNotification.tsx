@@ -13,6 +13,17 @@ export const OpenMarcajeNotification: React.FC = () => {
 
   const formatTime = (timeString: string) => {
     if (!timeString) return '';
+    
+    // Si es un timestamp ISO, extraer solo la hora
+    if (timeString.includes('T') || timeString.includes('-') || timeString.includes('Z')) {
+      const date = new Date(timeString);
+      return date.toLocaleTimeString('es-CL', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false 
+      });
+    }
+    
     // Si viene como HH:MM:SS, tomar solo HH:MM
     return timeString.substring(0, 5);
   };
@@ -39,13 +50,13 @@ export const OpenMarcajeNotification: React.FC = () => {
       const now = new Date();
       console.log('⏰ Hora actual:', now.toLocaleString());
       
-      // Detectar formato de hora
+      // Detectar formato de hora y manejar zona horaria correctamente
       let fechaIngreso: Date;
       
-      if (ingresoTime.includes('T') || ingresoTime.includes('-')) {
-        // Es un timestamp completo (ISO) - caso anterior para compatibilidad
+      if (ingresoTime.includes('T') || ingresoTime.includes('-') || ingresoTime.includes('Z')) {
+        // Es un timestamp completo (ISO) - parsear directamente
         fechaIngreso = new Date(ingresoTime);
-        console.log('📅 Parseando como timestamp ISO');
+        console.log('📅 Parseando como timestamp ISO:', ingresoTime);
       } else {
         // Es hora en formato HH:MM:SS.mmm o HH:MM
         const timeParts = ingresoTime.split(':');
@@ -59,7 +70,7 @@ export const OpenMarcajeNotification: React.FC = () => {
           return { hours: 0, minutes: 0, totalHours: 0, formatted: '0m' };
         }
         
-        // Crear fecha de hoy con la hora de ingreso
+        // Crear fecha de hoy con la hora de ingreso en zona horaria local
         fechaIngreso = new Date();
         fechaIngreso.setHours(hours, minutes, seconds, 0);
         console.log('📅 Parseando como hora HH:MM:SS');

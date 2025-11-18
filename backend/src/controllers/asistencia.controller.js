@@ -705,14 +705,9 @@ export async function getMarcajeAbiertoController(req, res) {
     if (registrosMarcaje.length > 0) {
       const marcajeAbierto = registrosMarcaje[0].marcaje;
       
-      // Formatear hora_ingreso como string HH:MM:SS para el frontend
+      // Enviar la hora como ISO string para que el frontend maneje la zona horaria
       const horaIngresoFormatted = marcajeAbierto.hora_ingreso 
-        ? new Date(marcajeAbierto.hora_ingreso).toLocaleTimeString('en-GB', { 
-            hour12: false,
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-          })
+        ? marcajeAbierto.hora_ingreso
         : null;
       
       console.log('🔄 [ASISTENCIA-CTRL] Marcaje abierto encontrado:', {
