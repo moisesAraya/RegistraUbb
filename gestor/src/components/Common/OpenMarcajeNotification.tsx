@@ -30,6 +30,19 @@ export const OpenMarcajeNotification: React.FC = () => {
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
+    
+    // Si es solo una fecha (YYYY-MM-DD), crear la fecha en zona horaria local para evitar problemas de UTC
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = dateString.split('-').map(Number);
+      const date = new Date(year, month - 1, day); // month es 0-indexado
+      return date.toLocaleDateString('es-CL', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long'
+      });
+    }
+    
+    // Si es un timestamp completo, usar directamente
     const date = new Date(dateString);
     return date.toLocaleDateString('es-CL', {
       weekday: 'long',
