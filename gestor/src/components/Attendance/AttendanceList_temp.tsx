@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Calendar, CheckCircle, XCircle, TrendingUp, BarChart3, Shield } from 'lucide-react';
 import { useAsistencia } from '../../hooks/useAsistencia';
-import ManualAttendanceButton from './ManualAttendanceButton';
 
 const AttendanceList: React.FC = () => {
   const {
@@ -10,7 +9,6 @@ const AttendanceList: React.FC = () => {
     isLoading,
     error,
     refetch,
-    registrarMarcajeManual,
     fetchAsistencia,
     fetchEstadisticas
   } = useAsistencia();
@@ -195,16 +193,7 @@ const AttendanceList: React.FC = () => {
           </div>
         </div>
 
-        {/* Manual Attendance Button */}
-        <div className="mb-6">
-          <ManualAttendanceButton
-            onSuccess={() => {
-              refetch();
-              fetchAsistencia(selectedMonth, selectedYear);
-              fetchEstadisticas(selectedMonth, selectedYear);
-            }}
-          />
-        </div>
+
 
         {/* Records */}
         <div className="space-y-3">

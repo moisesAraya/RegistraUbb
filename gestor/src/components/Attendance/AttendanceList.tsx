@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Calendar, CheckCircle, XCircle, TrendingUp, BarChart3, Shield } from 'lucide-react';
 import { useAsistencia } from '../../hooks/useAsistencia';
-import ManualAttendanceButton from './ManualAttendanceButton';
 
 const AttendanceList: React.FC = () => {
   const {
@@ -212,8 +211,6 @@ const AttendanceList: React.FC = () => {
         </div>
       </div>
 
-      {/* Banner de registro manual */}
-      <ManualAttendanceButton onSubmit={registrarMarcajeManual} />
 
       {/* Resumen de estadísticas */}
       {asistenciaData?.resumen && (

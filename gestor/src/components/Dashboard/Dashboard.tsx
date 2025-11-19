@@ -2,10 +2,16 @@ import React from 'react';
 import { useAuth } from '../Context/AuthContext';
 import PersonalDashboard from './PersonalDashboard';
 import AdminDashboard from './AdminDashboard';
+
+import ManualAttendanceButton from '../Attendance/ManualAttendanceButton';
+import WeeklyAttendanceWidget from '../Dashboard/WeeklyCalendar'; 
+import { useAsistencia } from '../../hooks/useAsistencia';
+
 import { AlertTriangle, Shield, User } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const { registrarMarcajeManual } = useAsistencia();
 
   console.log('🎯 [DASHBOARD-ROUTER] Usuario:', user?.nombres, 'Rol:', user?.id_rol);
 
@@ -26,39 +32,56 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  // ✅ LÓGICA DE ROLES CORREGIDA SEGÚN LOS SEEDERS
+  // ✅ LÓGICA DE ROLES SEGÚN SEEDERS
   const userRole = user.id_rol;
-  
+
   console.log('🔍 [DASHBOARD-ROUTER] Analizando rol:', userRole, 'Tipo:', typeof userRole);
 
-  // ✅ ROLES CORRECTOS SEGÚN EL SEEDER:
   // Rol 1: Administrador
-  // Rol 2: Académico  
+  // Rol 2: Usuario / Académico
   // Rol 3: Desarrollador
-  
-  const isAdministrador = userRole === 1;      // Rol 1 = Administrador
-  const isAcademico = userRole === 2;          // Rol 2 = Académico ✅
-  const isDesarrollador = userRole === 3;      // Rol 3 = Desarrollador
-  
-  // Admins y Desarrolladores ven el panel administrativo
+
+  const isAdministrador = userRole === 1;
+  const isUsuario = userRole === 2;      // <- usuario final
+  const isDesarrollador = userRole === 3;
+
   const shouldSeeAdminDashboard = isAdministrador || isDesarrollador;
-  
+
   console.log('🔍 [DASHBOARD-ROUTER] Roles detectados:', {
     administrador: isAdministrador,
-    academico: isAcademico,
+    usuario: isUsuario,
     desarrollador: isDesarrollador,
     deberiaVerAdmin: shouldSeeAdminDashboard
   });
 
-  // ✅ RENDERIZAR DASHBOARD SEGÚN ROL CORRECTO
+  // ✅ ADMIN / DEV → Panel administrativo
   if (shouldSeeAdminDashboard) {
     console.log('👑 Renderizando AdminDashboard para rol administrativo/desarrollador:', userRole);
     return <AdminDashboard />;
   }
 
-  if (isAcademico) {
-    console.log('👤 Renderizando PersonalDashboard para académico:', userRole);
-    return <PersonalDashboard />;
+  // ✅ USUARIO FINAL (rol 2) → Dashboard de usuario
+  if (isUsuario) {
+    console.log('👤 Renderizando Dashboard de usuario (PersonalDashboard):', userRole);
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4">
+        <div className="max-w-5xl mx-auto space-y-6">
+          {/* ⭐ Banner / botón de registro manual de asistencia */}
+          <ManualAttendanceButton
+            onSubmit={async (data) => {
+              const result = await registrarMarcajeManual(data);
+              return { success: !!result?.success };
+            }}
+          />
+          {/* 🔵 Contenido del dashboard de usuario */}
+          <PersonalDashboard />
+
+          
+          {/* 📅 Calendario semanal de asistencia (widget) */}
+          <WeeklyAttendanceWidget />
+        </div>
+      </div>
+    );
   }
 
   // ✅ FALLBACK PARA ROLES NO DEFINIDOS
@@ -76,20 +99,20 @@ const Dashboard: React.FC = () => {
             <p className="text-slate-600 mb-4">
               Tu rol ({userRole}) no tiene un dashboard asignado.
             </p>
-            
+
             {/* ✅ INFO DE DEBUG CON ROLES CORRECTOS */}
             <div className="text-sm text-slate-500 bg-slate-50 p-4 rounded-lg max-w-md mx-auto">
-              <p className="font-medium mb-2">Debug de roles (CORREGIDO):</p>
+              <p className="font-medium mb-2">Debug de roles:</p>
               <div className="text-left space-y-1">
                 <p>• Usuario: {user.nombres} {user.apellidos}</p>
                 <p>• RUT: {user.rut_usuario}</p>
                 <p>• Rol ID: {userRole} (tipo: {typeof userRole})</p>
                 <p>• Es Administrador (1): {isAdministrador ? '✅' : '❌'}</p>
-                <p>• Es Académico (2): {isAcademico ? '✅' : '❌'}</p>
+                <p>• Es Usuario (2): {isUsuario ? '✅' : '❌'}</p>
                 <p>• Es Desarrollador (3): {isDesarrollador ? '✅' : '❌'}</p>
                 <p>• Debería ver Admin: {shouldSeeAdminDashboard ? '✅' : '❌'}</p>
               </div>
-              
+
               <div className="mt-4 pt-3 border-t border-slate-200">
                 <p className="font-medium mb-2">Dashboards según seeders:</p>
                 <ul className="space-y-1">
@@ -99,7 +122,7 @@ const Dashboard: React.FC = () => {
                   </li>
                   <li className="flex items-center">
                     <User className="h-4 w-4 text-blue-500 mr-2" />
-                    Rol 2 (Académico): Dashboard Personal
+                    Rol 2 (Usuario): Dashboard de Usuario
                   </li>
                 </ul>
               </div>
