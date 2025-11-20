@@ -2,19 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Estilos para input type="time" */
+/* Estilos para input type="time" - Permitir widgets nativos del navegador */
 input[type="time"] {
-  -webkit-appearance: none;
-  -moz-appearance: textfield;
-  appearance: none;
   background-color: white;
-  color-scheme: light;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  /* NO usar appearance: none para permitir widgets nativos */
 }
 
+/* Chrome, Safari, Edge, Opera - Mostrar icono del selector */
 input[type="time"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.5);
   cursor: pointer;
-  opacity: 0.7;
+  opacity: 0.6;
   transition: opacity 0.2s;
 }
 
@@ -22,12 +23,15 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   opacity: 1;
 }
 
-input[type="time"]::-webkit-datetime-edit {
-  padding: 0;
+/* Firefox - Asegurar que funcione el selector nativo */
+input[type="time"]::-moz-focus-inner {
+  border: 0;
 }
 
-input[type="time"]::-webkit-datetime-edit-fields-wrapper {
-  padding: 0;
+/* Placeholder para todos los navegadores */
+input[type="time"]::placeholder {
+  color: #9ca3af;
+  opacity: 1;
 }
 
 /* Animaciones personalizadas */

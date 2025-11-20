@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, MapPin, FileText, AlertTriangle, CheckCircle, X } from 'lucide-react';
+import TimeInput from '../Common/TimeInput';
 
 interface ManualAttendanceModalProps {
   isOpen: boolean;
@@ -199,16 +200,9 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
                     <label className="block text-sm font-semibold text-slate-700 mb-2">
                       Hora del marcaje *
                     </label>
-                    <input
-                      type="time"
+                    <TimeInput
                       value={formData.checkInTime}
-                      onChange={(e) => setFormData({ ...formData, checkInTime: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm transition-all appearance-none bg-white"
-                      style={{
-                        colorScheme: 'light',
-                        WebkitAppearance: 'none',
-                        MozAppearance: 'textfield'
-                      }}
+                      onChange={(value) => setFormData({ ...formData, checkInTime: value })}
                       required
                       disabled={isSubmitting}
                     />
