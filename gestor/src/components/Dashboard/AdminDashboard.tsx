@@ -1,13 +1,62 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  AlertCircle, Users, RefreshCw, Clock, TrendingUp, Calendar,
-  Shield, CheckCircle, XCircle, AlertTriangle, BarChart3, FileText
+  AlertCircle, Users, RefreshCw, Clock, TrendingUp,
+  Shield, CheckCircle, BarChart3, FileText, 
+  Server, UserCheck, Monitor
 } from 'lucide-react';
 import { useAuth } from '../Context/AuthContext';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
+
+interface SemanaAnteriorHora {
+  dia: string;
+  fecha: string;
+  horas: number;
+}
+
+interface AdminStats {
+  organization_overview: {
+    total_active_users: number;
+    totems_count: number;
+    academicos_presentes: number;
+    promedio_diario_academicos: number;
+    total_academicos: number;
+    qr_code_stats: {
+      active: number;
+      total: number;
+    };
+    system_status: string;
+  };
+  attendance_analytics: {
+    attendance_by_period: {
+      today: number;
+      this_week: number;
+      this_month: number;
+    };
+    semana_anterior_horas: SemanaAnteriorHora[];
+  };
+}
 
 const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<AdminStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,7 +69,7 @@ const AdminDashboard: React.FC = () => {
       setError('Acceso restringido: solo administradores');
       setIsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [user]);
 
   const fetchAdminStats = async () => {
@@ -158,7 +207,7 @@ const AdminDashboard: React.FC = () => {
                 <p className="text-3xl font-bold text-slate-900 mt-2">
                   {stats?.organization_overview?.total_active_users ?? 0}
                 </p>
-                <p className="text-xs text-slate-500 mt-1">Académicos registrados</p>
+                <p className="text-xs text-slate-500 mt-1">Registrados en el sistema</p>
               </div>
               <div className="bg-blue-100 rounded-full p-3">
                 <Users className="h-8 w-8 text-blue-600" />
@@ -166,47 +215,47 @@ const AdminDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Horas Totales Mes */}
+          {/* Totems Activos */}
           <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">Horas Este Mes</p>
+                <p className="text-sm font-medium text-slate-600">Totems Activos</p>
                 <p className="text-3xl font-bold text-slate-900 mt-2">
-                  {stats?.organization_overview?.total_hours_month ?? 0}
+                  {stats?.organization_overview?.totems_count ?? 0}
                 </p>
-                <p className="text-xs text-slate-500 mt-1">Horas trabajadas totales</p>
+                <p className="text-xs text-slate-500 mt-1">Dispositivos disponibles</p>
               </div>
               <div className="bg-green-100 rounded-full p-3">
-                <Clock className="h-8 w-8 text-green-600" />
+                <Server className="h-8 w-8 text-green-600" />
               </div>
             </div>
           </div>
 
-          {/* Registros Hoy */}
+          {/* Académicos Presentes */}
           <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-purple-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">Registros Hoy</p>
+                <p className="text-sm font-medium text-slate-600">Académicos Presentes</p>
                 <p className="text-3xl font-bold text-slate-900 mt-2">
-                  {stats?.attendance_analytics?.attendance_by_period?.today ?? 0}
+                  {stats?.organization_overview?.academicos_presentes ?? 0}
                 </p>
-                <p className="text-xs text-slate-500 mt-1">Marcajes realizados</p>
+                <p className="text-xs text-slate-500 mt-1">Trabajando hoy</p>
               </div>
               <div className="bg-purple-100 rounded-full p-3">
-                <CheckCircle className="h-8 w-8 text-purple-600" />
+                <UserCheck className="h-8 w-8 text-purple-600" />
               </div>
             </div>
           </div>
 
-          {/* Promedio Semanal */}
+          {/* Promedio Diario de Académicos */}
           <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-orange-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">Promedio Semanal</p>
+                <p className="text-sm font-medium text-slate-600">Promedio Diario</p>
                 <p className="text-3xl font-bold text-slate-900 mt-2">
-                  {stats?.organization_overview?.average_weekly_hours ?? 0}h
+                  {stats?.organization_overview?.promedio_diario_academicos ?? 0}
                 </p>
-                <p className="text-xs text-slate-500 mt-1">Por usuario</p>
+                <p className="text-xs text-slate-500 mt-1">Académicos por día</p>
               </div>
               <div className="bg-orange-100 rounded-full p-3">
                 <TrendingUp className="h-8 w-8 text-orange-600" />
@@ -215,46 +264,67 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Fila de 2 columnas: Estadísticas y Estado del Sistema */}
+        {/* Fila de 2 columnas: Gráfico de Horas y Estado del Sistema */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          {/* Estadísticas de Asistencia */}
+          {/* Gráfico de Horas de Semana Anterior */}
           <div className="bg-white rounded-xl shadow-md p-6">
             <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
               <BarChart3 className="h-5 w-5 text-blue-600 mr-2" />
-              Estadísticas de Asistencia
+              Horas Trabajadas - Semana Anterior
             </h3>
             
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <Calendar className="h-5 w-5 text-blue-600" />
-                  <span className="text-sm font-medium text-slate-700">Hoy</span>
+            <div className="h-64">
+              {stats?.attendance_analytics?.semana_anterior_horas && stats.attendance_analytics.semana_anterior_horas.length > 0 ? (
+                <Bar
+                  data={{
+                    labels: stats.attendance_analytics.semana_anterior_horas.map((item: SemanaAnteriorHora) => item.dia),
+                    datasets: [
+                      {
+                        label: 'Horas Trabajadas',
+                        data: stats.attendance_analytics.semana_anterior_horas.map((item: SemanaAnteriorHora) => item.horas),
+                        backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 1,
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        position: 'top' as const,
+                      },
+                      title: {
+                        display: false,
+                      },
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        title: {
+                          display: true,
+                          text: 'Horas'
+                        }
+                      },
+                      x: {
+                        title: {
+                          display: true,
+                          text: 'Días de la Semana'
+                        }
+                      }
+                    },
+                  }}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-slate-500">
+                  <div className="text-center">
+                    <BarChart3 className="h-12 w-12 mx-auto mb-2 text-slate-300" />
+                    <p>No hay datos disponibles</p>
+                  </div>
                 </div>
-                <span className="text-lg font-bold text-blue-600">
-                  {stats?.attendance_analytics?.attendance_by_period?.today ?? 0} registros
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <Calendar className="h-5 w-5 text-green-600" />
-                  <span className="text-sm font-medium text-slate-700">Esta Semana</span>
-                </div>
-                <span className="text-lg font-bold text-green-600">
-                  {stats?.attendance_analytics?.attendance_by_period?.this_week ?? 0} registros
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <Calendar className="h-5 w-5 text-purple-600" />
-                  <span className="text-sm font-medium text-slate-700">Este Mes</span>
-                </div>
-                <span className="text-lg font-bold text-purple-600">
-                  {stats?.attendance_analytics?.attendance_by_period?.this_month ?? 0} registros
-                </span>
-              </div>
+              )}
             </div>
           </div>
 
@@ -269,16 +339,6 @@ const AdminDashboard: React.FC = () => {
               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                 <div className="flex items-center space-x-3">
                   <CheckCircle className="h-5 w-5 text-green-500" />
-                  <span className="text-sm text-slate-700">Sistema Operativo</span>
-                </div>
-                <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-1 rounded">
-                  {stats?.organization_overview?.system_status === 'error' ? 'ERROR' : 'ACTIVO'}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <CheckCircle className="h-5 w-5 text-green-500" />
                   <span className="text-sm text-slate-700">QR Codes Activos</span>
                 </div>
                 <span className="text-sm font-bold text-slate-900">
@@ -288,11 +348,21 @@ const AdminDashboard: React.FC = () => {
 
               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                 <div className="flex items-center space-x-3">
-                  <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                  <Monitor className="h-5 w-5 text-blue-500" />
                   <span className="text-sm text-slate-700">Totems Disponibles</span>
                 </div>
                 <span className="text-sm font-bold text-slate-900">
                   {stats?.organization_overview?.totems_count ?? 0}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <Users className="h-5 w-5 text-purple-500" />
+                  <span className="text-sm text-slate-700">Total Académicos</span>
+                </div>
+                <span className="text-sm font-bold text-slate-900">
+                  {stats?.organization_overview?.total_academicos ?? 0}
                 </span>
               </div>
 
