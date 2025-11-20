@@ -1,3 +1,143 @@
+import Marcaje from "../entities/marcaje.entity.js";
+import Justificacion from "../entities/justificacion.entity.js";
+/**
+ * 📊 NUEVO: Calcular progreso semanal directo desde Marcaje y Justificacion
+ */
+export async function getWeeklyProgressDirectFromMarcajes(rut_usuario) {
+  try {
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Domingo
+    startOfWeek.setHours(0,0,0,0);
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23,59,59,999);
+
+    // Obtener marcajes de la semana
+    const marcajes = await Marcaje.findAll({
+      where: {
+        rut_usuario,
+        fecha: {
+          // Entre domingo y sábado
+          [Marcaje.sequelize.Op.between]: [
+            startOfWeek.toISOString().slice(0,10),
+            endOfWeek.toISOString().slice(0,10)
+          ]
+        }
+      }
+    });
+
+    // Obtener justificaciones de la semana
+    const justificaciones = await Justificacion.findAll({
+      where: {
+        rut_usuario,
+        fecha_justificacion: {
+          [Justificacion.sequelize.Op.between]: [
+            startOfWeek.toISOString().slice(0,10),
+            endOfWeek.toISOString().slice(0,10)
+          ]
+        }
+      }
+    });
+
+    // Generar array de días de la semana (domingo a sábado)
+    const weekDays = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startOfWeek);
+      date.setDate(startOfWeek.getDate() + i);
+      const fechaStr = date.toISOString().slice(0, 10);
+      let horas = 0;
+      let justificacion = null;
+      let status = "none";
+
+      // Buscar marcaje
+      const marcaje = marcajes.find(m => m.fecha === fechaStr);
+      if (marcaje && marcaje.hora_ingreso && marcaje.hora_salida) {
+        const h1 = new Date(marcaje.hora_ingreso);
+        const h2 = new Date(marcaje.hora_salida);
+        const diff = (h2 - h1) / (1000*60*60);
+        if (diff > 0) horas += diff;
+      }
+
+      // Buscar justificación
+      const justif = justificaciones.find(j => j.fecha_justificacion === fechaStr);
+      if (justif) {
+        justificacion = {
+          motivo: justif.motivo,
+          descripcion: justif.descripcion,
+          es_justificada: !!justif.es_justificada,
+          horas_compensadas: Number(justif.horas_compensadas) || 0,
+        };
+        if (justif.es_justificada && justif.horas_compensadas) {
+          horas += Number(justif.horas_compensadas);
+        }
+      }
+
+      // Status
+      if (justificacion) {
+        status = justificacion.es_justificada ? "justified" : "unjustified";
+      } else if (horas >= 7) {
+        status = "success";
+      } else if (horas >= 4) {
+        status = "warning";
+      } else if (horas > 0) {
+        status = "error";
+      }
+
+      weekDays.push({
+        date: fechaStr,
+        hours: Math.round(horas * 100) / 100,
+        status,
+        justificacion,
+      });
+    }
+
+    // Calcular totales
+    const hours_this_week = weekDays.reduce((a, d) => a + d.hours, 0);
+    const target_weekly_hours = 44;
+    const progress_percentage = Math.min(100, Math.round((hours_this_week / target_weekly_hours) * 100));
+    const hours_remaining = Math.max(0, target_weekly_hours - hours_this_week);
+    const days_worked_this_week = weekDays.filter(d => d.hours > 0 || d.status === "justified").length;
+    const avg_daily_hours = days_worked_this_week > 0 ? hours_this_week / days_worked_this_week : 0;
+    let days_to_complete = 0;
+    if (hours_remaining > 0 && avg_daily_hours > 0) {
+      days_to_complete = Math.ceil(hours_remaining / avg_daily_hours);
+    }
+    let status;
+    if (progress_percentage >= 100) status = "completed";
+    else if (progress_percentage >= 80) status = "on_track";
+    else if (progress_percentage >= 60) status = "behind";
+    else status = "needs_attention";
+
+    return {
+      hours_this_week: Math.round(hours_this_week * 100) / 100,
+      target_weekly_hours,
+      progress_percentage,
+      hours_remaining: Math.round(hours_remaining * 100) / 100,
+      days_worked_this_week,
+      avg_daily_hours: Math.round(avg_daily_hours * 100) / 100,
+      days_to_complete,
+      week_start: startOfWeek.toISOString().slice(0,10),
+      week_end: endOfWeek.toISOString().slice(0,10),
+      status,
+      week_days: weekDays,
+    };
+  } catch (error) {
+    console.error("❌ [WEEKLY-PROGRESS-DIRECT] Error:", error);
+    return {
+      hours_this_week: 0,
+      target_weekly_hours: 44,
+      progress_percentage: 0,
+      hours_remaining: 44,
+      days_worked_this_week: 0,
+      avg_daily_hours: 0,
+      days_to_complete: 0,
+      week_start: "",
+      week_end: "",
+      status: "needs_attention",
+    };
+  }
+}
 "use strict";
 
 import Usuario from "../entities/usuario.entity.js";
@@ -27,7 +167,8 @@ export async function getSimpleMetrics(rut_usuario) {
       rut_usuario
     );
     const organization_overview = await getOrganizationOverview();
-    const weekly_progress = await getWeeklyProgressFromReportes(rut_usuario);
+    // Usar la nueva función directa para progreso semanal
+    const weekly_progress = await getWeeklyProgressDirectFromMarcajes(rut_usuario);
 
     const response = {
       personal_basic_stats,
@@ -228,10 +369,12 @@ async function getWeeklyProgressFromReportes(rut_usuario) {
       return fecha >= startOfWeek && fecha <= endOfWeek;
     });
 
-    const hours_this_week = thisWeekRecords.reduce(
-      (sum, a) => sum + Number(a.horas_totales || 0),
-      0
-    );
+    // Sumar horas trabajadas + horas compensadas por justificación justificada
+    const hours_this_week = thisWeekRecords.reduce((sum, a) => {
+      const horas = Number(a.horas_totales || 0);
+      const horasCompensadas = a.justificacion?.es_justificada ? Number(a.justificacion.horas_compensadas || 0) : 0;
+      return sum + horas + horasCompensadas;
+    }, 0);
 
     const target_weekly_hours = 44;
     const progress_percentage = Math.min(

@@ -74,31 +74,58 @@ export const useAsistencia = () => {
     return localStorage.getItem('token');
   };
 
-  const makeApiCall = async (endpoint: string, options: RequestInit = {}) => {
-    const token = getAuthToken();
-    if (!token) {
-      console.log('❌ useAsistencia - No hay token de autenticación');
-      throw new Error('No hay token de autenticación');
+ const makeApiCall = async (endpoint: string, options: RequestInit = {}) => {
+  const token = getAuthToken();
+  if (!token) {
+    console.log('❌ useAsistencia - No hay token de autenticación');
+    throw new Error('No hay token de autenticación');
+  }
+
+  console.log('🔑 useAsistencia - Token encontrado:', token ? '✅' : '❌');
+
+  const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      ...options.headers,
+    },
+    ...options,
+  });
+
+  console.log('📡 useAsistencia - Respuesta HTTP:', {
+    status: response.status,
+    statusText: response.statusText,
+    ok: response.ok,
+  });
+
+  if (!response.ok) {
+    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+
+    try {
+      const text = await response.text();
+      console.log('❌ useAsistencia - Error HTTP response raw:', text);
+
+      if (text) {
+        const parsed = JSON.parse(text);
+        // Soportamos varios formatos: {error}, {message}, {errors: [...]}
+        if (parsed?.error || parsed?.message) {
+          errorMessage = parsed.error || parsed.message;
+        } else if (Array.isArray(parsed?.errors) && parsed.errors.length > 0) {
+          errorMessage = parsed.errors[0].msg || parsed.errors[0] || errorMessage;
+        }
+      }
+    } catch (e) {
+      console.log('⚠️ useAsistencia - No se pudo parsear JSON de error');
     }
 
-    const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        ...options.headers,
-      },
-      ...options,
-    });
+    throw new Error(errorMessage);
+  }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.log('❌ useAsistencia - Error HTTP response:', errorText);
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
+  const data = await response.json();
+  console.log('📄 useAsistencia - Datos JSON recibidos:', data);
+  return data;
+};
 
-    const data = await response.json();
-    return data;
-  };
 
   const fetchAsistencia = async (mes?: number, anio?: number) => {
     console.log('🔄 useAsistencia - fetchAsistencia iniciado:', { mes, anio });

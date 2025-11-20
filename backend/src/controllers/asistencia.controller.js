@@ -269,7 +269,7 @@ export async function createManualEntryController(req, res) {
     const { 
       date,              // '2025-11-16'
       checkInTime,       // '08:00'
-      checkOutTime,      // '18:00' o null
+      checkOutTime,      // '18:00' o null (hoy no la usamos aquí)
       activityType,      // 'teaching' | 'research' | ...
       location,
       notes,
@@ -333,36 +333,108 @@ export async function createManualEntryController(req, res) {
       },
     });
 
-    // 🔍 Buscar marcaje ABIERTO (sin hora_salida) ese día
-    const marcajeAbierto = await Marcaje.findOne({
+    // 🔍 Traer TODOS los marcajes del día para este usuario
+    const marcajesDelDia = await Marcaje.findAll({
       where: {
         rut_usuario: rutUsuario,
-        fecha: date,
-        hora_salida: null
+        fecha: date
       },
-      order: [["hora_ingreso", "DESC"]],
+      order: [["hora_ingreso", "ASC"]],
     });
 
-    // 🕒 Determinar si es entrada o salida
-    const esSalida = registroTipo && registroTipo.startsWith("salida");
-    const horaIngresoTS = esSalida ? null : timestamp;
-    const horaSalidaTS = esSalida ? timestamp : null;
+    // 🔍 Buscar marcaje ABIERTO (sin hora_salida) ese día
+    const marcajeAbierto = marcajesDelDia.find(m => !m.hora_salida);
 
-/*     // Crear marcaje
-    const nuevoMarcaje = await Marcaje.create({
-      hora_ingreso: horaIngresoTS,
-      hora_salida: horaSalidaTS,
-      fecha: date,
-      observacion: observacion,
-      id_totem: totemManual.id_totem,
-      rut_usuario: rutUsuario
-    }); */
+    // 🧠 Determinar si es salida o entrada
+    const esSalida = registroTipo && registroTipo.startsWith("salida");
+
+    // 🧩 1) No más de un marcaje abierto en el día
+    if (!esSalida && marcajeAbierto) {
+      console.log("❌ [MANUAL-ENTRY] Ya existe un marcaje abierto para este día");
+      return res.status(400).json({
+        success: false,
+        error: "Ya tienes un marcaje de entrada sin salida registrada para este día. Primero debes registrar la salida."
+      });
+    }
+
+    // 🕐 2) Regla: NO se puede registrar un marcaje anterior al primero del día
+    if (marcajesDelDia.length > 0) {
+      const tiempos = marcajesDelDia
+        .flatMap(m => [m.hora_ingreso, m.hora_salida].filter(Boolean))
+        .map(d => d.getTime());
+
+      if (tiempos.length > 0) {
+        const minTime = Math.min(...tiempos);
+        if (timestamp.getTime() < minTime) {
+          console.log("❌ [MANUAL-ENTRY] Intento de marcaje anterior al primero del día");
+          return res.status(400).json({
+            success: false,
+            error: "No puedes registrar un marcaje anterior a otro ya existente en el mismo día."
+          });
+        }
+      }
+    }
+
+    // 🕐 3) Si es ENTRADA: no puede caer dentro de un rango ya cerrado
+    if (!esSalida) {
+      const tMs = timestamp.getTime();
+      const solapa = marcajesDelDia.some(m => {
+        if (!m.hora_ingreso || !m.hora_salida) return false;
+        const ini = m.hora_ingreso.getTime();
+        const fin = m.hora_salida.getTime();
+        // Entrada en medio de un rango ya trabajado
+        return tMs > ini && tMs < fin;
+      });
+
+      if (solapa) {
+        console.log("❌ [MANUAL-ENTRY] Entrada se solapa con otro rango de trabajo");
+        return res.status(400).json({
+          success: false,
+          error: "La hora de entrada se solapa con otro marcaje existente del mismo día."
+        });
+      }
+    }
 
     let marcajeFinal;
 
     if (marcajeAbierto && esSalida) {
       // ✅ CERRAR MARCAJE EXISTENTE
       console.log("🔒 [MANUAL-ENTRY] Cerrando marcaje abierto:", marcajeAbierto.id_marcaje);
+
+      // 4) Salida no puede ser antes o igual que la entrada
+      const ingresoMs = marcajeAbierto.hora_ingreso.getTime();
+      if (timestamp.getTime() <= ingresoMs) {
+        console.log("❌ [MANUAL-ENTRY] Salida antes o igual que la entrada");
+        return res.status(400).json({
+          success: false,
+          error: "La hora de salida no puede ser anterior o igual a la hora de entrada."
+        });
+      }
+
+      // 5) Verificar solapamiento con otros marcajes cerrados
+      const otrosMarcajes = marcajesDelDia.filter(m => 
+        m.id_marcaje !== marcajeAbierto.id_marcaje &&
+        m.hora_ingreso &&
+        m.hora_salida
+      );
+
+      const iniActual = marcajeAbierto.hora_ingreso;
+      const finActual = timestamp;
+
+      const seSolapa = otrosMarcajes.some(m => {
+        const ini = m.hora_ingreso;
+        const fin = m.hora_salida;
+        // [iniActual, finActual] solapa con [ini, fin] ?
+        return iniActual < fin && finActual > ini;
+      });
+
+      if (seSolapa) {
+        console.log("❌ [MANUAL-ENTRY] Rango cierre se solapa con otros marcajes");
+        return res.status(400).json({
+          success: false,
+          error: "El rango horario del marcaje se solapa con otros registros del mismo día."
+        });
+      }
 
       marcajeAbierto.hora_salida = timestamp; // usamos timestamp completo
       marcajeAbierto.observacion = [
@@ -387,13 +459,8 @@ export async function createManualEntryController(req, res) {
       });
     }
 
-    // 🧾 Registrar en RegistroMarcaje
-    await RegistroMarcaje.create({
-      rut_usuario: rutUsuario,
-      id_marcaje: marcajeFinal.id_marcaje,
-      id_totem: totemManual.id_totem,
-      fecha_registro: new Date()
-    });
+    // ❌ Ya NO registramos en RegistroMarcaje (lo vas a eliminar)
+    // await RegistroMarcaje.create(...);
 
     console.log("✅ [MANUAL-ENTRY] Marcaje procesado correctamente:", {
       id_marcaje: marcajeFinal.id_marcaje,
@@ -402,11 +469,11 @@ export async function createManualEntryController(req, res) {
       hora_salida: marcajeFinal.hora_salida
     });
 
-    // ✅ CALCULAR HORAS TRABAJADAS Y CREAR REGISTRO DE ASISTENCIA (solo si hay marcaje completo)
+    // 👉 Si sigues usando tabla Asistencia, dejamos esto igual.
+    //    Si la vas a eliminar también, se puede quitar este bloque.
     let horasTrabajadas = 0;
     let tuvoColacion = false;
 
-    // Solo calcular horas si el marcaje final tiene tanto entrada como salida
     if (marcajeFinal.hora_ingreso && marcajeFinal.hora_salida) {
       const diffMs = marcajeFinal.hora_salida.getTime() - marcajeFinal.hora_ingreso.getTime();
       horasTrabajadas = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
@@ -445,6 +512,7 @@ export async function createManualEntryController(req, res) {
     });
   }
 }
+
 
 export async function getBasicStats(req, res) {
   console.log('📊 [DASHBOARD-CONTROLLER] ===== GET BASIC STATS =====');
@@ -725,11 +793,11 @@ export async function agregarSalidaController(req, res) {
 
     console.log('🔄 [ASISTENCIA-CTRL] Marcaje encontrado:', {
       id: marcaje.id_marcaje,
-      hora_salida: marcaje.hora_salida,
-      fecha_hora_salida: new Date(marcaje.hora_salida)
+      hora_ingreso: marcaje.hora_ingreso,
+      hora_salida: marcaje.hora_salida
     });
 
-    // Verificar que el marcaje no tenga salida válida (permitir actualizar fechas de 1970)
+    // Verificar que el marcaje no tenga salida válida (permitir solo si está vacío o con fecha "dummy")
     if (marcaje.hora_salida && new Date(marcaje.hora_salida) > new Date('1971-01-01')) {
       console.log('❌ [ASISTENCIA-CTRL] Marcaje ya tiene salida válida');
       return res.status(400).json({
@@ -740,24 +808,56 @@ export async function agregarSalidaController(req, res) {
 
     // Construir timestamp para la salida
     const horaSalidaTimestamp = buildTimestamp(fecha, hora_salida);
-    
-    // Calcular horas trabajadas
-    // Extraer la hora del objeto Date de marcaje.hora_ingreso
-    const horaIngresoString = new Date(marcaje.hora_ingreso).toLocaleTimeString('en-GB', { 
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
+    if (!horaSalidaTimestamp || isNaN(horaSalidaTimestamp.getTime())) {
+      return res.status(400).json({
+        success: false,
+        error: 'Hora de salida inválida'
+      });
+    }
+
+    // ⛔ Regla: salida no puede ser antes o igual que la entrada
+    const ingresoDate = new Date(marcaje.hora_ingreso);
+    if (horaSalidaTimestamp.getTime() <= ingresoDate.getTime()) {
+      console.log('❌ [ASISTENCIA-CTRL] Salida antes/igual que la entrada');
+      return res.status(400).json({
+        success: false,
+        error: 'La hora de salida no puede ser anterior o igual a la hora de entrada.'
+      });
+    }
+
+    // ⛔ Regla: no solaparse con otros marcajes del mismo usuario y fecha
+    const otrosMarcajes = await Marcaje.findAll({
+      where: {
+        rut_usuario: marcaje.rut_usuario,
+        fecha,
+        id_marcaje: { [Op.ne]: id_marcaje }
+      }
     });
-    const horaIngresoTimestamp = buildTimestamp(fecha, horaIngresoString);
-    const ingreso = new Date(horaIngresoTimestamp);
-    const salida = new Date(horaSalidaTimestamp);
-    
-    const diffMs = salida.getTime() - ingreso.getTime();
+
+    const iniActual = ingresoDate;
+    const finActual = horaSalidaTimestamp;
+
+    const seSolapa = otrosMarcajes.some(m => {
+      if (!m.hora_ingreso || !m.hora_salida) return false;
+      const ini = new Date(m.hora_ingreso);
+      const fin = new Date(m.hora_salida);
+      // [iniActual, finActual] solapa con [ini, fin] ?
+      return iniActual < fin && finActual > ini;
+    });
+
+    if (seSolapa) {
+      console.log('❌ [ASISTENCIA-CTRL] Rango de salida se solapa con otros marcajes');
+      return res.status(400).json({
+        success: false,
+        error: 'El rango horario del marcaje se solapa con otros registros del mismo día.'
+      });
+    }
+
+    // Calcular horas trabajadas
+    const diffMs = finActual.getTime() - iniActual.getTime();
     const horas = diffMs / (1000 * 60 * 60);
-    
+
     // Actualizar el marcaje
-    // Convertir hora_salida a timestamp del mismo día
     const horaSalidaForDB = new Date(`${fecha}T${hora_salida}:00`);
     
     await marcaje.update({
@@ -791,6 +891,7 @@ export async function agregarSalidaController(req, res) {
     });
   }
 }
+
 
 export async function updateManualEntryController(req, res) {
   try {

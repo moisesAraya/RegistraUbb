@@ -52,6 +52,16 @@ const Dashboard: React.FC = () => {
           <ManualAttendanceButton
             onSubmit={async (data) => {
               const result = await registrarMarcajeManual(data);
+
+              // 👀 Si el backend rechazó el marcaje, mostramos el mensaje acá
+              if (!result?.success) {
+                alert(
+                  result?.message ||
+                  'No se pudo registrar el marcaje manual. Revisa los datos e inténtalo nuevamente.'
+                );
+              }
+
+              // El modal decide si muestra éxito o no según este flag
               return { success: !!result?.success };
             }}
           />

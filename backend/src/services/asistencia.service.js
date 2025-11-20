@@ -3,10 +3,9 @@
 import { Op } from "sequelize";
 import Usuario from "../entities/usuario.entity.js";
 import Marcaje from "../entities/marcaje.entity.js";
-import RegistroMarcaje from "../entities/registro_marcaje.entity.js";
 import Justificacion from "../entities/justificacion.entity.js";
 
-console.log("🎯 [ASISTENCIA-SERVICE] v3 CARGADO (Marcaje + Justificacion, sin tabla Asistencia)");
+console.log("🎯 [ASISTENCIA-SERVICE] v4 CARGADO (solo Marcaje + Justificacion, sin tabla Asistencia ni RegistroMarcaje)");
 
 /**
  * 🔁 Normaliza distintos formatos de hora a "HH:MM:SS"
@@ -97,7 +96,7 @@ function calcularHorasEntreMarcajes(entrada, salida) {
 
 /**
  * 🧠 Construye la "foto" de cada día del mes:
- * - Suma TODAS las parejas ingreso/salida del día (Marcaje + RegistroMarcaje)
+ * - Suma TODAS las parejas ingreso/salida del día (directamente desde Marcaje)
  * - Mezcla Justificacion (es_justificada / horas_compensadas)
  */
 async function obtenerDiasConHoras(rutUsuario, mes = null, anio = null) {
@@ -111,30 +110,23 @@ async function obtenerDiasConHoras(rutUsuario, mes = null, anio = null) {
   const fechaInicioStr = startDate.toISOString().split("T")[0];
   const fechaFinStr = endDate.toISOString().split("T")[0];
 
-  console.log("📅 [ASISTENCIA-SERVICE] Rango v3:", fechaInicioStr, "a", fechaFinStr);
+  console.log("📅 [ASISTENCIA-SERVICE] Rango v4:", fechaInicioStr, "a", fechaFinStr);
 
-  // 🔹 1) Registros de marcaje del usuario en el mes
-  const registros = await RegistroMarcaje.findAll({
-    where: { rut_usuario: rutUsuario },
-    include: [
-      {
-        model: Marcaje,
-        as: "marcaje",
-        where: {
-          fecha: {
-            [Op.between]: [fechaInicioStr, fechaFinStr],
-          },
-        },
-        required: true,
+  // 🔹 1) Marcajes del usuario en el mes (sin RegistroMarcaje)
+  const marcajes = await Marcaje.findAll({
+    where: {
+      rut_usuario: rutUsuario,
+      fecha: {
+        [Op.between]: [fechaInicioStr, fechaFinStr],
       },
-    ],
+    },
     order: [
-      [{ model: Marcaje, as: "marcaje" }, "fecha", "ASC"],
-      [{ model: Marcaje, as: "marcaje" }, "hora_ingreso", "ASC"],
+      ["fecha", "ASC"],
+      ["hora_ingreso", "ASC"],
     ],
   });
 
-  console.log("📅 [ASISTENCIA-SERVICE] Registros de marcaje encontrados:", registros.length);
+  console.log("📅 [ASISTENCIA-SERVICE] Marcajes encontrados:", marcajes.length);
 
   // 🔹 2) Justificaciones del mes
   const justificaciones = await Justificacion.findAll({
@@ -150,8 +142,7 @@ async function obtenerDiasConHoras(rutUsuario, mes = null, anio = null) {
 
   // Agrupar marcajes por fecha
   const marcajesPorFecha = {};
-  registros.forEach((reg) => {
-    const m = reg.marcaje;
+  marcajes.forEach((m) => {
     const fecha = m.fecha; // YYYY-MM-DD
 
     if (!marcajesPorFecha[fecha]) {
@@ -159,7 +150,6 @@ async function obtenerDiasConHoras(rutUsuario, mes = null, anio = null) {
     }
 
     marcajesPorFecha[fecha].push({
-      // ⭐ guardamos también el id del marcaje
       id_marcaje: m.id_marcaje,
       hora_ingreso: m.hora_ingreso,
       hora_salida: m.hora_salida,
@@ -527,13 +517,12 @@ export async function getEstadisticasAsistenciaService(
 }
 
 /**
- * 📝 CREAR JUSTIFICACIÓN (lo dejo igual que lo tenías)
+ * 📝 CREAR JUSTIFICACIÓN
  */
 export async function crearJustificacionService(rutUsuario, datosJustificacion) {
   try {
     console.log('📝 [JUSTIFICACION-SERVICE] === CREANDO ===');
 
-    // Aceptar ambos nombres de campo: fecha o fecha_justificacion
     const {
       fecha,
       fecha_justificacion,
@@ -544,7 +533,6 @@ export async function crearJustificacionService(rutUsuario, datosJustificacion) 
 
     const fechaFinal = fecha || fecha_justificacion;
 
-    // 🔹 AHORA descripción es opcional
     if (!fechaFinal || !motivo) {
       throw new Error('Fecha y motivo son requeridos');
     }
@@ -565,7 +553,6 @@ export async function crearJustificacionService(rutUsuario, datosJustificacion) 
       fecha_justificacion: fechaFinal,
       motivo,
       descripcion: descripcion && descripcion.trim() !== '' ? descripcion : null,
-      // Puedes ajustar estas dos si quieres controlar desde el motivo
       es_justificada: false,
       horas_compensadas: 0,
       estado: 'REGISTRADA',
@@ -586,7 +573,6 @@ export async function crearJustificacionService(rutUsuario, datosJustificacion) 
     throw new Error(`Error creando justificación: ${error.message}`);
   }
 }
-
 
 /**
  * 📋 OBTENER JUSTIFICACIONES DEL USUARIO
