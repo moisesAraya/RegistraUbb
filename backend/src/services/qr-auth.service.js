@@ -5,6 +5,7 @@ import Usuario from '../entities/usuario.entity.js';
 import QR from '../entities/qr.entity.js';
 import Rol from '../entities/rol.entity.js';
 import Cargo from '../entities/cargo.entity.js';
+import Marcaje from '../entities/marcaje.entity.js';
 import { decryptData } from './qr.service.js'; // ✅ Importar función de desencriptación
 
 const JWT_SECRET = process.env.JWT_SECRET || "defaultSecretKey123";
@@ -159,17 +160,13 @@ export async function validateUserPINService(tempToken, pin) {
         bloqueado_hasta: null
       });
 
-      // **LÓGICA CORREGIDA CON COLUMNAS REALES**
-      console.log('🔍 Determinando tipo de marcaje usando RegistroMarcaje...');
+      // **LÓGICA CORREGIDA USANDO MARCAJE DIRECTAMENTE**
+      console.log('🔍 Determinando tipo de marcaje usando tabla Marcaje...');
       
-      // Buscar el último registro usando fecha_registro en lugar de createdAt
-      const ultimoRegistro = await RegistroMarcaje.findOne({
+      // Buscar el último marcaje del usuario
+      const ultimoMarcaje = await Marcaje.findOne({
         where: { rut_usuario: user.rut_usuario },
-        include: [{
-          model: Marcaje,
-          as: 'marcaje' // Verificar si esta relación existe o ajustar
-        }],
-        order: [['fecha_registro', 'DESC']] // Usar fecha_registro en lugar de createdAt
+        order: [['createdAt', 'DESC']]
       });
 
       const ahora = new Date();
@@ -178,14 +175,14 @@ export async function validateUserPINService(tempToken, pin) {
       let tipoMarcaje = 'entrada';
       let marcajeExistente = null;
 
-      if (ultimoRegistro && ultimoRegistro.marcaje) {
-        const tiempoTranscurrido = ahora.getTime() - new Date(ultimoRegistro.marcaje.hora_ingreso).getTime();
+      if (ultimoMarcaje) {
+        const tiempoTranscurrido = ahora.getTime() - new Date(ultimoMarcaje.hora_ingreso).getTime();
         console.log(`⏰ Tiempo desde último marcaje: ${tiempoTranscurrido/1000} segundos`);
         
-        // Si han pasado más de 15 segundos y el último no tiene hora_salida
-        if (tiempoTranscurrido >= TIEMPO_MINIMO_ENTRE_MARCAJES && !ultimoRegistro.marcaje.hora_salida) {
+        // Si han pasado más de 5 minutos y no tiene hora_salida, es una salida
+        if (tiempoTranscurrido >= TIEMPO_MINIMO_ENTRE_MARCAJES && !ultimoMarcaje.hora_salida) {
           tipoMarcaje = 'salida';
-          marcajeExistente = ultimoRegistro.marcaje;
+          marcajeExistente = ultimoMarcaje;
           console.log('✅ Detectado como SALIDA - actualizando marcaje existente');
         } else {
           console.log('✅ Detectado como ENTRADA - creando nuevo marcaje');
@@ -207,18 +204,12 @@ export async function validateUserPINService(tempToken, pin) {
       } else {
         // Crear nuevo marcaje de entrada
         marcaje = await Marcaje.create({
+          rut_usuario: user.rut_usuario,
+          id_totem: 1, // O el ID del tótem si lo tienes
           fecha: hoy,
           hora_ingreso: ahora,
           hora_salida: null,
           observacion: `Entrada via QR + PIN - ${user.nombres} ${user.apellidos}`
-        });
-        
-        // Crear el registro que conecta marcaje con usuario
-        await RegistroMarcaje.create({
-          rut_usuario: user.rut_usuario,
-          id_marcaje: marcaje.id_marcaje,
-          id_totem: 1, // O el ID del tótem si lo tienes
-          fecha_registro: ahora
         });
         
         console.log('📝 Nuevo marcaje de ENTRADA creado, ID:', marcaje.id_marcaje);

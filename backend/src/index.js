@@ -10,10 +10,8 @@ import QR from './entities/qr.entity.js';
 import Totem from './entities/totem.entity.js';
 import Motivo from './entities/motivo.entity.js';
 import Marcaje from './entities/marcaje.entity.js';
-import Asistencia from './entities/asistencia.entity.js';
 import Justificacion from './entities/justificacion.entity.js';
 import Notificacion from './entities/notificacion.entity.js';
-import RegistroMarcaje from './entities/registro_marcaje.entity.js';
 
 // ============================================================
 // 🧩 Función: Inicializar Base de Datos
@@ -83,13 +81,6 @@ async function initDatabase() {
       console.error('❌ Error en Marcaje:', error.message);
     }
 
-    try {
-      await Asistencia.sync();
-      console.log('✅ Tabla Asistencia sincronizada');
-    } catch (error) {
-      console.error('❌ Error en Asistencia:', error.message);
-    }
-
     // PASO 3: Tablas dependientes
     try {
       await Motivo.sync();
@@ -98,13 +89,7 @@ async function initDatabase() {
       console.error('❌ Error en Motivo:', error.message);
     }
 
-    try {
-      await RegistroMarcaje.sync();
-      console.log('✅ Tabla RegistroMarcaje sincronizada');
-      console.log(RegistroMarcaje.rawAttributes.rut_usuario);
-    } catch (error) {
-      console.error('❌ Error en RegistroMarcaje:', error.message);
-    }
+    // RegistroMarcaje eliminado - la información está ahora en la tabla Marcaje
 
     try {
       await Notificacion.sync();

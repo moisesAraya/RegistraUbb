@@ -248,11 +248,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   const nombreCompleto = user ? `${user.nombres || ''} ${user.apellidos || ''}`.trim() : '';
 
   // ✅ DATOS REALES DEL DASHBOARD
-  const attendanceRate =
-    dashboardData?.personal_basic_stats?.attendance_rate || 0;  
-
   const weekHours =
     dashboardData?.personal_basic_stats?.week_hours || 0;
+
+  // Calcular porcentaje semanal correctamente: horas_semana / 44h_objetivo * 100
+  const weeklyAttendanceRate = weekHours > 0 
+    ? Math.round((weekHours / 44) * 100)
+    : 0;
 
   if (!user) return null;
   return (
@@ -379,9 +381,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="grid grid-cols-2 gap-3 text-center">
             <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-200">
               <div className="text-lg font-bold text-blue-600">
-                {Math.round(attendanceRate)}%
+                {Math.round(weeklyAttendanceRate)}%
               </div>
-              <div className="text-xs text-slate-500">Asistencia mensual</div>
+              <div className="text-xs text-slate-500">Asistencia semanal</div>
             </div>
             <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-200">
               <div className="text-lg font-bold text-green-600">

@@ -27,7 +27,7 @@ export interface AttendanceRecord {
 export interface Report {
   id: string;
   title: string;
-  type: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  type: 'daily' | 'weekly' | 'semanal' | 'yearly';
   dateRange: {
     start: Date;
     end: Date;
