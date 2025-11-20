@@ -159,6 +159,8 @@ async function obtenerDiasConHoras(rutUsuario, mes = null, anio = null) {
     }
 
     marcajesPorFecha[fecha].push({
+      // ⭐ guardamos también el id del marcaje
+      id_marcaje: m.id_marcaje,
       hora_ingreso: m.hora_ingreso,
       hora_salida: m.hora_salida,
       observacion: m.observacion,
@@ -197,14 +199,22 @@ async function obtenerDiasConHoras(rutUsuario, mes = null, anio = null) {
     horasTrabajadas = Math.max(0, Math.min(14, horasTrabajadas));
     horasTrabajadas = Math.round(horasTrabajadas * 100) / 100;
 
-    // Hora de ingreso = la más temprana del día
+    // ⭐ Hora de ingreso = la más temprana del día + id_marcaje elegido para edición
     let horaIngreso = null;
+    let idMarcaje = null;
     if (marcajes.length > 0) {
-      const horasOrdenadas = marcajes
-        .map((m) => formatTimeToString(m.hora_ingreso))
-        .filter(Boolean)
-        .sort();
-      horaIngreso = horasOrdenadas[0] || null;
+      const entradasOrdenadas = marcajes
+        .map((m) => ({
+          id_marcaje: m.id_marcaje,
+          hora: formatTimeToString(m.hora_ingreso),
+        }))
+        .filter((x) => !!x.hora)
+        .sort((a, b) => a.hora.localeCompare(b.hora));
+
+      if (entradasOrdenadas.length > 0) {
+        horaIngreso = entradasOrdenadas[0].hora;
+        idMarcaje = entradasOrdenadas[0].id_marcaje;
+      }
     }
 
     // Hora de salida = la más tardía del día
@@ -227,6 +237,7 @@ async function obtenerDiasConHoras(rutUsuario, mes = null, anio = null) {
 
     return {
       fecha, // "YYYY-MM-DD"
+      id_marcaje: idMarcaje,                 // ⭐ referencia al marcaje principal del día
       horas: horasTrabajadas,
       horaIngreso,
       horaSalida,
@@ -336,6 +347,8 @@ export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio =
           estado: estadoFinal,
           justificacion: justificacionFinal,
           observacion: observacionFinal || null,
+          // ⭐ mantenemos id_marcaje si ya estaba seteado
+          id_marcaje: existente.id_marcaje || d.id_marcaje || null,
         });
       }
     }
@@ -349,6 +362,7 @@ export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio =
 
     // 3) Construir array para frontend (Mi Asistencia)
     const asistencias = diasAgrupados.map((d) => ({
+      id_marcaje: d.id_marcaje || null,      // ⭐ ahora viaja al frontend
       fecha: d.fecha,
       horaIngreso: d.horaIngreso,
       horaSalida: d.horaSalida,

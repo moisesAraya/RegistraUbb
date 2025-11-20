@@ -1,22 +1,26 @@
 // hooks/useAsistencia.ts
 import { useState, useEffect } from 'react';
 
+interface JustificacionItem {
+  motivo: string;
+  descripcion: string | null;
+  es_justificada: boolean;
+  horas_compensadas: number;
+}
+
 interface AsistenciaItem {
+  id_marcaje?: number;              // 👈 necesario para editar/borrar
   fecha: string;
   horaIngreso: string | null;
   horaSalida: string | null;
   horasTrabajadas: number;
-  estado: 'presente' | 'ausente' | 'falta';
+  estado: 'presente' | 'ausente' | 'falta' | 'justificada' | 'no_justificada';
   observacion?: string | null;
   tipoMarcaje: string;
   ubicacion: string;
   colacion?: boolean;
-  justificacion?: {
-    motivo: string;
-    descripcion: string | null;
-    es_justificada: boolean;
-    horas_compensadas: number;
-  } | null;
+  justificacion?: JustificacionItem | null;
+  es_manual?: boolean;             // 👈 flag para saber si es marcaje manual
 }
 
 interface ResumenAsistencia {
@@ -52,6 +56,8 @@ interface AsistenciaData {
     fechaInicio: string;
     fechaFin: string;
   };
+  // opcionalmente: justificaciones / faltas
+  [key: string]: any;
 }
 
 export const useAsistencia = () => {
@@ -75,8 +81,6 @@ export const useAsistencia = () => {
       throw new Error('No hay token de autenticación');
     }
 
-    console.log('🔑 useAsistencia - Token encontrado:', token ? '✅' : '❌');
-
     const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
@@ -86,12 +90,6 @@ export const useAsistencia = () => {
       ...options,
     });
 
-    console.log('📡 useAsistencia - Respuesta HTTP:', {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok
-    });
-
     if (!response.ok) {
       const errorText = await response.text();
       console.log('❌ useAsistencia - Error HTTP response:', errorText);
@@ -99,7 +97,6 @@ export const useAsistencia = () => {
     }
 
     const data = await response.json();
-    console.log('📄 useAsistencia - Datos JSON recibidos:', data);
     return data;
   };
 
@@ -120,7 +117,6 @@ export const useAsistencia = () => {
       console.log('📥 useAsistencia - Respuesta recibida:', result);
       
       if (result.success) {
-        console.log('✅ useAsistencia - Datos de asistencia establecidos:', result.data);
         setAsistenciaData(result.data);
       } else {
         throw new Error(result.error || 'Error obteniendo asistencia');
@@ -185,7 +181,7 @@ export const useAsistencia = () => {
         justificationReason: data.justificationReason || ''
       };
 
-      console.log("📤 Datos enviados al backend:", body);
+      console.log("📤 Datos enviados al backend (manual):", body);
 
       const result = await makeApiCall('asistencia/manual', {
         method: 'POST',
@@ -193,7 +189,14 @@ export const useAsistencia = () => {
       });
 
       if (result.success) {
-        await fetchAsistencia();
+        // Refrescar con el mismo mes / año actual del estado si existe
+        if (asistenciaData?.periodo) {
+          await fetchAsistencia(asistenciaData.periodo.mes, asistenciaData.periodo.anio);
+          await fetchEstadisticas(asistenciaData.periodo.mes, asistenciaData.periodo.anio);
+        } else {
+          await fetchAsistencia();
+          await fetchEstadisticas();
+        }
         return { success: true, message: result.message || 'Ingreso registrado' };
       } else {
         throw new Error(result.error || 'Error registrando ingreso manual');
@@ -238,6 +241,98 @@ export const useAsistencia = () => {
     }
   };
 
+  // ✏️ ACTUALIZAR MARCAJE MANUAL
+  const updateMarcajeManual = async (
+    id_marcaje: number,
+    data: {
+      date: string;
+      checkInTime: string;
+      checkOutTime?: string;
+      location?: string;
+      notes?: string;
+      activityType?: string;
+      registroTipo?: string;
+      justificationReason?: string;
+    }
+  ) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const body = {
+        date: data.date,
+        checkInTime: data.checkInTime,
+        checkOutTime: data.checkOutTime || null,
+        location: data.location || null,
+        notes: data.notes || null,
+        activityType: data.activityType || 'other',
+        registroTipo: data.registroTipo || 'entrada_otro',
+        justificationReason: data.justificationReason || null
+      };
+
+      console.log("✏️ [useAsistencia] Actualizando marcaje manual:", { id_marcaje, body });
+
+      const result = await makeApiCall(`asistencia/manual/${id_marcaje}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      });
+
+      if (result.success) {
+        if (asistenciaData?.periodo) {
+          await fetchAsistencia(asistenciaData.periodo.mes, asistenciaData.periodo.anio);
+          await fetchEstadisticas(asistenciaData.periodo.mes, asistenciaData.periodo.anio);
+        } else {
+          await fetchAsistencia();
+          await fetchEstadisticas();
+        }
+        return { success: true, message: result.message || 'Marcaje actualizado' };
+      } else {
+        throw new Error(result.error || 'Error actualizando marcaje manual');
+      }
+    } catch (err) {
+      console.error('❌ Error actualizando marcaje manual:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      setError(errorMessage);
+      return { success: false, message: errorMessage };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 🗑️ ELIMINAR MARCAJE MANUAL
+  const deleteMarcajeManual = async (id_marcaje: number) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log("🗑 [useAsistencia] Eliminando marcaje manual:", id_marcaje);
+
+      const result = await makeApiCall(`asistencia/manual/${id_marcaje}`, {
+        method: 'DELETE',
+      });
+
+      if (result.success) {
+        if (asistenciaData?.periodo) {
+          await fetchAsistencia(asistenciaData.periodo.mes, asistenciaData.periodo.anio);
+          await fetchEstadisticas(asistenciaData.periodo.mes, asistenciaData.periodo.anio);
+        } else {
+          await fetchAsistencia();
+          await fetchEstadisticas();
+        }
+        return { success: true, message: result.message || 'Marcaje eliminado' };
+      } else {
+        throw new Error(result.error || 'Error eliminando marcaje manual');
+      }
+    } catch (err) {
+      console.error('❌ Error eliminando marcaje manual:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      setError(errorMessage);
+      return { success: false, message: errorMessage };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Cargar datos al montar el hook (mes y año actuales)
   useEffect(() => {
     const now = new Date();
@@ -246,6 +341,7 @@ export const useAsistencia = () => {
 
     fetchAsistencia(mesActual, anioActual);
     fetchEstadisticas(mesActual, anioActual);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {
@@ -257,9 +353,16 @@ export const useAsistencia = () => {
     fetchEstadisticas,
     registrarMarcajeManual,
     solicitarJustificacion,
+    updateMarcajeManual,
+    deleteMarcajeManual,
     refetch: () => {
-      fetchAsistencia();
-      fetchEstadisticas();
+      if (asistenciaData?.periodo) {
+        fetchAsistencia(asistenciaData.periodo.mes, asistenciaData.periodo.anio);
+        fetchEstadisticas(asistenciaData.periodo.mes, asistenciaData.periodo.anio);
+      } else {
+        fetchAsistencia();
+        fetchEstadisticas();
+      }
     }
   };
 };

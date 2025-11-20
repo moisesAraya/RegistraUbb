@@ -154,9 +154,6 @@ export async function getEstadisticasAsistenciaController(req, res) {
   }
 }
 
-/**
- * 📝 CONTROLLER - SOLICITAR JUSTIFICACIÓN
- */
 export async function solicitarJustificacionController(req, res) {
   const startTime = Date.now();
   
@@ -204,9 +201,6 @@ export async function solicitarJustificacionController(req, res) {
   }
 }
 
-/**
- * 📋 CONTROLLER - OBTENER JUSTIFICACIONES DEL USUARIO
- */
 export async function getJustificacionesController(req, res) {
   const startTime = Date.now();
   
@@ -254,9 +248,6 @@ export async function getJustificacionesController(req, res) {
   }
 }
 
-/**
- * 🏷️ CONTROLLER ORIGINAL - MARCAR ASISTENCIA (QR)
- */
 export async function marcar(req, res) {
   try {
     const { codigo_unico } = req.body;
@@ -274,24 +265,6 @@ export async function marcar(req, res) {
   }
 }
 
-/**
- * 🖊️ CONTROLLER - INGRESO MANUAL DE ASISTENCIA
- */
-/**
- * 🖊️ CONTROLLER - MARCAJE MANUAL (una sola marca de entrada/salida)
- */
-/**
- * 🖊️ CONTROLLER - MARCAJE MANUAL (una sola marca)
- */
-/**
- * 🖊️ CONTROLLER - MARCAJE MANUAL (una sola marca que abre o cierra)
- */
-/**
- * 🖊️ CONTROLLER - MARCAJE MANUAL (abre/cierra par en el día)
- */
-/**
- * 🖊️ CONTROLLER - MARCAJE MANUAL (abre o cierra marcaje del día)
- */
 export async function createManualEntryController(req, res) {
   try {
     const user = req.user;
@@ -484,11 +457,6 @@ export async function createManualEntryController(req, res) {
   }
 }
 
-
-
-/**
- * 📊 OBTENER MÉTRICAS BÁSICAS DEL DASHBOARD
- */
 export async function getBasicStats(req, res) {
   console.log('📊 [DASHBOARD-CONTROLLER] ===== GET BASIC STATS =====');
   
@@ -541,9 +509,6 @@ export async function getBasicStats(req, res) {
   }
 }
 
-/**
- * ⚡ OBTENER DATOS EN TIEMPO REAL
- */
 export async function getRealTime(req, res) {
   console.log('⚡ [DASHBOARD-CONTROLLER] ===== GET REAL TIME =====');
   
@@ -578,9 +543,6 @@ export async function getRealTime(req, res) {
   }
 }
 
-/**
- * 📈 OBTENER ANALÍTICAS AVANZADAS
- */
 export async function getAdvanced(req, res) {
   console.log('📈 [DASHBOARD-CONTROLLER] ===== GET ADVANCED =====');
   
@@ -615,9 +577,6 @@ export async function getAdvanced(req, res) {
   }
 }
 
-/**
- * 🔍 OBTENER INFO DE DEBUG
- */
 export async function getDebug(req, res) {
   console.log('🔍 [DASHBOARD-CONTROLLER] ===== GET DEBUG =====');
   
@@ -652,9 +611,6 @@ export async function getDebug(req, res) {
   }
 }
 
-/**
- * 🔓 CONTROLLER - VERIFICAR MARCAJE ABIERTO
- */
 export async function getMarcajeAbiertoController(req, res) {
   try {
     const { rut_usuario } = req.params;
@@ -747,9 +703,6 @@ export async function getMarcajeAbiertoController(req, res) {
   }
 }
 
-/**
- * 🔄 CONTROLLER - AGREGAR SALIDA A MARCAJE PENDIENTE
- */
 export async function agregarSalidaController(req, res) {
   try {
     const { id_marcaje, hora_salida, fecha } = req.body;
@@ -849,6 +802,237 @@ export async function agregarSalidaController(req, res) {
     });
   }
 }
+
+export async function updateManualEntryController(req, res) {
+  try {
+    const user = req.user;
+    const rutUsuario = user?.rut_usuario || user?.rut;
+    const { id_marcaje } = req.params;
+
+    console.log("✏️ [MANUAL-UPDATE] Usuario:", rutUsuario, "Marcaje:", id_marcaje);
+    console.log("✏️ [MANUAL-UPDATE] BODY:", req.body);
+
+    if (!rutUsuario) {
+      return res.status(400).json({ success: false, error: "RUT de usuario requerido" });
+    }
+
+    if (!id_marcaje) {
+      return res.status(400).json({ success: false, error: "id_marcaje requerido en la URL" });
+    }
+
+    const marcaje = await Marcaje.findByPk(id_marcaje, {
+      include: [{ model: Totem, as: 'totem', required: false }]
+    });
+
+    if (!marcaje) {
+      return res.status(404).json({ success: false, error: "Marcaje no encontrado" });
+    }
+
+    if (marcaje.rut_usuario !== rutUsuario) {
+      return res.status(403).json({ success: false, error: "No puedes editar marcajes de otro usuario" });
+    }
+
+    // Opcional: asegurar que sea marcaje manual
+    // Si tu asociación existe:
+    // if (marcaje.totem && marcaje.totem.ubicacion !== "INGRESO_MANUAL") { ... }
+
+    const {
+      date,
+      checkInTime,
+      checkOutTime,
+      activityType,
+      location,
+      notes,
+      registroTipo,
+      justificationReason
+    } = req.body;
+
+    if (!date) {
+      return res.status(400).json({ success: false, error: "'date' es requerido" });
+    }
+
+    if (!checkInTime) {
+      return res.status(400).json({ success: false, error: "'checkInTime' es requerido" });
+    }
+
+    const horaIngresoTS = buildTimestamp(date, checkInTime);
+    const horaSalidaTS = checkOutTime ? buildTimestamp(date, checkOutTime) : null;
+
+    if (!horaIngresoTS || isNaN(horaIngresoTS.getTime())) {
+      return res.status(400).json({
+        success: false,
+        error: "Fecha u hora de ingreso inválidas"
+      });
+    }
+
+    if (checkOutTime && (!horaSalidaTS || isNaN(horaSalidaTS.getTime()))) {
+      return res.status(400).json({
+        success: false,
+        error: "Fecha u hora de salida inválidas"
+      });
+    }
+
+    const activityLabels = {
+      teaching: "Docencia",
+      research: "Investigación",
+      management: "Gestión Administrativa",
+      other: "Otra actividad"
+    };
+
+    const registroTipoLabels = {
+      entrada_manana: "Entrada mañana",
+      salida_almuerzo: "Salida a almorzar",
+      entrada_tarde: "Entrada tarde",
+      salida_dia: "Salida día",
+      entrada_otro: "Entrada (otro)",
+      salida_otro: "Salida (otro)"
+    };
+
+    const actividadTexto = activityLabels[activityType] || "Actividad no especificada";
+    const tipoTexto = registroTipoLabels[registroTipo] || registroTipo || "Marcaje manual";
+
+    const observacionBase = `Actividad: ${actividadTexto} | Tipo: ${tipoTexto}`;
+    const observacionExtra = [
+      notes ? `Notas: ${notes}` : null,
+      location ? `Ubicación: ${location}` : null,
+      justificationReason ? `Justificación: ${justificationReason}` : null
+    ].filter(Boolean).join(" | ");
+
+    const observacion = observacionExtra
+      ? `${observacionBase} | ${observacionExtra}`
+      : observacionBase;
+
+    // 👉 Actualizar campos básicos
+    marcaje.fecha = date;
+    marcaje.hora_ingreso = horaIngresoTS;
+    marcaje.hora_salida = horaSalidaTS || null;
+    marcaje.observacion = observacion;
+
+    let horasTrabajadas = 0;
+    let tuvoColacion = false;
+
+    if (marcaje.hora_ingreso && marcaje.hora_salida) {
+      const diffMs = marcaje.hora_salida.getTime() - marcaje.hora_ingreso.getTime();
+      horasTrabajadas = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
+      tuvoColacion = horasTrabajadas > 6;
+    }
+
+    await marcaje.save();
+
+    // 🔁 Asistencia asociada
+    let asistencia = await Asistencia.findOne({
+      where: { id_marcaje: marcaje.id_marcaje }
+    });
+
+    if (horasTrabajadas > 0) {
+      if (asistencia) {
+        await asistencia.update({
+          colacion: tuvoColacion,
+          observacion,
+          horas_diarias: horasTrabajadas
+        });
+      } else {
+        asistencia = await Asistencia.create({
+          colacion: tuvoColacion,
+          observacion,
+          horas_diarias: horasTrabajadas,
+          id_marcaje: marcaje.id_marcaje,
+          id_justificacion: null
+        });
+      }
+    } else if (asistencia) {
+      // Si ya no tiene horas válidas, borramos la asistencia
+      await asistencia.destroy();
+      asistencia = null;
+    }
+
+    console.log("✅ [MANUAL-UPDATE] Marcaje actualizado:", {
+      id_marcaje: marcaje.id_marcaje,
+      fecha: marcaje.fecha,
+      hora_ingreso: marcaje.hora_ingreso,
+      hora_salida: marcaje.hora_salida,
+      horas_trabajadas: horasTrabajadas
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Marcaje manual actualizado correctamente",
+      data: {
+        id_marcaje: marcaje.id_marcaje,
+        fecha: marcaje.fecha,
+        hora_ingreso: marcaje.hora_ingreso,
+        hora_salida: marcaje.hora_salida,
+        horas_trabajadas: horasTrabajadas
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ [MANUAL-UPDATE] Error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Error actualizando marcaje manual",
+      message: error.message
+    });
+  }
+}
+
+export async function deleteManualEntryController(req, res) {
+  try {
+    const user = req.user;
+    const rutUsuario = user?.rut_usuario || user?.rut;
+    const { id_marcaje } = req.params;
+
+    console.log("🗑 [MANUAL-DELETE] Usuario:", rutUsuario, "Marcaje:", id_marcaje);
+
+    if (!rutUsuario) {
+      return res.status(400).json({ success: false, error: "RUT de usuario requerido" });
+    }
+
+    if (!id_marcaje) {
+      return res.status(400).json({ success: false, error: "id_marcaje requerido en la URL" });
+    }
+
+    const marcaje = await Marcaje.findByPk(id_marcaje, {
+      include: [{ model: Totem, as: 'totem', required: false }]
+    });
+
+    if (!marcaje) {
+      return res.status(404).json({ success: false, error: "Marcaje no encontrado" });
+    }
+
+    if (marcaje.rut_usuario !== rutUsuario) {
+      return res.status(403).json({ success: false, error: "No puedes eliminar marcajes de otro usuario" });
+    }
+
+    // Opcional: asegurar que sea manual
+    // if (marcaje.totem && marcaje.totem.ubicacion !== "INGRESO_MANUAL") { ... }
+
+    // Eliminar asistencia asociada
+    await Asistencia.destroy({ where: { id_marcaje: marcaje.id_marcaje } });
+
+    // Eliminar registros de marcaje
+    await RegistroMarcaje.destroy({ where: { id_marcaje: marcaje.id_marcaje } });
+
+    // Finalmente, eliminar el marcaje
+    await marcaje.destroy();
+
+    console.log("✅ [MANUAL-DELETE] Marcaje y asistencia eliminados:", id_marcaje);
+
+    return res.status(200).json({
+      success: true,
+      message: "Marcaje manual eliminado correctamente"
+    });
+
+  } catch (error) {
+    console.error("❌ [MANUAL-DELETE] Error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Error eliminando marcaje manual",
+      message: error.message
+    });
+  }
+}
+
 
 console.log('👤 [ASISTENCIA-CTRL] ✅ CONTROLLER LIMPIO SIN EXPORTS DUPLICADOS ✅');
 console.log('✅ [DASHBOARD-CONTROLLER] Controlador configurado correctamente');

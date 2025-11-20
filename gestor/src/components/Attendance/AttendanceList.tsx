@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Calendar, CheckCircle, XCircle, TrendingUp, BarChart3, Shield } from 'lucide-react';
+import { 
+  Clock, Calendar, CheckCircle, XCircle, TrendingUp, BarChart3, Shield, Edit2, Trash2 
+} from 'lucide-react';
 import { useAsistencia } from '../../hooks/useAsistencia';
 
 const AttendanceList: React.FC = () => {
@@ -9,9 +11,10 @@ const AttendanceList: React.FC = () => {
     isLoading,
     error,
     refetch,
-    registrarMarcajeManual,
     fetchAsistencia,
-    fetchEstadisticas
+    fetchEstadisticas,
+    updateMarcajeManual,
+    deleteMarcajeManual,
   } = useAsistencia();
 
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -19,8 +22,17 @@ const AttendanceList: React.FC = () => {
   const [dateFilter, setDateFilter] = useState('');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
+  // Estado para edición
+  const [editing, setEditing] = useState<null | {
+    id_marcaje: number;
+    date: string;
+    checkInTime: string;
+    checkOutTime: string;
+    notes: string;
+    location: string;
+  }>(null);
+
   useEffect(() => {
-    console.log('🔄 AttendanceList - useEffect ejecutado con:', { selectedMonth, selectedYear });
     fetchAsistencia(selectedMonth, selectedYear);
     fetchEstadisticas(selectedMonth, selectedYear);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -65,27 +77,6 @@ const AttendanceList: React.FC = () => {
     }
   };
 
-  const getFilteredAndSortedAsistencias = () => {
-    if (!asistenciaData?.asistencias) return [];
-    
-    let filtered = asistenciaData.asistencias;
-    
-    if (dateFilter) {
-      filtered = filtered.filter(asistencia => asistencia.fecha === dateFilter);
-    }
-    
-    return filtered.sort((a, b) => {
-      const fechaA = new Date(a.fecha + 'T' + (a.horaIngreso || '00:00:00'));
-      const fechaB = new Date(b.fecha + 'T' + (b.horaIngreso || '00:00:00'));
-      
-      if (sortOrder === 'desc') {
-        return fechaB.getTime() - fechaA.getTime();
-      } else {
-        return fechaA.getTime() - fechaB.getTime();
-      }
-    });
-  };
-
   const formatDate = (dateString: string) => {
     const [year, month, day] = dateString.split('-').map(Number);
     const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -112,13 +103,26 @@ const AttendanceList: React.FC = () => {
       return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
     }
 
-    // Fallback
     return timeString;
+  };
+
+  const extractTimeForInput = (timeString: string | null): string => {
+    if (!timeString) return '';
+    if (timeString.includes('T')) {
+      const d = new Date(timeString);
+      const h = d.getHours().toString().padStart(2, '0');
+      const m = d.getMinutes().toString().padStart(2, '0');
+      return `${h}:${m}`;
+    }
+    // "HH:MM:SS" -> "HH:MM"
+    const parts = timeString.split(':');
+    if (parts.length >= 2) return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+    return '';
   };
 
   // ---------- MERGE ASISTENCIAS + JUSTIFICACIONES ----------
 
-  const registrosAsistencia = asistenciaData?.asistencias || [];
+  const registrosAsistencia: any[] = asistenciaData?.asistencias || [];
 
   const rawJustificaciones: any[] =
     (asistenciaData as any)?.justificaciones ||
@@ -143,23 +147,89 @@ const AttendanceList: React.FC = () => {
         descripcion: j.descripcion,
         es_justificada: !!j.es_justificada,
         horas_compensadas: j.horas_compensadas || 0
-      }
+      },
+      // este flag ya no lo usamos para decidir si es editable
+      es_manual: false,
     };
   });
 
-  const allRegistros = [...registrosAsistencia, ...registrosJustificados].sort(
-    (a: any, b: any) => {
-      const fechaA = normalizeFecha(a.fecha) || '';
-      const fechaB = normalizeFecha(b.fecha) || '';
-      if (fechaA > fechaB) return -1;
-      if (fechaA < fechaB) return 1;
-      return 0;
+  let allRegistros = [...registrosAsistencia, ...registrosJustificados];
+
+  // Filtro por fecha
+  if (dateFilter) {
+    allRegistros = allRegistros.filter((asistencia: any) => {
+      const f = normalizeFecha(asistencia.fecha) || asistencia.fecha;
+      return f === dateFilter;
+    });
+  }
+
+  // Orden
+  allRegistros.sort((a: any, b: any) => {
+    const fechaA = new Date((normalizeFecha(a.fecha) || a.fecha) + 'T' + (a.horaIngreso || '00:00:00'));
+    const fechaB = new Date((normalizeFecha(b.fecha) || b.fecha) + 'T' + (b.horaIngreso || '00:00:00'));
+    if (sortOrder === 'desc') return fechaB.getTime() - fechaA.getTime();
+    return fechaA.getTime() - fechaB.getTime();
+  });
+
+  console.log('📌 Registros que se están pintando en la lista:', allRegistros);
+
+  // ---------- EDIT / DELETE HANDLERS ----------
+
+  const handleEditClick = (registro: any) => {
+    if (!registro.id_marcaje) return;
+
+    const fechaNorm = normalizeFecha(registro.fecha) || registro.fecha;
+    setEditing({
+      id_marcaje: registro.id_marcaje,
+      date: fechaNorm,
+      checkInTime: extractTimeForInput(registro.horaIngreso),
+      checkOutTime: extractTimeForInput(registro.horaSalida),
+      notes: registro.observacion || '',
+      location: registro.ubicacion || '',
+    });
+  };
+
+  const handleDeleteClick = async (registro: any) => {
+    if (!registro.id_marcaje) return;
+    const ok = window.confirm('¿Seguro que quieres eliminar este marcaje? Esta acción no se puede deshacer.');
+    if (!ok) return;
+
+    const result = await deleteMarcajeManual(registro.id_marcaje);
+    if (!result.success) {
+      alert(result.message || 'Error al eliminar el marcaje');
     }
-  );
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editing) return;
+
+    if (!editing.checkInTime) {
+      alert('Debes ingresar la hora de entrada');
+      return;
+    }
+
+    const result = await updateMarcajeManual(editing.id_marcaje, {
+      date: editing.date,
+      checkInTime: editing.checkInTime,
+      checkOutTime: editing.checkOutTime || undefined,
+      notes: editing.notes || undefined,
+      location: editing.location || undefined,
+      activityType: 'other',
+      registroTipo: 'entrada_otro',
+    });
+
+    if (!result.success) {
+      alert(result.message || 'Error al actualizar el marcaje');
+      return;
+    }
+
+    setEditing(null);
+  };
 
   // ---------- RENDER ----------
 
-  if (isLoading) {
+  if (isLoading && !asistenciaData) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -168,7 +238,7 @@ const AttendanceList: React.FC = () => {
     );
   }
 
-  if (error) {
+  if (error && !asistenciaData) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-md p-4">
         <div className="flex">
@@ -210,7 +280,6 @@ const AttendanceList: React.FC = () => {
           </button>
         </div>
       </div>
-
 
       {/* Resumen de estadísticas */}
       {asistenciaData?.resumen && (
@@ -369,6 +438,9 @@ const AttendanceList: React.FC = () => {
                   ? (asistencia.justificacion.es_justificada ? 'justificada' : 'no_justificada')
                   : 'presente');
 
+                // 🔑 CUALQUIER registro con id_marcaje es editable
+                const esEditable = !!asistencia.id_marcaje;
+
                 return (
                   <li key={index} className="py-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-4">
@@ -376,9 +448,16 @@ const AttendanceList: React.FC = () => {
                         {getStatusIcon(estado)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">
-                          {fechaNorm ? formatDate(fechaNorm) : '-'}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-gray-900">
+                            {fechaNorm ? formatDate(fechaNorm) : '-'}
+                          </p>
+                          {esEditable && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                              Editable
+                            </span>
+                          )}
+                        </div>
                         <div className="flex flex-wrap items-center mt-1 gap-x-4 gap-y-1">
                           <span className="text-sm text-gray-500">
                             Ingreso: {formatTime(asistencia.horaIngreso)}
@@ -409,6 +488,26 @@ const AttendanceList: React.FC = () => {
                           <p className="text-xs text-gray-400 mt-1">
                             {asistencia.observacion}
                           </p>
+                        )}
+
+                        {/* Botones Editar / Eliminar para cualquier registro con id_marcaje */}
+                        {esEditable && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <button
+                              onClick={() => handleEditClick(asistencia)}
+                              className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100"
+                            >
+                              <Edit2 className="h-3 w-3 mr-1" />
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => handleDeleteClick(asistencia)}
+                              className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100"
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Eliminar
+                            </button>
+                          </div>
                         )}
                       </div>
                       <div className="flex-shrink-0 mt-2 sm:mt-0">
@@ -449,6 +548,87 @@ const AttendanceList: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Panel de edición simple */}
+      {editing && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <Edit2 className="h-4 w-4 mr-2 text-blue-600" />
+              Editar marcaje
+            </h3>
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Fecha</label>
+                <input
+                  type="date"
+                  value={editing.date}
+                  onChange={(e) => setEditing({ ...editing, date: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Hora entrada</label>
+                  <input
+                    type="time"
+                    value={editing.checkInTime}
+                    onChange={(e) => setEditing({ ...editing, checkInTime: e.target.value })}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Hora salida</label>
+                  <input
+                    type="time"
+                    value={editing.checkOutTime}
+                    onChange={(e) => setEditing({ ...editing, checkOutTime: e.target.value })}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Puedes dejarla vacía si todavía no quieres cerrar el día.
+                  </p>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Ubicación (opcional)</label>
+                <input
+                  type="text"
+                  value={editing.location}
+                  onChange={(e) => setEditing({ ...editing, location: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Notas / Observación</label>
+                <textarea
+                  value={editing.notes}
+                  onChange={(e) => setEditing({ ...editing, notes: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditing(null)}
+                  className="px-4 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  Guardar cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

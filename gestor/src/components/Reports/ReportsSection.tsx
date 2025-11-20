@@ -48,9 +48,11 @@ export default function ReportsSection() {
   const [fechaInicio, setFechaInicio] = useState<string>("");
   const [fechaFin, setFechaFin] = useState<string>("");
 
-  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<string>("mi-reporte");
+  // 🔹 Ahora por defecto "todos"
+  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<string>("todos");
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   
+  // 🔹 Info del firmante del reporte (Director de Departamento)
   const [adminInfo, setAdminInfo] = useState<AdminInfo>({
     nombre: user?.nombres || '',
     rut: user?.rut_usuario || '',
@@ -65,34 +67,7 @@ export default function ReportsSection() {
     }
   }, [user]);
 
-  useEffect(() => {
-    if (!user) return;
-
-    const generarReporteAutomatico = async () => {
-      if (tipoFiltro === 'mes') {
-        if (usuarioSeleccionado === 'todos') {
-          await obtenerReporteMensual(mes, anio, undefined, true);
-        } else if (usuarioSeleccionado === 'mi-reporte') {
-          await obtenerReporteMensual(mes, anio, undefined, false);
-        } else {
-          await obtenerReporteMensual(mes, anio, usuarioSeleccionado, false);
-        }
-      } else {
-        if (fechaInicio && fechaFin) {
-          if (usuarioSeleccionado === 'todos') {
-            await obtenerReporteMensual(undefined, undefined, undefined, true, fechaInicio, fechaFin);
-          } else if (usuarioSeleccionado === 'mi-reporte') {
-            await obtenerReporteMensual(undefined, undefined, undefined, false, fechaInicio, fechaFin);
-          } else {
-            await obtenerReporteMensual(undefined, undefined, usuarioSeleccionado, false, fechaInicio, fechaFin);
-          }
-        }
-      }
-    };
-
-    generarReporteAutomatico();
-  }, [tipoFiltro, mes, anio, fechaInicio, fechaFin, usuarioSeleccionado, user]);
-
+  // 🔹 Carga usuarios y detecta Director de Departamento
   const fetchUsuarios = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -101,12 +76,102 @@ export default function ReportsSection() {
       });
       if (response.ok) {
         const data = await response.json();
-        setUsuarios(data.data || []);
+        const lista: Usuario[] = data.data || [];
+        setUsuarios(lista);
+
+        // Buscar Director de Departamento en base de datos
+        const director = lista.find(u => 
+          u.cargo?.nombre_cargo &&
+          u.cargo.nombre_cargo.toLowerCase().includes('director')
+        );
+
+        if (director) {
+          setAdminInfo({
+            nombre: `${director.nombres} ${director.apellidos}`,
+            rut: director.rut_usuario,
+            cargo: director.cargo?.nombre_cargo || 'Director de Departamento'
+          });
+        } else if (user) {
+          // Fallback: usuario actual
+          setAdminInfo({
+            nombre: `${user.nombres} ${user.apellidos}`,
+            rut: user.rut_usuario,
+            cargo: 'Administrador'
+          });
+        }
       }
     } catch (error) {
       console.error("Error al cargar usuarios:", error);
     }
   };
+
+  // 🔹 Generación automática del reporte al cambiar filtros
+useEffect(() => {
+  if (!user) return;
+
+  // calculamos acá para no depender de isAdmin en el array
+  const esAdminActual = user.id_rol === 1;
+
+  const generarReporteAutomatico = async () => {
+    if (tipoFiltro === 'mes') {
+      if (esAdminActual) {
+        if (usuarioSeleccionado === 'todos') {
+          await obtenerReporteMensual(mes, anio, undefined, true);
+        } else {
+          await obtenerReporteMensual(mes, anio, usuarioSeleccionado, false);
+        }
+      } else {
+        // no admin → siempre su propio reporte
+        await obtenerReporteMensual(mes, anio, undefined, false);
+      }
+    } else {
+      // rango de fechas
+      if (fechaInicio && fechaFin) {
+        if (esAdminActual) {
+          if (usuarioSeleccionado === 'todos') {
+            await obtenerReporteMensual(
+              undefined,
+              undefined,
+              undefined,
+              true,
+              fechaInicio,
+              fechaFin
+            );
+          } else {
+            await obtenerReporteMensual(
+              undefined,
+              undefined,
+              usuarioSeleccionado,
+              false,
+              fechaInicio,
+              fechaFin
+            );
+          }
+        } else {
+          await obtenerReporteMensual(
+            undefined,
+            undefined,
+            undefined,
+            false,
+            fechaInicio,
+            fechaFin
+          );
+        }
+      }
+    }
+  };
+
+  generarReporteAutomatico();
+}, [
+  tipoFiltro,
+  mes,
+  anio,
+  fechaInicio,
+  fechaFin,
+  usuarioSeleccionado,
+  user?.rut_usuario,   // basta con esto
+]);
+
 
   const handleExportExcel = async () => {
     if (!user) return alert("No hay usuario autenticado.");
@@ -115,7 +180,7 @@ export default function ReportsSection() {
       return;
     }
 
-    if (usuarioSeleccionado === 'todos') {
+    if (isAdmin && usuarioSeleccionado === 'todos') {
       await exportarExcelGeneral();
     } else {
       await exportarExcelPersonal();
@@ -129,7 +194,7 @@ export default function ReportsSection() {
       return;
     }
 
-    if (usuarioSeleccionado === 'todos') {
+    if (isAdmin && usuarioSeleccionado === 'todos') {
       await exportarPDFGeneral();
     } else {
       await exportarPDFPersonal();
@@ -141,7 +206,6 @@ export default function ReportsSection() {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Reporte General");
 
-    // 🔹 Encabezado (solo título y período arriba)
     sheet.mergeCells("A1:Z1");
     sheet.getCell("A1").value = "Reporte General de Asistencia";
     sheet.getCell("A1").alignment = { horizontal: "center" };
@@ -166,7 +230,6 @@ export default function ReportsSection() {
       return;
     }
 
-    // Obtener todas las fechas únicas
     const fechasSet = new Set<string>();
     profesores.forEach((p: any) => {
       const asistencias = p.reporte?.asistencias_detalle || [];
@@ -174,7 +237,6 @@ export default function ReportsSection() {
     });
     const fechasOrdenadas = Array.from(fechasSet).sort();
 
-    // Crear encabezados
     const headerRow1: any[] = ["Nombre"];
     const headerRow2: any[] = [""];
     const headerRow3: any[] = [""];
@@ -215,7 +277,6 @@ export default function ReportsSection() {
       });
     });
 
-    // Merges dinámicos para encabezados
     const topHeaderRow = row1.number;
     const midHeaderRow = row2.number;
     const bottomHeaderRow = row3.number;
@@ -227,10 +288,8 @@ export default function ReportsSection() {
       colIndex += 4;
     });
 
-    // Columna Total Hrs (merge vertical encabezado)
     sheet.mergeCells(topHeaderRow, colIndex, bottomHeaderRow, colIndex);
 
-    // Agregar datos
     profesores.forEach((p: any) => {
       const nombreCompleto = p.usuario
         ? `${p.usuario.nombres || ''} ${p.usuario.apellidos || ''}`
@@ -288,8 +347,8 @@ export default function ReportsSection() {
 
         if (typeof cell.value === 'string') {
           if (cell.value.startsWith('Falta:')) {
-            const asistencias = p.reporte?.asistencias_detalle || [];
-            const justificacion = asistencias.find((a: any) => a.justificacion)?.justificacion;
+            const asist = p.reporte?.asistencias_detalle || [];
+            const justificacion = asist.find((a: any) => a.justificacion)?.justificacion;
             
             if (justificacion?.es_justificada) {
               cell.font = { color: { argb: "FF00AA00" }, bold: true };
@@ -321,13 +380,11 @@ export default function ReportsSection() {
       });
     });
 
-    // ✅ TOTAL GENERAL
     sheet.addRow([]);
     const totalCols = fechasOrdenadas.length * 4 + 2;
     const totalGeneralRow = sheet.addRow(["TOTAL GENERAL"]);
     const totalRowIndex = totalGeneralRow.number;
 
-    // Merge label en casi todas las columnas, dejando la última para el valor
     sheet.mergeCells(totalRowIndex, 1, totalRowIndex, totalCols - 1);
     const totalLabelCell = sheet.getCell(totalRowIndex, 1);
     const totalValueCell = sheet.getCell(totalRowIndex, totalCols);
@@ -355,14 +412,13 @@ export default function ReportsSection() {
       };
     });
 
-    // Ajuste de anchos
     sheet.getColumn(1).width = 25;
     for (let i = 2; i <= fechasOrdenadas.length * 4 + 1; i++) {
       sheet.getColumn(i).width = 8;
     }
     sheet.getColumn(fechasOrdenadas.length * 4 + 2).width = 12;
 
-    // ✅ PIE: info de quien genera
+    // 🔹 Pie: siempre Director de Departamento (adminInfo)
     sheet.addRow([]);
     const footerRow1 = sheet.addRow([
       `Generado por: ${adminInfo.nombre} (${adminInfo.rut}) - ${adminInfo.cargo}`
@@ -398,7 +454,7 @@ export default function ReportsSection() {
     const sheet = workbook.addWorksheet("Reporte Personal");
 
     let nombreUsuario = "";
-    if (usuarioSeleccionado === 'mi-reporte' || !isAdmin) {
+    if (!isAdmin) {
       nombreUsuario = user?.nombres || user?.rut_usuario || "Usuario";
     } else {
       const usuarioEncontrado = usuarios.find(u => u.rut_usuario === usuarioSeleccionado);
@@ -407,12 +463,10 @@ export default function ReportsSection() {
         : usuarioSeleccionado;
     }
 
-    const esAdministrador = user?.id_rol === 1 && (usuarioSeleccionado === 'mi-reporte' || !isAdmin);
-    const nombreCargo = 'Administrador';
+    const esAdministrador = isAdmin && usuarioSeleccionado === usuarioSeleccionado && false; // admins no deberían tener reporte personal aquí
 
     const periodo = (reporteActual?.periodo as any)?.nombre_periodo || reporteActual?.periodo?.nombre_mes || "Sin período";
 
-    // Encabezado simple
     sheet.mergeCells("A1:H1");
     sheet.getCell("A1").value = `Reporte de ${nombreUsuario}`;
     sheet.getCell("A1").alignment = { horizontal: "center" };
@@ -424,39 +478,6 @@ export default function ReportsSection() {
 
     sheet.addRow([]); // Fila 3 en blanco
 
-    if (esAdministrador) {
-      // Caso admin: no registra asistencia
-      sheet.mergeCells("A4:H4");
-      sheet.getCell("A4").value = `NO REGISTRA ASISTENCIA: ${nombreCargo}`;
-      sheet.getCell("A4").alignment = { horizontal: "center", vertical: "middle" };
-      sheet.getCell("A4").font = { bold: true, size: 14, color: { argb: "FF0066CC" } };
-      
-      sheet.mergeCells("A5:H5");
-      sheet.getCell("A5").value = "Los administradores no registran asistencia en el sistema.";
-      sheet.getCell("A5").alignment = { horizontal: "center", vertical: "middle" };
-      sheet.getCell("A5").font = { size: 12, color: { argb: "FF666666" } };
-
-      // Pie de generador
-      sheet.addRow([]);
-      const footerRow1 = sheet.addRow([
-        `Generado por: ${adminInfo.nombre} (${adminInfo.rut}) - ${adminInfo.cargo}`
-      ]);
-      sheet.mergeCells(footerRow1.number, 1, footerRow1.number, 8);
-      footerRow1.getCell(1).alignment = { horizontal: "center" };
-      footerRow1.getCell(1).font = { size: 10, italic: true };
-
-      const footerRow2 = sheet.addRow([
-        "Departamento de Sistemas de Información"
-      ]);
-      sheet.mergeCells(footerRow2.number, 1, footerRow2.number, 8);
-      footerRow2.getCell(1).alignment = { horizontal: "center" };
-      footerRow2.getCell(1).font = { size: 10, color: { argb: "FF0066CC" } };
-
-      const buffer = await workbook.xlsx.writeBuffer();
-      saveAs(new Blob([buffer]), `ReportePersonal_${nombreUsuario.replace(/\s+/g, '_')}_${periodo.replace(/\s+/g, '_')}.xlsx`);
-      return;
-    }
-    
     // Encabezado de tabla
     const headerRow = sheet.addRow([
       "Fecha", "Día", "Mañana Entrada", "Mañana Salida",
@@ -548,14 +569,7 @@ export default function ReportsSection() {
               pattern: "solid",
               fgColor: { argb: "FFE8F5E9" }
             };
-          } else if (cell.value.includes('No Justificada:')) {
-            cell.font = { color: { argb: "FFFF0000" }, bold: true };
-            cell.fill = {
-              type: "pattern",
-              pattern: "solid",
-              fgColor: { argb: "FFFFEBEE" }
-            };
-          } else if (cell.value === 'Falta') {
+          } else if (cell.value.includes('No Justificada:') || cell.value === 'Falta') {
             cell.font = { color: { argb: "FFFF0000" }, bold: true };
             cell.fill = {
               type: "pattern",
@@ -597,7 +611,7 @@ export default function ReportsSection() {
       { width: 30 }
     ];
 
-    // ✅ Pie del reporte
+    // 🔹 Pie: Director de Departamento
     sheet.addRow([]);
     const footerRow1 = sheet.addRow([
       `Generado por: ${adminInfo.nombre} (${adminInfo.rut}) - ${adminInfo.cargo}`
@@ -687,7 +701,6 @@ export default function ReportsSection() {
       }
     });
 
-    // ✅ Pie con info de quien genera
     const finalY = (doc as any).lastAutoTable.finalY || 40;
     doc.setFontSize(9);
     doc.text(
@@ -713,7 +726,7 @@ export default function ReportsSection() {
     const doc = new jsPDF();
 
     let nombreUsuario = "";
-    if (usuarioSeleccionado === "mi-reporte" || !isAdmin) {
+    if (!isAdmin) {
       nombreUsuario = user?.nombres || user?.rut_usuario || "Usuario";
     } else {
       const usuarioEncontrado = usuarios.find(
@@ -724,62 +737,15 @@ export default function ReportsSection() {
         : usuarioSeleccionado;
     }
 
-    const esAdministrador =
-      user?.id_rol === 1 && (usuarioSeleccionado === "mi-reporte" || !isAdmin);
-    const nombreCargo = "Administrador";
-
     const periodo =
       (reporteActual?.periodo as any)?.nombre_periodo ||
       reporteActual?.periodo?.nombre_mes ||
       "Sin período";
 
-    // Encabezado
     doc.setFontSize(18);
     doc.text(`Reporte de ${nombreUsuario}`, 105, 15, { align: "center" });
     doc.setFontSize(12);
     doc.text(`Período: ${periodo}`, 105, 25, { align: "center" });
-
-    if (esAdministrador) {
-      doc.setFontSize(14);
-      doc.text(
-        `NO REGISTRA ASISTENCIA: ${nombreCargo}`,
-        105,
-        45,
-        { align: "center" }
-      );
-      doc.setFontSize(10);
-      doc.text(
-        "Los administradores no registran asistencia en el sistema.",
-        105,
-        55,
-        { align: "center" }
-      );
-
-      // Pie
-      doc.setFontSize(9);
-      doc.text(
-        `Generado por: ${adminInfo.nombre} (${adminInfo.rut}) - ${adminInfo.cargo}`,
-        105,
-        75,
-        { align: "center" }
-      );
-      doc.setTextColor(0, 102, 204);
-      doc.text(
-        "Departamento de Sistemas de Información",
-        105,
-        82,
-        { align: "center" }
-      );
-      doc.setTextColor(0, 0, 0);
-
-      doc.save(
-        `ReportePersonal_${nombreUsuario.replace(
-          /\s+/g,
-          "_"
-        )}_${periodo.replace(/\s+/g, "_")}.pdf`
-      );
-      return;
-    }
 
     const registros = reporteActual?.asistencias_detalle || [];
 
@@ -897,7 +863,6 @@ export default function ReportsSection() {
       finalY = finalY + 34;
     }
 
-    // ✅ Pie con info del generador
     doc.setFontSize(9);
     doc.text(
       `Generado por: ${adminInfo.nombre} (${adminInfo.rut}) - ${adminInfo.cargo}`,
@@ -936,7 +901,7 @@ export default function ReportsSection() {
                 {isAdmin ? 'Gestiona y visualiza reportes de todos los usuarios' : 'Consulta tu historial de asistencia'}
               </p>
               <p className="text-slate-500 text-sm">
-                {user?.nombres} {user?.apellidos} | {isAdmin ? 'Administrador' : 'Usuario'}
+                {user?.nombres} {user?.apellidos} | {isAdmin ? 'Administrador' : 'Académico'}
               </p>
             </div>
           </div>
@@ -1042,11 +1007,11 @@ export default function ReportsSection() {
                   onChange={(e) => setUsuarioSeleccionado(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 >
-                  <option value="mi-reporte">Mi reporte personal</option>
-                  <option value="todos">📊 Reporte General - Todos los usuarios</option>
+                  {/* 🔹 Ya NO existe opción "Mi reporte personal" */}
+                  <option value="todos">Reporte General - Todos los usuarios</option>
                   <optgroup label="Reportes Individuales">
                     {usuarios
-                      .filter(u => u.id_rol !== 1) // ⛔ Excluir admins
+                      .filter(u => u.id_rol !== 1) // excluir admins
                       .map((u) => (
                         <option key={u.rut_usuario} value={u.rut_usuario}>
                           {u.nombres} {u.apellidos} ({u.rut_usuario})
@@ -1058,40 +1023,31 @@ export default function ReportsSection() {
               </div>
             ) : null}
 
-            {/* Info del admin que genera el reporte (solo visual, editable) */}
+            {/* Info del firmante del reporte (Director de Departamento) */}
             {isAdmin && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center">
                   <User className="h-4 w-4 mr-2" />
-                  Información del Generador del Reporte
+                  Informe emitido a nombre de
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                   <div>
-                    <label className="block text-xs font-medium text-blue-700 mb-1">Nombre</label>
-                    <input
-                      type="text"
-                      value={adminInfo.nombre}
-                      onChange={(e) => setAdminInfo({...adminInfo, nombre: e.target.value})}
-                      className="w-full px-2 py-1.5 text-sm border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
+                    <p className="text-xs font-medium text-blue-700">Nombre</p>
+                    <p className="mt-0.5 text-blue-900 font-semibold">
+                      {adminInfo.nombre}
+                    </p>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-blue-700 mb-1">RUT</label>
-                    <input
-                      type="text"
-                      value={adminInfo.rut}
-                      onChange={(e) => setAdminInfo({...adminInfo, rut: e.target.value})}
-                      className="w-full px-2 py-1.5 text-sm border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
+                    <p className="text-xs font-medium text-blue-700">RUT</p>
+                    <p className="mt-0.5 text-blue-900 font-semibold">
+                      {adminInfo.rut}
+                    </p>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-blue-700 mb-1">Cargo</label>
-                    <input
-                      type="text"
-                      value={adminInfo.cargo}
-                      onChange={(e) => setAdminInfo({...adminInfo, cargo: e.target.value})}
-                      className="w-full px-2 py-1.5 text-sm border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
+                    <p className="text-xs font-medium text-blue-700">Cargo</p>
+                    <p className="mt-0.5 text-blue-900 font-semibold">
+                      {adminInfo.cargo}
+                    </p>
                   </div>
                 </div>
                 <div className="mt-3 flex items-center text-xs text-blue-700">
@@ -1162,7 +1118,7 @@ export default function ReportsSection() {
                   </div>
                 </div>
 
-                {/* Top 3 usuarios con más horas (sin emojis, con iconos) */}
+                {/* Top 3 usuarios con más horas */}
                 <div>
                   <h4 className="text-sm font-semibold text-slate-700 mb-3">Top 3 - Más Horas Trabajadas</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
