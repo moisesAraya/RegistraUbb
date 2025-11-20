@@ -355,12 +355,16 @@ const JustificationManager: React.FC = () => {
                       )}
                       
                       <span className="text-sm font-medium text-gray-900">
-                        {new Date(justificacion.fecha_justificacion).toLocaleDateString('es-CL', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
+                        {(() => {
+                          const [year, month, day] = justificacion.fecha_justificacion.split('-').map(Number);
+                          const date = new Date(year, month - 1, day);
+                          return date.toLocaleDateString('es-CL', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          });
+                        })()}
                       </span>
                     </div>
                     

@@ -148,15 +148,34 @@ const AttendanceList: React.FC = () => {
     };
   });
 
-  const allRegistros = [...registrosAsistencia, ...registrosJustificados].sort(
-    (a: any, b: any) => {
+  const getAllFilteredAndSortedRegistros = () => {
+    let allRecords = [...registrosAsistencia, ...registrosJustificados];
+    
+    // Aplicar filtro de fecha
+    if (dateFilter) {
+      allRecords = allRecords.filter(record => {
+        const fechaNorm = normalizeFecha(record.fecha);
+        return fechaNorm === dateFilter;
+      });
+    }
+    
+    // Aplicar ordenamiento
+    return allRecords.sort((a: any, b: any) => {
       const fechaA = normalizeFecha(a.fecha) || '';
       const fechaB = normalizeFecha(b.fecha) || '';
-      if (fechaA > fechaB) return -1;
-      if (fechaA < fechaB) return 1;
+      
+      if (sortOrder === 'desc') {
+        if (fechaA > fechaB) return -1;
+        if (fechaA < fechaB) return 1;
+      } else {
+        if (fechaA < fechaB) return -1;
+        if (fechaA > fechaB) return 1;
+      }
       return 0;
-    }
-  );
+    });
+  };
+
+  const allRegistros = getAllFilteredAndSortedRegistros();
 
   // ---------- RENDER ----------
 
@@ -263,7 +282,7 @@ const AttendanceList: React.FC = () => {
       {/* Estadísticas avanzadas */}
       {estadisticas && estadisticas.horasReales > 0 ? (
         <div className="bg-white p-6 rounded-lg shadow border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Estadísticas del Mes</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Estadísticas de la Semana</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <h4 className="text-sm font-medium text-gray-500 mb-2">Cumplimiento de Objetivo</h4>
@@ -311,7 +330,7 @@ const AttendanceList: React.FC = () => {
         </div>
       ) : (
         <div className="bg-white p-6 rounded-lg shadow border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Estadísticas del Mes</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Estadísticas de la Semana</h3>
           <p className="text-sm text-gray-500">
             No hay datos suficientes para mostrar estadísticas.
           </p>
@@ -321,7 +340,7 @@ const AttendanceList: React.FC = () => {
       {/* Lista de asistencias + justificadas */}
       <div className="bg-white shadow overflow-hidden sm:rounded-md">
         <div className="px-4 py-5 sm:p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+          <div className="space-y-4 mb-6">
             <h3 className="text-lg leading-6 font-medium text-gray-900">
               Registro Detallado
               {asistenciaData?.periodo && (
@@ -329,37 +348,103 @@ const AttendanceList: React.FC = () => {
                   ({asistenciaData.periodo.mes}/{asistenciaData.periodo.anio})
                 </span>
               )}
+              {/* Debug visual */}
+              <span className="text-xs text-blue-500 ml-2">
+                [{allRegistros?.length || 0} registros]
+              </span>
             </h3>
             
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-gray-500" />
-                <input
-                  type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Filtrar por fecha"
-                />
-                {dateFilter && (
-                  <button
-                    onClick={() => setDateFilter('')}
-                    className="text-gray-400 hover:text-gray-600"
-                    title="Limpiar filtro"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-                  className="flex items-center gap-1 px-3 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            {/* Filtros siempre visibles */}
+            <div 
+              className="bg-gray-50 p-4 rounded-lg border"
+              style={{ 
+                backgroundColor: '#f9fafb', 
+                padding: '16px', 
+                borderRadius: '8px', 
+                border: '1px solid #e5e7eb',
+                display: 'block',
+                visibility: 'visible'
+              }}
+            >
+              <div 
+                className="flex flex-col space-y-3 md:flex-row md:space-y-0 md:space-x-4 md:items-center"
+                style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+              >
+                <div 
+                  className="flex items-center gap-2"
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}
                 >
-                  <TrendingUp className="h-4 w-4" />
-                  {sortOrder === 'desc' ? 'Más reciente' : 'Más antiguo'}
-                </button>
+                  <Calendar className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                  <label 
+                    className="text-sm font-medium text-gray-700 whitespace-nowrap"
+                    style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}
+                  >
+                    Filtrar por fecha:
+                  </label>
+                  <input
+                    type="date"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[140px]"
+                    style={{
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      padding: '4px 12px',
+                      fontSize: '14px',
+                      minWidth: '140px'
+                    }}
+                    placeholder="Filtrar por fecha"
+                  />
+                  {dateFilter && (
+                    <button
+                      onClick={() => setDateFilter('')}
+                      className="text-gray-400 hover:text-gray-600 ml-1 px-2 py-1 hover:bg-gray-200 rounded"
+                      style={{
+                        color: '#9ca3af',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        border: 'none',
+                        background: 'transparent',
+                        cursor: 'pointer'
+                      }}
+                      title="Limpiar filtro"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                
+                <div 
+                  className="flex items-center gap-2"
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}
+                >
+                  <label 
+                    className="text-sm font-medium text-gray-700 whitespace-nowrap"
+                    style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}
+                  >
+                    Ordenar:
+                  </label>
+                  <button
+                    onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                    className="flex items-center gap-1 px-3 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px] justify-center"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      minWidth: '120px',
+                      justifyContent: 'center',
+                      backgroundColor: 'white',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <TrendingUp className="h-4 w-4" />
+                    {sortOrder === 'desc' ? 'Más reciente' : 'Más antiguo'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

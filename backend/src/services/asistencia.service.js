@@ -3,7 +3,6 @@
 import { Op } from "sequelize";
 import Usuario from "../entities/usuario.entity.js";
 import Marcaje from "../entities/marcaje.entity.js";
-import RegistroMarcaje from "../entities/registro_marcaje.entity.js";
 import Justificacion from "../entities/justificacion.entity.js";
 
 console.log("🎯 [ASISTENCIA-SERVICE] v3 CARGADO (Marcaje + Justificacion, sin tabla Asistencia)");
@@ -97,7 +96,7 @@ function calcularHorasEntreMarcajes(entrada, salida) {
 
 /**
  * 🧠 Construye la "foto" de cada día del mes:
- * - Suma TODAS las parejas ingreso/salida del día (Marcaje + RegistroMarcaje)
+ * - Suma TODAS las parejas ingreso/salida del día (tabla Marcaje)
  * - Mezcla Justificacion (es_justificada / horas_compensadas)
  */
 async function obtenerDiasConHoras(rutUsuario, mes = null, anio = null) {
@@ -113,28 +112,21 @@ async function obtenerDiasConHoras(rutUsuario, mes = null, anio = null) {
 
   console.log("📅 [ASISTENCIA-SERVICE] Rango v3:", fechaInicioStr, "a", fechaFinStr);
 
-  // 🔹 1) Registros de marcaje del usuario en el mes
-  const registros = await RegistroMarcaje.findAll({
-    where: { rut_usuario: rutUsuario },
-    include: [
-      {
-        model: Marcaje,
-        as: "marcaje",
-        where: {
-          fecha: {
-            [Op.between]: [fechaInicioStr, fechaFinStr],
-          },
-        },
-        required: true,
+  // 🔹 1) Marcajes del usuario en el mes
+  const marcajes = await Marcaje.findAll({
+    where: { 
+      rut_usuario: rutUsuario,
+      fecha: {
+        [Op.between]: [fechaInicioStr, fechaFinStr],
       },
-    ],
+    },
     order: [
-      [{ model: Marcaje, as: "marcaje" }, "fecha", "ASC"],
-      [{ model: Marcaje, as: "marcaje" }, "hora_ingreso", "ASC"],
+      ["fecha", "ASC"],
+      ["hora_ingreso", "ASC"],
     ],
   });
 
-  console.log("📅 [ASISTENCIA-SERVICE] Registros de marcaje encontrados:", registros.length);
+  console.log("📅 [ASISTENCIA-SERVICE] Marcajes encontrados:", marcajes.length);
 
   // 🔹 2) Justificaciones del mes
   const justificaciones = await Justificacion.findAll({
@@ -150,8 +142,7 @@ async function obtenerDiasConHoras(rutUsuario, mes = null, anio = null) {
 
   // Agrupar marcajes por fecha
   const marcajesPorFecha = {};
-  registros.forEach((reg) => {
-    const m = reg.marcaje;
+  marcajes.forEach((m) => {
     const fecha = m.fecha; // YYYY-MM-DD
 
     if (!marcajesPorFecha[fecha]) {
@@ -432,15 +423,9 @@ export async function getEstadisticasAsistenciaService(
     // Horas reales del mes
     const horasReales = dias.reduce((sum, d) => sum + d.horas, 0);
 
-    // Calcular horas objetivo del mes (aprox. como antes)
-    const startDate = new Date(periodo.anio, periodo.mes - 1, 1);
-    const endDate = new Date(periodo.anio, periodo.mes, 0);
-    const diasDelMes = endDate.getDate();
-    const semanasCompletas = Math.floor(diasDelMes / 7);
-    const horasObjetivoMes = semanasCompletas * horasObjetivoSemanal;
-
-    const porcentajeCumplimiento =
-      horasObjetivoMes > 0 ? (horasReales / horasObjetivoMes) * 100 : 0;
+    // Calcular porcentaje de cumplimiento semanal (44 horas = 100%)
+    // Ya no se calcula por mes completo, sino que siempre se compara contra 44h semanales
+    const porcentajeCumplimiento = (horasReales / horasObjetivoSemanal) * 100;
 
     // Tendencia semanal (igual idea que antes)
     const tendenciaSemanal = [];

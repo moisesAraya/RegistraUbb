@@ -36,7 +36,7 @@ interface AdminInfo {
 
 export default function ReportsSection() {
   const { user } = useAuth();
-  const { reporteActual, obtenerReporteMensual, loading } = useReportes();
+  const { reporteActual, obtenerReporteSemanal, loading } = useReportes();
   
   useEffect(() => {
     console.log('reporteActual:', reporteActual);
@@ -71,20 +71,20 @@ export default function ReportsSection() {
     const generarReporteAutomatico = async () => {
       if (tipoFiltro === 'mes') {
         if (usuarioSeleccionado === 'todos') {
-          await obtenerReporteMensual(mes, anio, undefined, true);
+          await obtenerReporteSemanal(mes, anio, undefined, true);
         } else if (usuarioSeleccionado === 'mi-reporte') {
-          await obtenerReporteMensual(mes, anio, undefined, false);
+          await obtenerReporteSemanal(mes, anio, undefined, false);
         } else {
-          await obtenerReporteMensual(mes, anio, usuarioSeleccionado, false);
+          await obtenerReporteSemanal(mes, anio, usuarioSeleccionado, false);
         }
       } else {
         if (fechaInicio && fechaFin) {
           if (usuarioSeleccionado === 'todos') {
-            await obtenerReporteMensual(undefined, undefined, undefined, true, fechaInicio, fechaFin);
+            await obtenerReporteSemanal(undefined, undefined, undefined, true, fechaInicio, fechaFin);
           } else if (usuarioSeleccionado === 'mi-reporte') {
-            await obtenerReporteMensual(undefined, undefined, undefined, false, fechaInicio, fechaFin);
+            await obtenerReporteSemanal(undefined, undefined, undefined, false, fechaInicio, fechaFin);
           } else {
-            await obtenerReporteMensual(undefined, undefined, usuarioSeleccionado, false, fechaInicio, fechaFin);
+            await obtenerReporteSemanal(undefined, undefined, usuarioSeleccionado, false, fechaInicio, fechaFin);
           }
         }
       }

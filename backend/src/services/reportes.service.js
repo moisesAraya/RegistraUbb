@@ -2,7 +2,6 @@
 
 import { Op } from "sequelize";
 import Marcaje from "../entities/marcaje.entity.js";
-import RegistroMarcaje from "../entities/registro_marcaje.entity.js";
 import Justificacion from "../entities/justificacion.entity.js";
 import Usuario from "../entities/usuario.entity.js";
 import Cargo from "../entities/cargo.entity.js";
@@ -123,12 +122,12 @@ export async function getReportePersonalMensual(
             },
         });
 
-        // Registros de marcaje (relación usuario-marcaje)
-        const registrosMarcaje = await RegistroMarcaje.findAll({
+        // Marcajes del usuario
+        const marcajesUsuario = await Marcaje.findAll({
             where: { rut_usuario },
         });
 
-        if (registrosMarcaje.length === 0 && justificaciones.length === 0) {
+        if (marcajesUsuario.length === 0 && justificaciones.length === 0) {
             console.log("⚠️ [REPORTES] No hay registros para:", rut_usuario);
             return generarReporteVacio(
                 mes,
@@ -140,19 +139,16 @@ export async function getReportePersonalMensual(
             );
         }
 
-        const marcajeIds = registrosMarcaje.map((r) => r.id_marcaje);
-
-        const marcajes = await Marcaje.findAll({
-            where: {
-                id_marcaje: { [Op.in]: marcajeIds },
-                fecha: {
-                    [Op.between]: [fechaInicioReal, fechaFinReal],
-                },
-            },
-            order: [
-                ["fecha", "ASC"],
-                ["hora_ingreso", "ASC"],
-            ],
+        // Filtrar los marcajes del usuario por fecha
+        const marcajes = marcajesUsuario.filter(m => {
+            const fecha = m.fecha;
+            return fecha >= fechaInicioReal && fecha <= fechaFinReal;
+        }).sort((a, b) => {
+            // Ordenar por fecha y luego por hora_ingreso
+            if (a.fecha !== b.fecha) {
+                return new Date(a.fecha) - new Date(b.fecha);
+            }
+            return new Date(a.hora_ingreso) - new Date(b.hora_ingreso);
         });
 
         console.log(

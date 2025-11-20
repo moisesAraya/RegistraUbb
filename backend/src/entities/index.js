@@ -6,13 +6,11 @@ import Usuario from './usuario.entity.js';
 import Rol from './rol.entity.js';
 import Cargo from './cargo.entity.js';
 import Marcaje from './marcaje.entity.js';
-import RegistroMarcaje from './registro_marcaje.entity.js';
 import Totem from './totem.entity.js';
 import QR from './qr.entity.js';
 import Justificacion from './justificacion.entity.js';
 import Motivo from './motivo.entity.js';
 import Notificacion from './notificacion.entity.js';
-import Asistencia from './asistencia.entity.js';
 
 // Importar relaciones
 import './relations.js';
@@ -25,13 +23,11 @@ export {
   Rol,
   Cargo,
   Marcaje,
-  RegistroMarcaje,
   Totem,
   QR,
   Justificacion,
   Motivo,
-  Notificacion,
-  Asistencia
+  Notificacion
 };
 
 
