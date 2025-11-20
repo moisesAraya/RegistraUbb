@@ -2,7 +2,7 @@
 import requests
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import Cargo, Rol, Totem, Usuario, Justificacion, Registro_just, Notificacion, Asistencia, Marcaje, QR, Motivo
+from .models import Cargo, Rol, Totem, Usuario, Justificacion, Registro_just, Notificacion, Marcaje, QR, Motivo
 from django.conf import settings
 
 BACKEND_URL = getattr(settings, "BACKEND_URL", "http://localhost:3000")

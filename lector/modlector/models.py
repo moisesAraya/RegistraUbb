@@ -151,47 +151,17 @@ class Marcaje(ChileTimeModelMixin):
     class Meta:
         db_table = 'Marcajes'
     
-    def crear_asistencia_si_completo(self):
-        """
-        Crea un registro de asistencia cuando el marcaje tiene entrada y salida.
-        Calcula las horas diarias y determina si tuvo colación basado en las horas trabajadas.
-        """
-        # Solo crear asistencia si hay entrada Y salida
-        if self.hora_ingreso and self.hora_salida:
-            # Verificar que no exista ya una asistencia para este marcaje
-            if not hasattr(self, 'asistencia_set') or not self.asistencia_set.exists():
-                # Calcular las horas trabajadas
-                diferencia = self.hora_salida - self.hora_ingreso
-                horas_trabajadas = diferencia.total_seconds() / 3600  # Convertir a horas
-                
-                # Determinar colación basado en las horas trabajadas
-                # Si trabajó 5 horas o más, NO tuvo colación (False)
-                # Si trabajó menos de 5 horas, SÍ tuvo colación (True)
-                tuvo_colacion = horas_trabajadas < 5.0
-                
-                # Crear el registro de asistencia
-                Asistencia.objects.create(
-                    id_marcaje=self,
-                    horas_diarias=round(horas_trabajadas, 2),  # Redondear a 2 decimales
-                    colacion=tuvo_colacion,
-                    observacion=f"Asistencia generada automáticamente. Horas trabajadas: {round(horas_trabajadas, 2)}"
-                )
-    
     def save(self, *args, **kwargs):
         """
-        Override del método save para crear asistencia automáticamente
-        cuando se complete un marcaje (se agregue hora de salida)
+        Override del método save para aplicar zona horaria chilena
         """
         # Aplicar la lógica de hora chilena del mixin
         # Django ya maneja la configuración TIME_ZONE = 'America/Santiago' del settings.py
         if hasattr(self, 'updatedAt'):
             self.updatedAt = timezone.now()
         
-        # Guardar el marcaje primero
+        # Guardar el marcaje
         super(ChileTimeModelMixin, self).save(*args, **kwargs)
-        
-        # Intentar crear asistencia si está completo
-        self.crear_asistencia_si_completo()
     
 
 
@@ -217,19 +187,6 @@ class Registro_marcaje(models.Model):
         except Usuario.DoesNotExist:
             raise ValidationError({'rut_usuario': 'Usuario con este RUT no existe.'})
 
-
-class Asistencia(ChileTimeModelMixin):
-    id_asist = models.AutoField(primary_key=True)
-    colacion = models.BooleanField(default=False)
-    observacion = models.TextField(blank=True, null=True)
-    horas_diarias = models.FloatField(blank=True, null=True)
-    id_marcaje = models.ForeignKey('Marcaje', on_delete=models.CASCADE, db_column='id_marcaje')
-    id_justificacion = models.ForeignKey('Justificacion', on_delete=models.CASCADE, db_column='id_justificacion', blank=True, null=True)
-    createdAt = models.DateTimeField(default=get_current_chile_time)
-    updatedAt = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = 'Asistencia'
 
 
 class Justificacion(models.Model):
@@ -290,11 +247,7 @@ class Notificacion(models.Model):
         max_length=500
     )
 
-    id_asist = models.ForeignKey(
-        'Asistencia',
-        on_delete=models.CASCADE,
-        db_column='id_asist'
-    )
+
 
     class Meta:
         db_table = 'Notificacions'
