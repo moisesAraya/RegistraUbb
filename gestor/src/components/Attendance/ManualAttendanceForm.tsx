@@ -140,7 +140,12 @@ const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ onSubmit, o
               type="time"
               value={formData.checkInTime}
               onChange={(e) => setFormData({ ...formData, checkInTime: e.target.value })}
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm transition-all"
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm transition-all appearance-none bg-white"
+              style={{
+                colorScheme: 'light',
+                WebkitAppearance: 'none',
+                MozAppearance: 'textfield'
+              }}
               required
             />
           </div>

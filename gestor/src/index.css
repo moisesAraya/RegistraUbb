@@ -2,6 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Estilos para input type="time" */
+input[type="time"] {
+  -webkit-appearance: none;
+  -moz-appearance: textfield;
+  appearance: none;
+  background-color: white;
+  color-scheme: light;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.5);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+input[type="time"]::-webkit-datetime-edit {
+  padding: 0;
+}
+
+input[type="time"]::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
+}
+
 /* Animaciones personalizadas */
 @keyframes slideIn {
   from {
