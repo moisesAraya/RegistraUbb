@@ -197,7 +197,7 @@ const AttendanceList: React.FC = () => {
             <h3 className="text-sm font-medium text-red-800">Error al cargar datos</h3>
             <div className="mt-2 text-sm text-red-700">{error}</div>
             <button
-              onClick={refetch}
+              onClick={() => refetch()}
               className="mt-2 bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded text-sm"
             >
               Reintentar

@@ -99,7 +99,7 @@ function calcularHorasEntreMarcajes(entrada, salida) {
  * - Suma TODAS las parejas ingreso/salida del día (tabla Marcaje)
  * - Mezcla Justificacion (es_justificada / horas_compensadas)
  */
-async function obtenerDiasConHoras(rutUsuario, mes = null, anio = null) {
+async function obtenerMarcajesIndividuales(rutUsuario, mes = null, anio = null) {
   const now = new Date();
   const targetAnio = anio ? parseInt(anio) : now.getFullYear();
   const targetMes = mes ? parseInt(mes) : now.getMonth() + 1;
@@ -110,9 +110,9 @@ async function obtenerDiasConHoras(rutUsuario, mes = null, anio = null) {
   const fechaInicioStr = startDate.toISOString().split("T")[0];
   const fechaFinStr = endDate.toISOString().split("T")[0];
 
-  console.log("📅 [ASISTENCIA-SERVICE] Rango v3:", fechaInicioStr, "a", fechaFinStr);
+  console.log("📅 [ASISTENCIA-SERVICE] Rango v6 (individual):", fechaInicioStr, "a", fechaFinStr);
 
-  // 🔹 1) Marcajes del usuario en el mes
+  // 🔹 1) Obtener TODOS los marcajes individuales del usuario en el mes
   const marcajes = await Marcaje.findAll({
     where: { 
       rut_usuario: rutUsuario,
@@ -126,7 +126,7 @@ async function obtenerDiasConHoras(rutUsuario, mes = null, anio = null) {
     ],
   });
 
-  console.log("📅 [ASISTENCIA-SERVICE] Marcajes encontrados:", marcajes.length);
+  console.log("📅 [ASISTENCIA-SERVICE] Marcajes individuales encontrados:", marcajes.length);
 
   // 🔹 2) Justificaciones del mes
   const justificaciones = await Justificacion.findAll({
@@ -140,108 +140,85 @@ async function obtenerDiasConHoras(rutUsuario, mes = null, anio = null) {
 
   console.log("📋 [ASISTENCIA-SERVICE] Justificaciones encontradas:", justificaciones.length);
 
-  // Agrupar marcajes por fecha
-  const marcajesPorFecha = {};
-  marcajes.forEach((m) => {
-    const fecha = m.fecha; // YYYY-MM-DD
+  // 🔹 3) Convertir cada marcaje individual a un registro separado
+  const registrosIndividuales = [];
 
-    if (!marcajesPorFecha[fecha]) {
-      marcajesPorFecha[fecha] = [];
-    }
-
-    marcajesPorFecha[fecha].push({
-      hora_ingreso: m.hora_ingreso,
-      hora_salida: m.hora_salida,
-      observacion: m.observacion,
+  // Procesar cada marcaje por separado
+  marcajes.forEach((marcaje) => {
+    const fecha = marcaje.fecha;
+    const horasDelMarcaje = calcularHorasEntreMarcajes(marcaje.hora_ingreso, marcaje.hora_salida);
+    
+    registrosIndividuales.push({
+      id_marcaje: marcaje.id_marcaje,
+      fecha: fecha,
+      horas: Math.round(horasDelMarcaje * 100) / 100,
+      horaIngreso: formatTimeToString(marcaje.hora_ingreso),
+      horaSalida: formatTimeToString(marcaje.hora_salida),
+      estado: horasDelMarcaje > 0 ? "presente" : "falta",
+      observacion: marcaje.observacion,
+      justificacion: null, // Los marcajes no tienen justificación directa
     });
   });
 
-  // Map de justificaciones por fecha
-  const justPorFecha = new Map();
-  justificaciones.forEach((j) => {
-    justPorFecha.set(j.fecha_justificacion, j);
+  // Procesar justificaciones como registros separados
+  justificaciones.forEach((just) => {
+    registrosIndividuales.push({
+      id_justificacion: just.id_justificacion,
+      fecha: just.fecha_justificacion,
+      horas: Number(just.horas_compensadas) || 0,
+      horaIngreso: null,
+      horaSalida: null,
+      estado: just.es_justificada ? "justificada" : "no_justificada",
+      observacion: just.observaciones,
+      justificacion: {
+        motivo: just.motivo,
+        descripcion: just.descripcion,
+        es_justificada: just.es_justificada,
+        horas_compensadas: Number(just.horas_compensadas) || 0,
+      },
+    });
   });
 
-  // Conjunto de todas las fechas con algo (marcaje o justificación)
-  const fechasTodas = new Set([
-    ...Object.keys(marcajesPorFecha),
-    ...Array.from(justPorFecha.keys()),
-  ]);
-
-  // Construir "días con horas"
-  const dias = Array.from(fechasTodas).map((fecha) => {
-    const marcajes = marcajesPorFecha[fecha] || [];
-    const just = justPorFecha.get(fecha) || null;
-
-    // Sumar todas las parejas ingreso/salida del día
-    let horasTrabajadas = marcajes.reduce(
-      (sum, m) => sum + calcularHorasEntreMarcajes(m.hora_ingreso, m.hora_salida),
-      0
-    );
-
-    // Agregar horas compensadas de justificación justificada
-    if (just && just.es_justificada) {
-      const horasExtra = Number(just.horas_compensadas) || 0;
-      horasTrabajadas += horasExtra;
+  // Ordenar todos los registros por fecha y hora
+  registrosIndividuales.sort((a, b) => {
+    if (a.fecha !== b.fecha) {
+      return a.fecha < b.fecha ? -1 : 1;
     }
-
-    horasTrabajadas = Math.max(0, Math.min(14, horasTrabajadas));
-    horasTrabajadas = Math.round(horasTrabajadas * 100) / 100;
-
-    // Hora de ingreso = la más temprana del día
-    let horaIngreso = null;
-    if (marcajes.length > 0) {
-      const horasOrdenadas = marcajes
-        .map((m) => formatTimeToString(m.hora_ingreso))
-        .filter(Boolean)
-        .sort();
-      horaIngreso = horasOrdenadas[0] || null;
+    // Mismo día, ordenar por hora de ingreso
+    if (a.horaIngreso && b.horaIngreso) {
+      return a.horaIngreso < b.horaIngreso ? -1 : 1;
     }
-
-    // Hora de salida = la más tardía del día
-    let horaSalida = null;
-    if (marcajes.length > 0) {
-      const horasSalida = marcajes
-        .map((m) => formatTimeToString(m.hora_salida))
-        .filter(Boolean)
-        .sort();
-      horaSalida = horasSalida[horasSalida.length - 1] || null;
-    }
-
-    // Estado del día
-    let estado = "falta";
-    if (just) {
-      estado = just.es_justificada ? "justificada" : "no_justificada";
-    } else if (horasTrabajadas > 0) {
-      estado = "presente";
-    }
-
-    return {
-      fecha, // "YYYY-MM-DD"
-      horas: horasTrabajadas,
-      horaIngreso,
-      horaSalida,
-      estado,
-      observacion:
-        (just && just.observaciones) ||
-        (marcajes[0] && marcajes[0].observacion) ||
-        null,
-      justificacion: just
-        ? {
-            motivo: just.motivo,
-            descripcion: just.descripcion,
-            es_justificada: just.es_justificada,
-            horas_compensadas: Number(just.horas_compensadas) || 0,
-          }
-        : null,
-    };
+    return 0;
   });
 
-  // Ordenar por fecha ASC
-  dias.sort((a, b) => (a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0));
+  console.log("✅ [ASISTENCIA-SERVICE] Total registros individuales procesados:", registrosIndividuales.length);
+
+  // Calcular resumen basado en registros individuales
+  const diasUnicos = new Set(registrosIndividuales.map(r => r.fecha));
+  const diasConMarcajes = new Set(
+    registrosIndividuales.filter(r => r.id_marcaje && (r.horas || 0) > 0).map(r => r.fecha)
+  );
+  
+  // Sumar todas las horas de todos los registros individuales
+  const horasTotales = registrosIndividuales.reduce((sum, r) => sum + (r.horas || 0), 0);
+  const diasTrabajados = diasConMarcajes.size;
+  const horasPromedio = diasTrabajados > 0 ? horasTotales / diasTrabajados : 0;
+  
+  // Contar faltas (días sin marcajes válidos y sin justificaciones aprobadas)
+  const diasConJustificacionAprobada = new Set(
+    registrosIndividuales.filter(r => r.estado === 'justificada' && r.justificacion && r.justificacion.es_justificada).map(r => r.fecha)
+  );
+  const diasConActividad = new Set([...diasConMarcajes, ...diasConJustificacionAprobada]);
+  const faltas = Math.max(0, diasUnicos.size - diasConActividad.size);
 
   return {
-    dias,
+    dias: registrosIndividuales,
+    resumen: {
+      diasTrabajados,
+      diasFalta: faltas,
+      horasTotales: Math.round(horasTotales * 100) / 100,
+      horasPromedio: Math.round(horasPromedio * 100) / 100,
+    },
     periodo: {
       mes: targetMes,
       anio: targetAnio,
@@ -256,11 +233,11 @@ async function obtenerDiasConHoras(rutUsuario, mes = null, anio = null) {
  */
 export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio = null) {
   try {
-    console.log("📅 [ASISTENCIA-SERVICE] === OBTENIENDO ASISTENCIA (v4 agrupado) ===");
+    console.log("📅 [ASISTENCIA-SERVICE] === OBTENIENDO ASISTENCIA (v5 individual) ===");
     console.log("📅 [ASISTENCIA-SERVICE] Usuario:", rutUsuario);
     console.log("📅 [ASISTENCIA-SERVICE] Filtros:", { mes, anio });
 
-    const { dias, periodo } = await obtenerDiasConHoras(rutUsuario, mes, anio);
+    const { dias, resumen, periodo } = await obtenerMarcajesIndividuales(rutUsuario, mes, anio);
 
     if (!dias || dias.length === 0) {
       console.log("⚠️ [ASISTENCIA-SERVICE] Sin datos de marcaje ni justificaciones");
@@ -276,74 +253,28 @@ export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio =
       };
     }
 
-    // 🧠 Prioridad de estado para combinar varios registros del mismo día
-    const estadoPriority = {
-      no_justificada: 4,
-      falta: 3,
-      justificada: 2,
-      presente: 1,
-      undefined: 0,
-      null: 0,
-      "": 0,
-    };
-
-    // 1) Agrupar por fecha → un sólo objeto por día
-    const diasPorFecha = new Map(); // fecha -> objeto agregado
-
-    for (const d of dias) {
-      const fecha = d.fecha;
-      if (!fecha) continue;
-
-      const existente = diasPorFecha.get(fecha);
-
-      if (!existente) {
-        // Primer registro de ese día
-        diasPorFecha.set(fecha, { ...d });
-      } else {
-        // Ya había algo para ese día → fusionamos
-        const estadoNuevo = d.estado;
-        const estadoExistente = existente.estado;
-
-        const estadoFinal =
-          (estadoPriority[estadoNuevo] || 0) >= (estadoPriority[estadoExistente] || 0)
-            ? estadoNuevo
-            : estadoExistente;
-
-        // 🔹 Horas: nos quedamos con las del "último" registro (normalmente el ajuste manual)
-        const horasFinal = d.horas != null ? d.horas : existente.horas;
-
-        // 🔹 Justificación: preferimos la que exista
-        const justificacionFinal = existente.justificacion || d.justificacion || null;
-
-        // 🔹 Observación: concatenamos textos para tener trazabilidad
-        const observacionFinal = [existente.observacion, d.observacion]
-          .filter(Boolean)
-          .join(" | ");
-
-        diasPorFecha.set(fecha, {
-          ...existente,
-          ...d,
-          horas: horasFinal,
-          estado: estadoFinal,
-          justificacion: justificacionFinal,
-          observacion: observacionFinal || null,
-        });
+    // ✨ NUEVO: No agrupar - mostrar cada marcaje/justificación individualmente
+    console.log("📅 [ASISTENCIA-SERVICE] Preparando registros individuales (sin agrupar)");
+    
+    // 1) Ordenar todos los registros por fecha y hora
+    const registrosOrdenados = dias.sort((a, b) => {
+      if (a.fecha !== b.fecha) {
+        return a.fecha > b.fecha ? 1 : -1;
       }
-    }
-
-    // 2) Pasar Map a array y ordenar por fecha
-    const diasAgrupados = Array.from(diasPorFecha.values()).sort((a, b) => {
-      if (a.fecha > b.fecha) return 1;
-      if (a.fecha < b.fecha) return -1;
+      // Mismo día, ordenar por hora de ingreso
+      if (a.horaIngreso && b.horaIngreso) {
+        return a.horaIngreso > b.horaIngreso ? 1 : -1;
+      }
       return 0;
     });
 
-    // 3) Construir array para frontend (Mi Asistencia)
-    const asistencias = diasAgrupados.map((d) => ({
+    // 2) Construir array para frontend - CADA MARCAJE POR SEPARADO
+    const asistencias = dias.map((d, index) => ({
+      id: d.id_marcaje || d.id_justificacion || `registro_${index}`, // ID único
       fecha: d.fecha,
       horaIngreso: d.horaIngreso,
       horaSalida: d.horaSalida,
-      horasTrabajadas: d.horas,
+      horasTrabajadas: d.horas || 0,
       estado: d.estado, // 'presente' | 'justificada' | 'no_justificada' | 'falta'
       observacion: d.observacion,
       tipoMarcaje: d.justificacion ? "justificacion" : "qr",
@@ -351,30 +282,8 @@ export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio =
       justificacion: d.justificacion,
     }));
 
-    // 4) Resumen SOLO con los días agrupados
-    const diasTrabajados = diasAgrupados.filter(
-      (d) =>
-        (d.horas || 0) > 0 ||
-        (d.justificacion &&
-          d.justificacion.es_justificada &&
-          (d.justificacion.horas_compensadas || 0) > 0)
-    ).length;
-
-    const horasTotales = diasAgrupados.reduce((sum, d) => sum + (d.horas || 0), 0);
-    const horasPromedio = diasTrabajados > 0 ? horasTotales / diasTrabajados : 0;
-
-    const faltas = diasAgrupados.filter(
-      (d) => d.estado === "falta" || d.estado === "no_justificada"
-    ).length;
-
-    const resumen = {
-      diasTrabajados,
-      horasTotales: Math.round(horasTotales * 100) / 100,
-      horasPromedio: Math.round(horasPromedio * 100) / 100,
-      faltas,
-    };
-
-    console.log("✅ [ASISTENCIA-SERVICE] Resumen v4 (agrupado por día):", resumen);
+    console.log("✅ [ASISTENCIA-SERVICE] Resumen v6 (marcajes individuales):", resumen);
+    console.log("✅ [ASISTENCIA-SERVICE] Total registros individuales mostrados:", asistencias.length);
 
     return {
       asistencias,
@@ -382,7 +291,7 @@ export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio =
       periodo,
     };
   } catch (error) {
-    console.error("❌ [ASISTENCIA-SERVICE] Error v4:", error);
+    console.error("❌ [ASISTENCIA-SERVICE] Error v5:", error);
     throw new Error(`Error obteniendo asistencia: ${error.message}`);
   }
 }
@@ -407,7 +316,76 @@ export async function getEstadisticasAsistenciaService(
     const horasObjetivoSemanal = 44;
     const horasObjetivoDiario = 8;
 
-    const { dias, periodo } = await obtenerDiasConHoras(rutUsuario, mes, anio);
+    // Calcular fechas de la semana actual PRIMERO
+    const hoy = new Date();
+    const inicioSemanaActual = new Date(hoy);
+    const diaSemana = inicioSemanaActual.getDay();
+    const diasAlLunes = diaSemana === 0 ? 6 : diaSemana - 1; // Lunes = 0
+    inicioSemanaActual.setDate(inicioSemanaActual.getDate() - diasAlLunes);
+    inicioSemanaActual.setHours(0, 0, 0, 0);
+
+    const finSemanaActual = new Date(inicioSemanaActual);
+    finSemanaActual.setDate(finSemanaActual.getDate() + 6);
+    finSemanaActual.setHours(23, 59, 59, 999);
+
+    // Obtener marcajes solo de la semana actual
+    const fechaInicioSemana = inicioSemanaActual.toISOString().split("T")[0];
+    const fechaFinSemana = finSemanaActual.toISOString().split("T")[0];
+
+    console.log("📅 [ESTADISTICAS-SERVICE] Obteniendo marcajes semana actual:", {
+      inicio: fechaInicioSemana,
+      fin: fechaFinSemana
+    });
+
+    const marcajesSemana = await Marcaje.findAll({
+      where: { 
+        rut_usuario: rutUsuario,
+        fecha: {
+          [Op.between]: [fechaInicioSemana, fechaFinSemana],
+        },
+      },
+      order: [
+        ["fecha", "ASC"],
+        ["hora_ingreso", "ASC"],
+      ],
+    });
+
+    console.log("📅 [ESTADISTICAS-SERVICE] Marcajes encontrados semana:", marcajesSemana.length);
+    
+    // Convertir marcajes de la semana a formato de días agrupados
+    const diasAgrupados = {};
+    marcajesSemana.forEach(marcaje => {
+      const fecha = marcaje.fecha;
+      const horasDelMarcaje = calcularHorasEntreMarcajes(marcaje.hora_ingreso, marcaje.hora_salida);
+      
+      if (!diasAgrupados[fecha]) {
+        diasAgrupados[fecha] = {
+          fecha,
+          horas: 0,
+          horaIngreso: formatTimeToString(marcaje.hora_ingreso),
+          horaSalida: formatTimeToString(marcaje.hora_salida),
+          estado: 'presente',
+        };
+      }
+      
+      diasAgrupados[fecha].horas += horasDelMarcaje;
+      
+      // Mantener la hora de ingreso más temprana
+      const horaIngresoActual = formatTimeToString(marcaje.hora_ingreso);
+      if (horaIngresoActual && (!diasAgrupados[fecha].horaIngreso || horaIngresoActual < diasAgrupados[fecha].horaIngreso)) {
+        diasAgrupados[fecha].horaIngreso = horaIngresoActual;
+      }
+      
+      // Mantener la hora de salida más tardía
+      const horaSalidaActual = formatTimeToString(marcaje.hora_salida);
+      if (horaSalidaActual && (!diasAgrupados[fecha].horaSalida || horaSalidaActual > diasAgrupados[fecha].horaSalida)) {
+        diasAgrupados[fecha].horaSalida = horaSalidaActual;
+      }
+    });
+    
+    const dias = Object.values(diasAgrupados);
+    
+    console.log("📅 [ESTADISTICAS-SERVICE] Días agrupados semana:", dias.map(d => ({fecha: d.fecha, horas: d.horas})));
 
     if (dias.length === 0) {
       return {
@@ -420,16 +398,40 @@ export async function getEstadisticasAsistenciaService(
       };
     }
 
-    // Horas reales del mes
-    const horasReales = dias.reduce((sum, d) => sum + d.horas, 0);
+    // Horas reales de la SEMANA ACTUAL (ya filtradas arriba)
+    const horasRealesSemana = dias.reduce((sum, d) => sum + d.horas, 0);
+    
+    console.log("📅 [ESTADISTICAS-SERVICE] Resultado semana actual:", {
+      diasEncontrados: dias.length,
+      horasTotales: horasRealesSemana
+    });
 
     // Calcular porcentaje de cumplimiento semanal (44 horas = 100%)
-    // Ya no se calcula por mes completo, sino que siempre se compara contra 44h semanales
-    const porcentajeCumplimiento = (horasReales / horasObjetivoSemanal) * 100;
+    const porcentajeCumplimiento = (horasRealesSemana / horasObjetivoSemanal) * 100;
 
-    // Tendencia semanal (igual idea que antes)
+    // Para tendencias semanales y días más productivos, necesitamos datos del mes completo
+    const { dias: marcajesIndividualesMes } = await obtenerMarcajesIndividuales(rutUsuario, mes, anio);
+    
+    // Agrupar marcajes del mes completo por día
+    const diasAgrupadosMes = {};
+    marcajesIndividualesMes.forEach(marcaje => {
+      const fecha = marcaje.fecha;
+      if (!diasAgrupadosMes[fecha]) {
+        diasAgrupadosMes[fecha] = {
+          fecha,
+          horas: 0,
+          horaIngreso: marcaje.horaIngreso,
+          horaSalida: marcaje.horaSalida,
+          estado: marcaje.estado,
+        };
+      }
+      diasAgrupadosMes[fecha].horas += marcaje.horas;
+    });
+    
+    const diasMes = Object.values(diasAgrupadosMes);
+
+    // Tendencia semanal (basada en datos del mes)
     const tendenciaSemanal = [];
-    const hoy = new Date();
     for (let i = 3; i >= 0; i--) {
       const inicioSemana = new Date(hoy);
       inicioSemana.setDate(inicioSemana.getDate() - (i * 7 + 7));
@@ -437,7 +439,7 @@ export async function getEstadisticasAsistenciaService(
       const finSemana = new Date(hoy);
       finSemana.setDate(finSemana.getDate() - i * 7);
 
-      const diasSemana = dias.filter((d) => {
+      const diasSemana = diasMes.filter((d) => {
         const f = new Date(d.fecha + "T00:00:00");
         return f >= inicioSemana && f < finSemana;
       });
@@ -451,8 +453,8 @@ export async function getEstadisticasAsistenciaService(
       });
     }
 
-    // Días más productivos
-    const diasMasProductivos = [...dias]
+    // Días más productivos (basado en datos del mes)
+    const diasMasProductivos = [...diasMes]
       .sort((a, b) => b.horas - a.horas)
       .slice(0, 5)
       .map((d) => ({
@@ -484,8 +486,8 @@ export async function getEstadisticasAsistenciaService(
     console.log("✅ [ESTADISTICAS-SERVICE] v3 OK");
 
     return {
-      horasObjetivo: horasObjetivoDiario,
-      horasReales: Math.round(horasReales * 100) / 100,
+      horasObjetivo: horasObjetivoSemanal, // Cambiar a objetivo semanal (44h)
+      horasReales: Math.round(horasRealesSemana * 100) / 100, // Horas de la semana actual
       porcentajeCumplimiento: Math.round(porcentajeCumplimiento * 100) / 100,
       tendenciaSemanal,
       diasMasProductivos,

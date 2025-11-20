@@ -248,12 +248,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   const nombreCompleto = user ? `${user.nombres || ''} ${user.apellidos || ''}`.trim() : '';
 
   // ✅ DATOS REALES DEL DASHBOARD
-  const weeklyAttendanceRate =
-    dashboardData?.personal_basic_stats?.weekly_attendance_rate || 
-    dashboardData?.personal_basic_stats?.attendance_rate || 0;  
-
   const weekHours =
     dashboardData?.personal_basic_stats?.week_hours || 0;
+
+  // Calcular porcentaje semanal correctamente: horas_semana / 44h_objetivo * 100
+  const weeklyAttendanceRate = weekHours > 0 
+    ? Math.round((weekHours / 44) * 100)
+    : 0;
 
   if (!user) return null;
   return (
