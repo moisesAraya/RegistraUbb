@@ -61,6 +61,17 @@ function setupRelations() {
 
         // 5️⃣ RELACIONES ADICIONALES
 
+        // 8️⃣ MARCAJE <-> TOTEM (N:1)
+        Marcaje.belongsTo(Totem, { 
+            foreignKey: 'id_totem', 
+            as: 'totem' 
+        });
+
+        Totem.hasMany(Marcaje, { 
+            foreignKey: 'id_totem', 
+            as: 'marcajes' 
+        });
+
         // USUARIO <-> CARGO (si aplica)
         if (Usuario.rawAttributes.id_cargo) {
             Usuario.belongsTo(Cargo, { 
