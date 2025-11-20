@@ -1058,11 +1058,10 @@ export async function deleteManualEntryController(req, res) {
     // Opcional: asegurar que sea manual
     // if (marcaje.totem && marcaje.totem.ubicacion !== "INGRESO_MANUAL") { ... }
 
-    // Eliminar asistencia asociada
-    await Asistencia.destroy({ where: { id_marcaje: marcaje.id_marcaje } });
+    // Eliminar asistencia asociada (si existe la tabla)
+    // await Asistencia.destroy({ where: { id_marcaje: marcaje.id_marcaje } });
 
-    // Eliminar registros de marcaje
-    await RegistroMarcaje.destroy({ where: { id_marcaje: marcaje.id_marcaje } });
+    // RegistroMarcaje eliminado - ya no se usa
 
     // Finalmente, eliminar el marcaje
     await marcaje.destroy();

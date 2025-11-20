@@ -26,16 +26,7 @@ function setupRelations() {
             as: 'usuario'
         });
 
-        // 2️⃣ TOTEM <-> MARCAJE (1:N)
-        Totem.hasMany(Marcaje, { 
-            foreignKey: 'id_totem', 
-            as: 'marcajes' 
-        });
-
-        Marcaje.belongsTo(Totem, { 
-            foreignKey: 'id_totem', 
-            as: 'totem'
-        });
+        // 2️⃣ TOTEM <-> MARCAJE (1:N) - Se define más abajo para evitar duplicados
 
         // 3️⃣ USUARIO <-> JUSTIFICACION (1:N) ⭐ NUEVA RELACIÓN
         Usuario.hasMany(Justificacion, { 

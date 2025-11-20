@@ -1,3 +1,4 @@
+import { Op } from "sequelize";
 import Marcaje from "../entities/marcaje.entity.js";
 import Justificacion from "../entities/justificacion.entity.js";
 /**
@@ -19,7 +20,7 @@ export async function getWeeklyProgressDirectFromMarcajes(rut_usuario) {
         rut_usuario,
         fecha: {
           // Entre domingo y sábado
-          [Marcaje.sequelize.Op.between]: [
+          [Op.between]: [
             startOfWeek.toISOString().slice(0,10),
             endOfWeek.toISOString().slice(0,10)
           ]

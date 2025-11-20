@@ -122,12 +122,21 @@ export async function getReportePersonalMensual(
       },
     });
 
-    // Registros de marcaje (relación usuario-marcaje)
-    const registrosMarcaje = await RegistroMarcaje.findAll({
-      where: { rut_usuario },
+    // Marcajes del usuario en el mes (con filtrado y ordenamiento)
+    const marcajes = await Marcaje.findAll({
+      where: {
+        rut_usuario,
+        fecha: {
+          [Op.between]: [fechaInicioReal, fechaFinReal],
+        },
+      },
+      order: [
+        ["fecha", "ASC"],
+        ["hora_ingreso", "ASC"],
+      ],
     });
 
-    if (registrosMarcaje.length === 0 && justificaciones.length === 0) {
+    if (marcajes.length === 0 && justificaciones.length === 0) {
       console.log("⚠️ [REPORTES] No hay registros para:", rut_usuario);
       return generarReporteVacio(
         mes,
@@ -138,21 +147,6 @@ export async function getReportePersonalMensual(
         usuario
       );
     }
-
-    const marcajeIds = registrosMarcaje.map((r) => r.id_marcaje);
-
-    const marcajes = await Marcaje.findAll({
-      where: {
-        id_marcaje: { [Op.in]: marcajeIds },
-        fecha: {
-          [Op.between]: [fechaInicioReal, fechaFinReal],
-        },
-      },
-      order: [
-        ["fecha", "ASC"],
-        ["hora_ingreso", "ASC"],
-      ],
-    });
 
     console.log(
       `📊 [REPORTES] Marcajes: ${marcajes.length}, Justificaciones: ${justificaciones.length}`

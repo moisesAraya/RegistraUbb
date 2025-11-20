@@ -155,6 +155,15 @@ async function obtenerMarcajesIndividuales(rutUsuario, mes = null, anio = null) 
       hora_ingreso: m.hora_ingreso,
       hora_salida: m.hora_salida,
       observacion: m.observacion,
+    });
+  });
+
+  // Agrupar justificaciones por fecha
+  const justPorFecha = new Map();
+  justificaciones.forEach((just) => {
+    justPorFecha.set(just.fecha_justificacion, just);
+  });
+
   // 🔹 3) Convertir cada marcaje individual a un registro separado
   const registrosIndividuales = [];
 
@@ -246,14 +255,15 @@ async function obtenerMarcajesIndividuales(rutUsuario, mes = null, anio = null) 
         .filter(Boolean)
         .sort();
       horaSalida = horasSalida[horasSalida.length - 1] || null;
-  // Ordenar todos los registros por fecha y hora
-  registrosIndividuales.sort((a, b) => {
-    if (a.fecha !== b.fecha) {
-      return a.fecha < b.fecha ? -1 : 1;
     }
-    // Mismo día, ordenar por hora de ingreso
-    if (a.horaIngreso && b.horaIngreso) {
-      return a.horaIngreso < b.horaIngreso ? -1 : 1;
+
+    // Determinar estado del día
+    let estado = "falta";
+    if (horasTrabajadas > 0) {
+      estado = "presente";
+    }
+    if (just && just.es_justificada) {
+      estado = "justificada";
     }
 
     return {
@@ -276,6 +286,18 @@ async function obtenerMarcajesIndividuales(rutUsuario, mes = null, anio = null) 
           }
         : null,
     };
+  });
+
+  // Ordenar todos los registros por fecha y hora
+  registrosIndividuales.sort((a, b) => {
+    if (a.fecha !== b.fecha) {
+      return a.fecha < b.fecha ? -1 : 1;
+    }
+    // Mismo día, ordenar por hora de ingreso
+    if (a.horaIngreso && b.horaIngreso) {
+      return a.horaIngreso < b.horaIngreso ? -1 : 1;
+    }
+    return 0;
   });
 
   console.log("✅ [ASISTENCIA-SERVICE] Total registros individuales procesados:", registrosIndividuales.length);
@@ -395,8 +417,10 @@ export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio =
           id_marcaje: existente.id_marcaje || d.id_marcaje || null,
         });
       }
-      return 0;
-    });
+    }
+
+    // 2) Convertir Map a Array para procesamiento
+    const diasAgrupados = Array.from(diasPorFecha.values());
 
     // 3) Construir array para frontend (Mi Asistencia)
     const asistencias = diasAgrupados.map((d) => ({
@@ -481,9 +505,23 @@ export async function getEstadisticasAsistenciaService(
     });
 
     console.log("📅 [ESTADISTICAS-SERVICE] Marcajes encontrados semana:", marcajesSemana.length);
+
+    // 🆕 OBTENER JUSTIFICACIONES DE LA SEMANA TAMBIÉN
+    const justificacionesSemana = await Justificacion.findAll({
+      where: {
+        rut_usuario: rutUsuario,
+        fecha_justificacion: {
+          [Op.between]: [fechaInicioSemana, fechaFinSemana],
+        },
+      },
+    });
+
+    console.log("📅 [ESTADISTICAS-SERVICE] Justificaciones encontradas semana:", justificacionesSemana.length);
     
     // Convertir marcajes de la semana a formato de días agrupados
     const diasAgrupados = {};
+    
+    // Procesar marcajes
     marcajesSemana.forEach(marcaje => {
       const fecha = marcaje.fecha;
       const horasDelMarcaje = calcularHorasEntreMarcajes(marcaje.hora_ingreso, marcaje.hora_salida);
@@ -510,6 +548,27 @@ export async function getEstadisticasAsistenciaService(
       const horaSalidaActual = formatTimeToString(marcaje.hora_salida);
       if (horaSalidaActual && (!diasAgrupados[fecha].horaSalida || horaSalidaActual > diasAgrupados[fecha].horaSalida)) {
         diasAgrupados[fecha].horaSalida = horaSalidaActual;
+      }
+    });
+
+    // 🆕 PROCESAR JUSTIFICACIONES (sumar horas compensadas de justificaciones aprobadas)
+    justificacionesSemana.forEach(just => {
+      const fecha = just.fecha_justificacion;
+      
+      if (!diasAgrupados[fecha]) {
+        diasAgrupados[fecha] = {
+          fecha,
+          horas: 0,
+          horaIngreso: null,
+          horaSalida: null,
+          estado: just.es_justificada ? 'justificada' : 'no_justificada',
+        };
+      }
+      
+      // Solo sumar horas si la justificación está aprobada
+      if (just.es_justificada && just.horas_compensadas) {
+        diasAgrupados[fecha].horas += Number(just.horas_compensadas);
+        console.log(`✅ [ESTADISTICAS] Sumando ${just.horas_compensadas}h compensadas para ${fecha}`);
       }
     });
     
