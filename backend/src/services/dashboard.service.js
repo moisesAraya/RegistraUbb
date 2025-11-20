@@ -629,15 +629,40 @@ export async function getAdminDashboardMetrics() {
     const todayStr = now.toISOString().split("T")[0];
     const startOfWeek = getStartOfWeek(now);
 
+    // 📊 NUEVAS MÉTRICAS PARA ADMIN DASHBOARD
+    let totalAcademicos = 0;
+    let academicosPresentes = 0;
+    let totalDiasConMarcajes = 0;
+    let semanaAnteriorHoras = {};
+
     const isWorkedDay = (a) => {
       const horas = Number(a.horas_totales || 0);
       const justificada = a.justificacion?.es_justificada === true;
       return horas > 0 || justificada;
     };
 
+    // 📅 Calcular semana anterior para el gráfico
+    const startOfPreviousWeek = new Date(startOfWeek);
+    startOfPreviousWeek.setDate(startOfPreviousWeek.getDate() - 7);
+    const endOfPreviousWeek = new Date(startOfWeek);
+    endOfPreviousWeek.setDate(endOfPreviousWeek.getDate() - 1);
+
+    console.log("📅 [ADMIN-DASHBOARD] Rangos de fechas:", {
+      today: todayStr,
+      startOfWeek: startOfWeek.toISOString().split("T")[0],
+      startOfPreviousWeek: startOfPreviousWeek.toISOString().split("T")[0],
+      endOfPreviousWeek: endOfPreviousWeek.toISOString().split("T")[0]
+    });
+
     for (const u of usuarios) {
       const rut = u.rut_usuario;
+      const rol = u.id_rol;
       if (!rut) continue;
+
+      // Contar académicos (excluir administradores y otros roles no académicos)
+      if (rol && rol !== 1) { // No contar admins como académicos
+        totalAcademicos++;
+      }
 
       const reporte = await getReportePersonalMensual(rut, mes, anio);
       const asistencias = reporte.asistencias_detalle || [];
@@ -645,6 +670,33 @@ export async function getAdminDashboardMetrics() {
 
       const horas = Number(resumen.horasTotales || 0);
       totalHorasMes += horas;
+
+      // Verificar si el académico está presente hoy
+      const presenteHoy = asistencias.some((a) => a.fecha === todayStr && isWorkedDay(a));
+      if (presenteHoy && rol !== 1) {
+        academicosPresentes++;
+      }
+
+      // Contar días con marcajes para promedio diario
+      const diasConMarcajes = asistencias.filter((a) => isWorkedDay(a)).length;
+      if (diasConMarcajes > 0 && rol !== 1) {
+        totalDiasConMarcajes += diasConMarcajes;
+      }
+
+      // Calcular horas de semana anterior por día para el gráfico
+      if (rol !== 1) { // Solo académicos para el gráfico
+        asistencias.forEach((a) => {
+          const fechaMarcaje = new Date(a.fecha + "T00:00:00");
+          if (fechaMarcaje >= startOfPreviousWeek && fechaMarcaje <= endOfPreviousWeek && isWorkedDay(a)) {
+            const dia = a.fecha;
+            const horas = Number(a.horas_totales || 0);
+            if (!semanaAnteriorHoras[dia]) {
+              semanaAnteriorHoras[dia] = 0;
+            }
+            semanaAnteriorHoras[dia] += horas;
+          }
+        });
+      }
 
       today += asistencias.filter(
         (a) => a.fecha === todayStr && isWorkedDay(a)
@@ -663,11 +715,31 @@ export async function getAdminDashboardMetrics() {
     const averageWeeklyHours =
       totalUsuarios > 0 ? (totalHorasMes / semanasAprox) / totalUsuarios : 0;
 
+    // Calcular promedio diario de académicos
+    const promedioDiarioAcademicos = totalAcademicos > 0 ? totalDiasConMarcajes / 30 : 0; // Asumiendo 30 días del mes
+
+    // Convertir horas de semana anterior a array para el gráfico
+    const semanaAnteriorArray = [];
+    for (let i = 0; i < 7; i++) {
+      const fecha = new Date(startOfPreviousWeek);
+      fecha.setDate(fecha.getDate() + i);
+      const fechaStr = fecha.toISOString().split("T")[0];
+      const nombreDia = fecha.toLocaleDateString('es-ES', { weekday: 'short' });
+      semanaAnteriorArray.push({
+        dia: nombreDia.charAt(0).toUpperCase() + nombreDia.slice(1),
+        fecha: fechaStr,
+        horas: redondear2(semanaAnteriorHoras[fechaStr] || 0)
+      });
+    }
+
     const result = {
       organization_overview: {
         ...overview,
         total_hours_month: redondear2(totalHorasMes),
         average_weekly_hours: redondear2(averageWeeklyHours),
+        total_academicos: totalAcademicos,
+        academicos_presentes: academicosPresentes,
+        promedio_diario_academicos: redondear2(promedioDiarioAcademicos),
       },
       attendance_analytics: {
         attendance_by_period: {
@@ -675,11 +747,16 @@ export async function getAdminDashboardMetrics() {
           this_week,
           this_month,
         },
+        semana_anterior_horas: semanaAnteriorArray,
       },
     };
 
     console.log("✅ [ADMIN-DASHBOARD-SERVICE] Métricas globales calculadas:", {
       totalHorasMes: result.organization_overview.total_hours_month,
+      totalAcademicos: result.organization_overview.total_academicos,
+      academicosPresentes: result.organization_overview.academicos_presentes,
+      promedioDiarioAcademicos: result.organization_overview.promedio_diario_academicos,
+      semanaAnteriorDias: result.attendance_analytics.semana_anterior_horas.length,
       today,
       this_week,
       this_month,
@@ -697,6 +774,9 @@ export async function getAdminDashboardMetrics() {
         last_updated: new Date().toISOString(),
         total_hours_month: 0,
         average_weekly_hours: 0,
+        total_academicos: 0,
+        academicos_presentes: 0,
+        promedio_diario_academicos: 0,
       },
       attendance_analytics: {
         attendance_by_period: {
@@ -704,6 +784,7 @@ export async function getAdminDashboardMetrics() {
           this_week: 0,
           this_month: 0,
         },
+        semana_anterior_horas: [],
       },
     };
   }

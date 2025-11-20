@@ -2,7 +2,6 @@
 
 import { Op } from "sequelize";
 import Marcaje from "../entities/marcaje.entity.js";
-import RegistroMarcaje from "../entities/registro_marcaje.entity.js";
 import Justificacion from "../entities/justificacion.entity.js";
 import Usuario from "../entities/usuario.entity.js";
 import Cargo from "../entities/cargo.entity.js";

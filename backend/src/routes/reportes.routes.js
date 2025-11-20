@@ -8,6 +8,7 @@ const router = express.Router();
 
 // ✅ RUTAS DE REPORTES
 router.get('/mensual', authenticateToken, getReporteMensual);
+router.get('/semanal', authenticateToken, getReporteMensual); // Reutiliza el mismo controlador
 router.get('/comparativo', authenticateToken, getReporteComparativo);
 router.get('/anual', authenticateToken, getEstadisticasAnuales);
 

@@ -48,10 +48,10 @@ interface ReportePersonal {
 
 interface ReporteComparativo {
   periodo_analizado: string;
-    reportes_mensuales: Array<{
-    mes: number;
+    reportes_semanales: Array<{
+    semana: number;
     anio: number;
-    nombre_mes: string;
+    nombre_semana: string;
     horas_totales: number;
     dias_trabajados: number;
     faltas: number;
@@ -86,8 +86,8 @@ export const useReportes = () => {
   const [mesSeleccionado, setMesSeleccionado] = useState<number>(new Date().getMonth() + 1);
   const [anioSeleccionado, setAnioSeleccionado] = useState<number>(new Date().getFullYear());
 
-  // ✅ OBTENER REPORTE MENSUAL O POR RANGO DE FECHAS
-  const obtenerReporteMensual = async (
+  // ✅ OBTENER REPORTE SEMANAL O POR RANGO DE FECHAS
+  const obtenerReporteSemanal = async (
     mes?: number, 
     anio?: number, 
     rut?: string, 
@@ -101,7 +101,7 @@ export const useReportes = () => {
     setError(null);
 
     try {
-      let url = `${API_URL}/reportes/mensual?`;
+      let url = `${API_URL}/reportes/semanal?`;
       
       // Priorizar rango de fechas sobre mes/año
       if (fecha_inicio && fecha_fin) {
@@ -132,12 +132,12 @@ export const useReportes = () => {
         setReporteActual(data.data);
         return data.data;
       } else {
-        throw new Error(data.error || 'Error obteniendo reporte mensual');
+        throw new Error(data.error || 'Error obteniendo reporte semanal');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
       setError(errorMessage);
-      console.error('Error obteniendo reporte mensual:', err);
+      console.error('Error obteniendo reporte semanal:', err);
     } finally {
       setLoading(false);
     }
@@ -229,7 +229,7 @@ export const useReportes = () => {
       const mes = fechaActual.getMonth() + 1;
       const anio = fechaActual.getFullYear();
       
-      obtenerReporteMensual(mes, anio);
+      obtenerReporteSemanal(mes, anio);
     }
   }, [token]);
 
@@ -250,7 +250,7 @@ export const useReportes = () => {
     setAnioSeleccionado,
 
     // Funciones
-    obtenerReporteMensual,
+    obtenerReporteSemanal,
     obtenerReporteComparativo,
     obtenerEstadisticasAnuales,
 
@@ -258,7 +258,7 @@ export const useReportes = () => {
     clearError: () => setError(null),
     refresh: () => {
       const fechaActual = new Date();
-      obtenerReporteMensual(fechaActual.getMonth() + 1, fechaActual.getFullYear());
+      obtenerReporteSemanal(fechaActual.getMonth() + 1, fechaActual.getFullYear());
     }
   };
 };

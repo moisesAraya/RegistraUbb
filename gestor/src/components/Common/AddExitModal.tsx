@@ -57,7 +57,9 @@ export const AddExitModal: React.FC<AddExitModalProps> = ({
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    // Crear fecha local para evitar problemas de zona horaria
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
     const options: Intl.DateTimeFormatOptions = {
       weekday: 'long',
       day: 'numeric',
@@ -65,6 +67,16 @@ export const AddExitModal: React.FC<AddExitModalProps> = ({
       year: 'numeric'
     };
     return date.toLocaleDateString('es-CL', options);
+  };
+
+  const formatTime = (timeString: string) => {
+    if (!timeString) return '';
+    const date = new Date(timeString);
+    return date.toLocaleTimeString('es-CL', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
   };
 
   if (showSuccess) {
@@ -101,7 +113,7 @@ export const AddExitModal: React.FC<AddExitModalProps> = ({
               <h3 className="font-medium text-slate-900 mb-2">Información del Marcaje</h3>
               <div className="space-y-1 text-sm text-slate-600">
                 <p><span className="font-medium">Fecha:</span> {formatDate(marcaje.fecha)}</p>
-                <p><span className="font-medium">Hora de Ingreso:</span> {marcaje.hora_ingreso}</p>
+                <p><span className="font-medium">Hora de Ingreso:</span> {formatTime(marcaje.hora_ingreso)}</p>
               </div>
             </div>
 

@@ -36,7 +36,7 @@ interface AdminInfo {
 
 export default function ReportsSection() {
   const { user } = useAuth();
-  const { reporteActual, obtenerReporteMensual, loading } = useReportes();
+  const { reporteActual, obtenerReporteSemanal, loading } = useReportes();
   
   useEffect(() => {
     console.log('reporteActual:', reporteActual);
@@ -118,7 +118,7 @@ useEffect(() => {
         if (usuarioSeleccionado === 'todos') {
           await obtenerReporteMensual(mes, anio, undefined, true);
         } else {
-          await obtenerReporteMensual(mes, anio, usuarioSeleccionado, false);
+          await obtenerReporteSemanal(mes, anio, usuarioSeleccionado, false);
         }
       } else {
         // no admin → siempre su propio reporte

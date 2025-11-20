@@ -15,9 +15,7 @@ import {
 
 import { Op } from 'sequelize';
 import Marcaje from '../entities/marcaje.entity.js';
-import RegistroMarcaje from '../entities/registro_marcaje.entity.js';
 import Totem from '../entities/totem.entity.js';
-import Asistencia from '../entities/asistencia.entity.js';
 
 console.log('👤 [ASISTENCIA-CTRL] ✅ CONTROLLER CARGADO ✅');
 console.log('🚀 [DASHBOARD-CONTROLLER] Controller cargado y conectado con service real');
@@ -459,9 +457,6 @@ export async function createManualEntryController(req, res) {
       });
     }
 
-    // ❌ Ya NO registramos en RegistroMarcaje (lo vas a eliminar)
-    // await RegistroMarcaje.create(...);
-
     console.log("✅ [MANUAL-ENTRY] Marcaje procesado correctamente:", {
       id_marcaje: marcajeFinal.id_marcaje,
       fecha: marcajeFinal.fecha,
@@ -476,18 +471,8 @@ export async function createManualEntryController(req, res) {
 
     if (marcajeFinal.hora_ingreso && marcajeFinal.hora_salida) {
       const diffMs = marcajeFinal.hora_salida.getTime() - marcajeFinal.hora_ingreso.getTime();
-      horasTrabajadas = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
-      tuvoColacion = horasTrabajadas > 6;
-
-      await Asistencia.create({
-        colacion: tuvoColacion,
-        observacion: observacion,
-        horas_diarias: horasTrabajadas,
-        id_marcaje: marcajeFinal.id_marcaje,
-        id_justificacion: null
-      });
-
-      console.log(`✅ [MANUAL-ENTRY] Asistencia creada: ${horasTrabajadas}h, colación: ${tuvoColacion}`);
+      const horasTrabajadas = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
+      console.log(`✅ [MANUAL-ENTRY] Horas trabajadas calculadas: ${horasTrabajadas}h`);
     } else {
       console.log(`ℹ️ [MANUAL-ENTRY] Marcaje parcial registrado, sin cálculo de horas`);
     }
@@ -678,45 +663,40 @@ export async function getMarcajeAbiertoController(req, res) {
     const hoy = new Date().toISOString().split('T')[0];
     console.log('🔓 [ASISTENCIA-CTRL] Fecha de hoy:', hoy);
     
-    // Buscar marcajes del usuario hoy a través de RegistroMarcaje
-    const registrosMarcaje = await RegistroMarcaje.findAll({
-      where: { rut_usuario },
-      include: [{
-        model: Marcaje,
-        as: 'marcaje',
-        where: {
-          fecha: hoy,
-          [Op.or]: [
-            { hora_salida: null },
-            { hora_salida: { [Op.lt]: new Date('1971-01-01') } } // Considerar fechas de 1970 como marcajes abiertos
-          ]
-        },
-        required: true,
-        order: [['createdAt', 'DESC']]
-      }]
+    // Buscar marcajes abiertos del usuario (sin restricción de fecha para detectar marcajes de días anteriores)
+    const marcajesAbiertos = await Marcaje.findAll({
+      where: {
+        rut_usuario,
+        [Op.or]: [
+          { hora_salida: null },
+          { hora_salida: { [Op.lt]: new Date('1971-01-01') } } // Considerar fechas de 1970 como marcajes abiertos
+        ]
+      },
+      order: [['createdAt', 'DESC']]
     });
 
-    console.log('🔓 [ASISTENCIA-CTRL] Registros encontrados:', registrosMarcaje.length);
+    console.log('🔓 [ASISTENCIA-CTRL] Marcajes abiertos encontrados:', marcajesAbiertos.length);
     
     // También buscar todos los marcajes del usuario para debug
-    const todosLosMarcajes = await RegistroMarcaje.findAll({
-      where: { rut_usuario },
-      include: [{
-        model: Marcaje,
-        as: 'marcaje',
-        required: true
-      }]
+    const todosLosMarcajes = await Marcaje.findAll({
+      where: { rut_usuario }
     });
     
-    console.log('🔓 [ASISTENCIA-CTRL] Todos los marcajes del usuario:', todosLosMarcajes.map(r => ({
-      id: r.marcaje.id_marcaje,
-      fecha: r.marcaje.fecha,
-      hora_ingreso: r.marcaje.hora_ingreso,
-      hora_salida: r.marcaje.hora_salida
+    console.log('🔓 [ASISTENCIA-CTRL] Todos los marcajes del usuario:', todosLosMarcajes.map(m => ({
+      id: m.id_marcaje,
+      fecha: m.fecha,
+      hora_ingreso: m.hora_ingreso,
+      hora_salida: m.hora_salida
     })));
 
-    if (registrosMarcaje.length > 0) {
-      const marcajeAbierto = registrosMarcaje[0].marcaje;
+    if (marcajesAbiertos.length > 0) {
+      const marcajeAbierto = marcajesAbiertos[0];
+      
+      // Calcular tiempo transcurrido desde el ingreso
+      const ahora = new Date();
+      const horaIngreso = new Date(marcajeAbierto.hora_ingreso);
+      const tiempoTranscurridoHoras = (ahora - horaIngreso) / (1000 * 60 * 60);
+      const esAntiguo = tiempoTranscurridoHoras > 9;
       
       // Enviar la hora como ISO string para que el frontend maneje la zona horaria
       const horaIngresoFormatted = marcajeAbierto.hora_ingreso 
@@ -727,7 +707,9 @@ export async function getMarcajeAbiertoController(req, res) {
         id: marcajeAbierto.id_marcaje,
         fecha: marcajeAbierto.fecha,
         hora_ingreso_original: marcajeAbierto.hora_ingreso,
-        hora_ingreso_formatted: horaIngresoFormatted
+        hora_ingreso_formatted: horaIngresoFormatted,
+        tiempo_transcurrido_horas: tiempoTranscurridoHoras.toFixed(2),
+        es_antiguo: esAntiguo
       });
 
       return res.status(200).json({
@@ -737,7 +719,10 @@ export async function getMarcajeAbiertoController(req, res) {
           fecha: marcajeAbierto.fecha,
           hora_ingreso: horaIngresoFormatted,
           hora_salida: marcajeAbierto.hora_salida,
-          tipo_marcaje: 'ingreso'
+          tipo_marcaje: 'ingreso',
+          tiempo_transcurrido_horas: tiempoTranscurridoHoras,
+          es_marcaje_antiguo: esAntiguo,
+          mensaje_alerta: esAntiguo ? `Este marcaje lleva abierto ${tiempoTranscurridoHoras.toFixed(1)} horas` : null
         }
       });
     } else {

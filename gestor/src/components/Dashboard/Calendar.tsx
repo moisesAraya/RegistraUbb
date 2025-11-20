@@ -124,18 +124,41 @@ const AttendanceCalendar: React.FC = () => {
   // Mapa por fecha YYYY-MM-DD
   const registrosPorFecha: Record<string, any> = {};
 
-  // 1) Asistencias normales
+  // 1) Asistencias normales - AGREGAR horas para el mismo día
   rawAsistencias.forEach(a => {
     const fecha = normalizeFecha(a.fecha);
     if (!fecha) return;
 
-    registrosPorFecha[fecha] = {
-      ...a,
-      fecha,
-      horasTrabajadas: a.horasTrabajadas ?? a.horas_diarias ?? 0,
-      estado: a.estado || 'presente',
-      justificacion: a.justificacion // si el backend ya la trae aquí
-    };
+    const existente = registrosPorFecha[fecha];
+    const horasActuales = a.horasTrabajadas ?? a.horas_diarias ?? 0;
+
+    if (existente) {
+      // Ya existe un registro para esta fecha, sumar las horas
+      registrosPorFecha[fecha] = {
+        ...existente,
+        horasTrabajadas: (existente.horasTrabajadas || 0) + horasActuales,
+        // Mantener la hora de ingreso más temprana
+        horaIngreso: (!existente.horaIngreso || (a.horaIngreso && a.horaIngreso < existente.horaIngreso)) 
+          ? a.horaIngreso 
+          : existente.horaIngreso,
+        // Mantener la hora de salida más tardía
+        horaSalida: (!existente.horaSalida || (a.horaSalida && a.horaSalida > existente.horaSalida)) 
+          ? a.horaSalida 
+          : existente.horaSalida,
+        // Combinar observaciones si existen
+        observacion: [existente.observacion, a.observacion].filter(Boolean).join(' | ') || null,
+        estado: existente.estado || a.estado || 'presente',
+      };
+    } else {
+      // Primer registro para esta fecha
+      registrosPorFecha[fecha] = {
+        ...a,
+        fecha,
+        horasTrabajadas: horasActuales,
+        estado: a.estado || 'presente',
+        justificacion: a.justificacion
+      };
+    }
   });
 
   // 2) Justificaciones puras (sin asistencia)
@@ -259,6 +282,11 @@ const AttendanceCalendar: React.FC = () => {
   const goToToday = () => {
     setCurrentDate(new Date());
     setSelectedDay(null);
+  };
+
+  // ---------- FUNCIÓN PARA OBTENER MARCAJES INDIVIDUALES DEL DÍA ----------
+  const getMarcajesDelDia = (fecha: string) => {
+    return rawAsistencias.filter(a => normalizeFecha(a.fecha) === fecha);
   };
 
   // ---------- RENDER ----------
@@ -523,6 +551,45 @@ const AttendanceCalendar: React.FC = () => {
                     </span>
                   </div>
                 </div>
+
+                {/* Marcajes individuales del día */}
+                {(() => {
+                  const fechaString = selectedDay.date.toISOString().split('T')[0];
+                  const marcajesDelDia = getMarcajesDelDia(fechaString);
+                  
+                  if (marcajesDelDia.length > 1) {
+                    return (
+                      <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-xs font-medium text-blue-900 mb-2">
+                          Marcajes Individuales ({marcajesDelDia.length}):
+                        </p>
+                        <div className="space-y-2">
+                          {marcajesDelDia.map((marcaje, index) => (
+                            <div key={index} className="bg-white rounded-md p-2 border border-blue-100">
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-blue-700 font-medium">Marcaje {index + 1}</span>
+                                <span className="text-blue-600 font-bold">
+                                  {marcaje.horasTrabajadas?.toFixed(2) || '0.00'}h
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-xs text-blue-600 mt-1">
+                                <span>{marcaje.horaIngreso?.substring(0, 5) || '-'}</span>
+                                <span>→</span>
+                                <span>{marcaje.horaSalida?.substring(0, 5) || '-'}</span>
+                              </div>
+                              {marcaje.observacion && (
+                                <p className="text-xs text-blue-500 mt-1 italic">
+                                  {marcaje.observacion}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             )}
 

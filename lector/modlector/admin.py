@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Cargo, Rol, Totem, Usuario, QR, Marcaje, Registro_marcaje, Asistencia, Justificacion, Notificacion
+from .models import Cargo, Rol, Totem, Usuario, QR, Marcaje, Justificacion, Notificacion
 
 # Register your models here.
 admin.site.register(Cargo)
@@ -8,7 +8,6 @@ admin.site.register(Totem)
 admin.site.register(Usuario)
 admin.site.register(QR)
 admin.site.register(Marcaje)
-admin.site.register(Registro_marcaje)
-admin.site.register(Asistencia)
+# Registro_marcaje eliminado - la información está en la tabla Marcaje
 admin.site.register(Justificacion)
 admin.site.register(Notificacion)

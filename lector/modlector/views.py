@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.contrib import messages
 from django.utils import timezone
-from .models import QR, Usuario, Marcaje, Totem, Registro_marcaje
+from .models import QR, Usuario, Marcaje, Totem
 from django.views.decorators.csrf import csrf_exempt
 import json
 import pytz
@@ -192,13 +192,8 @@ def verificar_pin(request):
                 totem = get_object_or_404(Totem, id_totem=totem_id)
                 
                 # Buscar todos los marcajes del usuario para hoy, ordenados por fecha de creación
-                # Obtenemos los IDs de marcajes del usuario a través de Registro_marcaje
-                marcajes_ids = Registro_marcaje.objects.filter(
-                    rut_usuario=usuario.rut_usuario
-                ).values_list('id_marcaje', flat=True)
-                
                 marcajes_hoy = Marcaje.objects.filter(
-                    id_marcaje__in=marcajes_ids,
+                    rut_usuario=usuario.rut_usuario,
                     fecha=fecha_hoy
                 ).order_by('createdAt')
                 
@@ -227,19 +222,12 @@ def verificar_pin(request):
                 
                 # Crear nuevo marcaje si es necesario
                 if crear_nuevo_marcaje:
-                    # Crear el marcaje
+                    # Crear el marcaje con toda la información necesaria
                     nuevo_marcaje = Marcaje.objects.create(
                         hora_ingreso=ahora,
                         fecha=fecha_hoy,
                         rut_usuario=usuario,    
                         id_totem=totem 
-                    )
-                    
-                    # Crear el registro que conecta usuario, marcaje y totem
-                    Registro_marcaje.objects.create(
-                        rut_usuario=usuario.rut_usuario,
-                        id_marcaje=nuevo_marcaje,
-                        id_totem=totem
                     )
                 
                 # Contar marcajes del día para mostrar información adicional
@@ -324,13 +312,9 @@ def obtener_marcajes_usuario(request):
             # Obtener marcajes de hoy en zona horaria de Chile
             chile_tz = pytz.timezone('America/Santiago')
             fecha_hoy = timezone.now().astimezone(chile_tz).date()
-            # Obtenemos los IDs de marcajes del usuario a través de Registro_marcaje
-            marcajes_ids = Registro_marcaje.objects.filter(
-                rut_usuario=usuario.rut_usuario
-            ).values_list('id_marcaje', flat=True)
-            
+            # Obtenemos los marcajes del usuario directamente
             marcajes_hoy = Marcaje.objects.filter(
-                id_marcaje__in=marcajes_ids,
+                rut_usuario=usuario.rut_usuario,
                 fecha=fecha_hoy
             ).order_by('createdAt')
             
