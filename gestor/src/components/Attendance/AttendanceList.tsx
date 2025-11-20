@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { 
   Clock, Calendar, CheckCircle, XCircle, TrendingUp, BarChart3, Shield, Edit2, Trash2 
 } from 'lucide-react';
@@ -220,11 +222,36 @@ const AttendanceList: React.FC = () => {
     });
 
     if (!result.success) {
-      alert(result.message || 'Error al actualizar el marcaje');
+      toast.error(result.message || 'Error al actualizar el marcaje', {
+        position: 'top-right',
+        autoClose: 4000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+      });
       return;
     }
 
     setEditing(null);
+    toast.success('✅ El marcaje fue editado correctamente', {
+      position: 'top-right',
+      autoClose: 4000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      style: {
+        background: '#e0f7fa',
+        color: '#006064',
+        fontWeight: 'bold',
+        fontSize: '1rem',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+      },
+      icon: <CheckCircle className="h-5 w-5 text-green-600" />,
+    });
   };
 
   // ---------- RENDER ----------
@@ -260,6 +287,7 @@ const AttendanceList: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <ToastContainer />
       {/* Encabezado */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

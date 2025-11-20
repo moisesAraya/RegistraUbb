@@ -22,12 +22,6 @@ import Asistencia from '../entities/asistencia.entity.js';
 console.log('👤 [ASISTENCIA-CTRL] ✅ CONTROLLER CARGADO ✅');
 console.log('🚀 [DASHBOARD-CONTROLLER] Controller cargado y conectado con service real');
 
-/**
- * 🧱 Helper: construir timestamp ISO a partir de fecha + hora
- */
-/**
- * 🧱 Helper: construir timestamp local CL a partir de fecha + hora
- */
 function buildTimestamp(fecha, hora) {
   if (!fecha || !hora) return null;
 
@@ -42,9 +36,7 @@ function buildTimestamp(fecha, hora) {
 }
 
 
-/**
- * 📅 CONTROLLER - OBTENER ASISTENCIA DEL USUARIO
- */
+
 export async function getAsistenciaController(req, res) {
   const startTime = Date.now();
   
@@ -105,9 +97,6 @@ export async function getAsistenciaController(req, res) {
   }
 }
 
-/**
- * 📊 CONTROLLER - OBTENER ESTADÍSTICAS DE ASISTENCIA
- */
 export async function getEstadisticasAsistenciaController(req, res) {
   const startTime = Date.now();
   
@@ -895,7 +884,7 @@ export async function updateManualEntryController(req, res) {
     const observacionExtra = [
       notes ? `Notas: ${notes}` : null,
       location ? `Ubicación: ${location}` : null,
-      justificationReason ? `Justificación: ${justificationReason}` : null
+      justificationReason ? `Justificación: ${justificacionReason}` : null
     ].filter(Boolean).join(" | ");
 
     const observacion = observacionExtra
@@ -919,32 +908,8 @@ export async function updateManualEntryController(req, res) {
 
     await marcaje.save();
 
-    // 🔁 Asistencia asociada
-    let asistencia = await Asistencia.findOne({
-      where: { id_marcaje: marcaje.id_marcaje }
-    });
-
-    if (horasTrabajadas > 0) {
-      if (asistencia) {
-        await asistencia.update({
-          colacion: tuvoColacion,
-          observacion,
-          horas_diarias: horasTrabajadas
-        });
-      } else {
-        asistencia = await Asistencia.create({
-          colacion: tuvoColacion,
-          observacion,
-          horas_diarias: horasTrabajadas,
-          id_marcaje: marcaje.id_marcaje,
-          id_justificacion: null
-        });
-      }
-    } else if (asistencia) {
-      // Si ya no tiene horas válidas, borramos la asistencia
-      await asistencia.destroy();
-      asistencia = null;
-    }
+    // 🔁 Solo trabajar con Marcaje, no usar Asistencia
+    // Elimina toda lógica relacionada con Asistencia
 
     console.log("✅ [MANUAL-UPDATE] Marcaje actualizado:", {
       id_marcaje: marcaje.id_marcaje,
