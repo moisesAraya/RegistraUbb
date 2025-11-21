@@ -33,7 +33,7 @@ export async function getWeeklyProgressDirectFromMarcajes(rut_usuario) {
       where: {
         rut_usuario,
         fecha_justificacion: {
-          [Justificacion.sequelize.Op.between]: [
+          [Op.between]: [
             startOfWeek.toISOString().slice(0,10),
             endOfWeek.toISOString().slice(0,10)
           ]

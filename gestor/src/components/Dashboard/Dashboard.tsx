@@ -46,25 +46,7 @@ const Dashboard: React.FC = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-6">
         <div className="container mx-auto space-y-8">
-
-          {/* ⭐ Registro manual (FULL WIDTH) */}
-          <ManualAttendanceButton
-            onSubmit={async (data) => {
-              const result = await registrarMarcajeManual(data);
-
-              // 👀 Si el backend rechazó el marcaje, mostramos el mensaje acá
-              if (!result?.success) {
-                alert(
-                  result?.message ||
-                  'No se pudo registrar el marcaje manual. Revisa los datos e inténtalo nuevamente.'
-                );
-              }
-
-              // El modal decide si muestra éxito o no según este flag
-              return { success: !!result?.success };
-            }}
-          />
-
+          
           {/* 📊 Dashboard personal (FULL WIDTH) */}
           <PersonalDashboard />
 

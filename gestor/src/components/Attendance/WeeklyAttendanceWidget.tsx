@@ -4,7 +4,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar as CalendarIcon,
-  Clock,
   CheckCircle,
   AlertTriangle,
   XCircle,
@@ -52,7 +51,22 @@ interface DiaSemana {
     | "none";
 }
 
-const dayNamesShort = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+type TipoEvento = "entrada" | "salida" | "justificacion";
+
+interface EventoSlot {
+  marcaje: AsistenciaItem;
+  tipo: TipoEvento;
+  displayTime: string | null;
+}
+
+const dayNamesShort = [
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+];
 
 const monthNames = [
   "Enero",
@@ -89,23 +103,6 @@ const getStatusFromDay = (
   if (totalHoras >= 4) return "warning";
   if (totalHoras > 0) return "error";
   return "none";
-};
-
-const getStatusColor = (status: DiaSemana["status"]) => {
-  switch (status) {
-    case "success":
-      return "bg-green-500";
-    case "warning":
-      return "bg-yellow-500";
-    case "error":
-      return "bg-red-500";
-    case "justified":
-      return "bg-green-500";
-    case "unjustified":
-      return "bg-red-500";
-    default:
-      return "bg-gray-300";
-  }
 };
 
 const getStatusIcon = (status: DiaSemana["status"]) => {
@@ -180,75 +177,62 @@ const timeToMinutes = (timeString: string | null): number | null => {
 };
 
 /**
- * Mapea los marcajes del día a 4 slots:
- * - 1 marcaje             -> [m0, -, -, -]
- * - 2 marcajes:
- *      * si diff > 6h     -> [m0, -, -, m1]
- *      * si diff <= 6h    -> [m0, m1, -, -]
- * - 3 marcajes            -> [m0, m1, -, m2]
- * - 4+                    -> primeros 4 en orden
+ * Construye los "eventos" a mostrar en los 4 slots de un día:
+ * - Un evento por hora de entrada
+ * - Un evento por hora de salida
+ * - Si solo hay justificación (sin horas), un evento de tipo "justificacion"
  */
-const mapMarcajesToSlots = (
+const buildEventosFromMarcajes = (
   marcajes: AsistenciaItem[]
-): (AsistenciaItem | null)[] => {
-  const ordered = [...marcajes].sort((a, b) =>
-    (a.horaIngreso || a.horaSalida || "").localeCompare(
-      b.horaIngreso || b.horaSalida || ""
-    )
-  );
+): EventoSlot[] => {
+  const eventos: EventoSlot[] = [];
 
-  const firstFour = ordered.slice(0, 4);
-  const slots: (AsistenciaItem | null)[] = [null, null, null, null];
+  marcajes.forEach((m) => {
+    const hasIngreso = !!m.horaIngreso;
+    const hasSalida = !!m.horaSalida;
+    const hasJust = !!m.justificacion;
 
-  if (firstFour.length === 0) {
-    return slots;
-  }
-
-  if (firstFour.length === 1) {
-    slots[0] = firstFour[0];
-    return slots;
-  }
-
-  if (firstFour.length === 2) {
-    const first = firstFour[0];
-    const last = firstFour[1];
-
-    const t1 =
-      timeToMinutes(first.horaIngreso || first.horaSalida) ?? 0;
-    const t2 =
-      timeToMinutes(last.horaIngreso || last.horaSalida) ?? t1;
-
-    const diffMinutes = Math.abs(t2 - t1);
-    const sixHoursInMinutes = 6 * 60;
-
-    if (diffMinutes > sixHoursInMinutes) {
-      // 👉 Primer y último recuadro
-      slots[0] = first;
-      slots[3] = last;
-    } else {
-      // 👉 Primer y segundo recuadro
-      slots[0] = first;
-      slots[1] = last;
+    // Entradas y salidas normales
+    if (hasIngreso) {
+      eventos.push({
+        marcaje: m,
+        tipo: "entrada",
+        displayTime: m.horaIngreso,
+      });
     }
 
-    return slots;
-  }
+    if (hasSalida) {
+      eventos.push({
+        marcaje: m,
+        tipo: "salida",
+        displayTime: m.horaSalida,
+      });
+    }
 
-  if (firstFour.length === 3) {
-    slots[0] = firstFour[0];
-    slots[1] = firstFour[1];
-    slots[3] = firstFour[2];
-    return slots;
-  }
+    // Justificación sin marcaje (falta justificada / no justificada)
+    if (!hasIngreso && !hasSalida && hasJust) {
+      eventos.push({
+        marcaje: m,
+        tipo: "justificacion",
+        displayTime: null,
+      });
+    }
+  });
 
-  // 4 o más
-  for (let i = 0; i < 4; i++) {
-    slots[i] = firstFour[i];
-  }
+  // Ordenar por hora (las justificaciones sin hora van al inicio)
+  eventos.sort((a, b) => {
+    const ta = timeToMinutes(a.displayTime);
+    const tb = timeToMinutes(b.displayTime);
 
-  return slots;
+    if (ta === null && tb === null) return 0;
+    if (ta === null) return -1;
+    if (tb === null) return 1;
+    return ta - tb;
+  });
+
+  // Limitar a 4 eventos máximo
+  return eventos.slice(0, 4);
 };
-
 
 const WeeklyAttendanceWidget: React.FC = () => {
   const {
@@ -270,7 +254,7 @@ const WeeklyAttendanceWidget: React.FC = () => {
     notes: string;
   }>(null);
 
-  // 👇 AHORA parte en null, ya no se abre solo
+  // Parte en null, se abre solo cuando el usuario lo pide
   const [manualModal, setManualModal] = useState<{ date: string } | null>(null);
 
   // ---------- CALCULAR SEMANA (LUNES–SÁBADO) ----------
@@ -569,10 +553,10 @@ const WeeklyAttendanceWidget: React.FC = () => {
                 className="grid grid-cols-6 border-b border-slate-200"
               >
                 {diasSemana.map((dia) => {
-                  const slots = mapMarcajesToSlots(dia.marcajes);
-                  const marcaje = slots[slotIndex];
+                  const eventos = buildEventosFromMarcajes(dia.marcajes);
+                  const evento = eventos[slotIndex];
 
-                  if (!marcaje) {
+                  if (!evento) {
                     return (
                       <div
                         key={dia.key + "-empty-" + slotIndex}
@@ -583,8 +567,8 @@ const WeeklyAttendanceWidget: React.FC = () => {
                     );
                   }
 
+                  const marcaje = evento.marcaje;
                   const isEditable = !!marcaje.id_marcaje;
-                  const mainTime = marcaje.horaIngreso || marcaje.horaSalida;
 
                   const status: DiaSemana["status"] = marcaje.justificacion
                     ? marcaje.justificacion.es_justificada
@@ -592,28 +576,43 @@ const WeeklyAttendanceWidget: React.FC = () => {
                       : "unjustified"
                     : dia.status;
 
+                  // Solo el primer evento de cada marcaje muestra el basurero
+                  const isFirstOccurrence =
+                    isEditable &&
+                    eventos.findIndex(
+                      (e) => e.marcaje.id_marcaje === marcaje.id_marcaje
+                    ) === slotIndex;
+
+                  let label = "";
+                  if (evento.tipo === "justificacion") {
+                    label = marcaje.justificacion?.es_justificada
+                      ? "Justificada"
+                      : "No justificada";
+                  } else {
+                    label = formatTimeLabel(evento.displayTime);
+                  }
+
+                  const bgClass = marcaje.justificacion
+                    ? marcaje.justificacion.es_justificada
+                      ? "bg-green-50 border border-green-300 text-green-800"
+                      : "bg-red-50 border border-red-300 text-red-800"
+                    : "bg-slate-50 border border-slate-200 text-slate-700";
+
                   return (
                     <div
                       key={dia.key + "-slot-" + slotIndex}
                       className="h-10 md:h-11 py-1 px-2 border-l border-slate-200 first:border-l-0"
                     >
                       <div
-                        className={`w-full h-full rounded-md flex items-center justify-between px-2 text-[11px] cursor-pointer ${
-                          marcaje.justificacion
-                            ? marcaje.justificacion.es_justificada
-                              ? "bg-green-50 border border-green-300 text-green-800"
-                              : "bg-red-50 border border-red-300 text-red-800"
-                            : "bg-slate-50 border border-slate-200 text-slate-700"
-                        }`}
+                        className={`w-full h-full rounded-md flex items-center justify-between px-2 text-[11px] cursor-pointer ${bgClass}`}
                         onClick={() => handleMarcajeClick(marcaje)}
                       >
                         <div className="flex items-center gap-1">
                           {getStatusIcon(status)}
-                          <span className="font-medium">
-                            {formatTimeLabel(mainTime)}
-                          </span>
+                          <span className="font-medium truncate">{label}</span>
                         </div>
-                        {isEditable && (
+
+                        {isFirstOccurrence && (
                           <button
                             type="button"
                             className="ml-1"
@@ -750,9 +749,7 @@ const WeeklyAttendanceWidget: React.FC = () => {
                 <input
                   type="date"
                   value={manualModal.date}
-                  onChange={(e) =>
-                    setManualModal({ date: e.target.value })
-                  }
+                  onChange={(e) => setManualModal({ date: e.target.value })}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
