@@ -5,7 +5,9 @@ import Usuario from "../entities/usuario.entity.js";
 import Marcaje from "../entities/marcaje.entity.js";
 import Justificacion from "../entities/justificacion.entity.js";
 
-console.log("🎯 [ASISTENCIA-SERVICE] v4 CARGADO (solo Marcaje + Justificacion, sin tabla Asistencia ni RegistroMarcaje)");
+console.log(
+  "🎯 [ASISTENCIA-SERVICE] v4 CARGADO (solo Marcaje + Justificacion, sin tabla Asistencia ni RegistroMarcaje)"
+);
 
 /**
  * 🔁 Normaliza distintos formatos de hora a "HH:MM:SS"
@@ -219,7 +221,10 @@ async function obtenerMarcajesIndividuales(rutUsuario, mes = null, anio = null) 
     },
   });
 
-  console.log("📋 [ASISTENCIA-SERVICE] Justificaciones encontradas:", justificaciones.length);
+  console.log(
+    "📋 [ASISTENCIA-SERVICE] Justificaciones encontradas:",
+    justificaciones.length
+  );
 
   // Agrupar marcajes por fecha
   const marcajesPorFecha = {};
@@ -238,10 +243,13 @@ async function obtenerMarcajesIndividuales(rutUsuario, mes = null, anio = null) 
     });
   });
 
-  // Agrupar justificaciones por fecha
+  // Agrupar justificaciones por fecha (⚠️ ahora soporta varias por día)
   const justPorFecha = new Map();
   justificaciones.forEach((just) => {
-    justPorFecha.set(just.fecha_justificacion, just);
+    const fecha = just.fecha_justificacion;
+    const arr = justPorFecha.get(fecha) || [];
+    arr.push(just);
+    justPorFecha.set(fecha, arr);
   });
 
   // 🔹 3) Convertir cada marcaje individual a un registro separado
@@ -266,7 +274,7 @@ async function obtenerMarcajesIndividuales(rutUsuario, mes = null, anio = null) 
     });
   });
 
-  // Procesar justificaciones como registros separados
+  // Procesar justificaciones como registros separados (TODAS)
   justificaciones.forEach((just) => {
     registrosIndividuales.push({
       id_justificacion: just.id_justificacion,
@@ -285,26 +293,30 @@ async function obtenerMarcajesIndividuales(rutUsuario, mes = null, anio = null) 
     });
   });
 
-  // Conjunto de todas las fechas con algo (marcaje o justificación)
+  // Conjunto de todas las fechas con algo (marcaje o alguna justificación)
   const fechasTodas = new Set([
     ...Object.keys(marcajesPorFecha),
     ...Array.from(justPorFecha.keys()),
   ]);
 
-  // 🔹 4) Construir "días con horas" (lo que ya tenías)
+  // 🔹 4) Construir "días con horas" (vista agregada por día)
   const dias = Array.from(fechasTodas).map((fecha) => {
     const marcajesDia = marcajesPorFecha[fecha] || [];
-    const just = justPorFecha.get(fecha) || null;
+    const justsDia = justPorFecha.get(fecha) || [];
 
+    // Horas desde marcajes
     let horasTrabajadas = marcajesDia.reduce(
       (sum, m) => sum + calcularHorasEntreMarcajes(m.hora_ingreso, m.hora_salida),
       0
     );
 
-    if (just && just.es_justificada) {
-      const horasExtra = Number(just.horas_compensadas) || 0;
-      horasTrabajadas += horasExtra;
-    }
+    // Horas desde TODAS las justificaciones aprobadas
+    const justAprobadas = justsDia.filter((j) => j.es_justificada);
+    const horasExtra = justAprobadas.reduce(
+      (sum, j) => sum + (Number(j.horas_compensadas) || 0),
+      0
+    );
+    horasTrabajadas += horasExtra;
 
     horasTrabajadas = Math.max(0, Math.min(14, horasTrabajadas));
     horasTrabajadas = Math.round(horasTrabajadas * 100) / 100;
@@ -339,8 +351,20 @@ async function obtenerMarcajesIndividuales(rutUsuario, mes = null, anio = null) 
     if (horasTrabajadas > 0) {
       estado = "presente";
     }
-    if (just && just.es_justificada) {
+    if (justAprobadas.length > 0) {
       estado = "justificada";
+    }
+
+    // Resumen de justificación para el front (máximo 1 objeto)
+    let justificacionResumen = null;
+    if (justsDia.length > 0) {
+      const principal = justAprobadas[0] || justsDia[0];
+      justificacionResumen = {
+        motivo: principal.motivo,
+        descripcion: principal.descripcion,
+        es_justificada: justAprobadas.length > 0,
+        horas_compensadas: horasExtra,
+      };
     }
 
     return {
@@ -351,67 +375,66 @@ async function obtenerMarcajesIndividuales(rutUsuario, mes = null, anio = null) 
       horaSalida,
       estado,
       observacion:
-        (just && just.observaciones) ||
+        (justsDia[0] && justsDia[0].observaciones) ||
         (marcajesDia[0] && marcajesDia[0].observacion) ||
         null,
-      justificacion: just
-        ? {
-            motivo: just.motivo,
-            descripcion: just.descripcion,
-            es_justificada: just.es_justificada,
-            horas_compensadas: Number(just.horas_compensadas) || 0,
-          }
-        : null,
+      justificacion: justificacionResumen,
     };
   });
 
-  // 🔹 5) Construir CALENDARIO DETALLADO por día (para WeeklyCalendar)
+  // 🔹 5) Construir CALENDARIO DETALLADO por día (para WeeklyCalendar si lo usas)
   const calendarioPorDia = Array.from(fechasTodas)
     .sort()
     .map((fecha) => {
       const marcajesDia = marcajesPorFecha[fecha] || [];
-      const just = justPorFecha.get(fecha) || null;
+      const justsDia = justPorFecha.get(fecha) || [];
 
       const slots = buildSlotsForDay(marcajesDia);
 
-      // Recalcular horas y estado SOLO para mostrar (idéntico a lo de arriba)
+      // Recalcular horas con TODAS las justificaciones aprobadas
       let horasTrabajadas = marcajesDia.reduce(
         (sum, m) => sum + calcularHorasEntreMarcajes(m.hora_ingreso, m.hora_salida),
         0
       );
-      if (just && just.es_justificada) {
-        const horasExtra = Number(just.horas_compensadas) || 0;
-        horasTrabajadas += horasExtra;
-      }
+      const justAprobadas = justsDia.filter((j) => j.es_justificada);
+      const horasExtra = justAprobadas.reduce(
+        (sum, j) => sum + (Number(j.horas_compensadas) || 0),
+        0
+      );
+      horasTrabajadas += horasExtra;
 
       horasTrabajadas = Math.max(0, Math.min(14, horasTrabajadas));
       horasTrabajadas = Math.round(horasTrabajadas * 100) / 100;
 
       let estado = "falta";
       if (horasTrabajadas > 0) estado = "presente";
-      if (just && just.es_justificada) estado = "justificada";
+      if (justAprobadas.length > 0) estado = "justificada";
+
+      let justificacionResumen = null;
+      if (justsDia.length > 0) {
+        const principal = justAprobadas[0] || justsDia[0];
+        justificacionResumen = {
+          motivo: principal.motivo,
+          descripcion: principal.descripcion,
+          es_justificada: justAprobadas.length > 0,
+          horas_compensadas: horasExtra,
+        };
+      }
 
       return {
         fecha,
         horasTrabajadas,
         estado,
         observacion:
-          (just && just.observaciones) ||
+          (justsDia[0] && justsDia[0].observaciones) ||
           (marcajesDia[0] && marcajesDia[0].observacion) ||
           null,
-        justificacion: just
-          ? {
-              motivo: just.motivo,
-              descripcion: just.descripcion,
-              es_justificada: just.es_justificada,
-              horas_compensadas: Number(just.horas_compensadas) || 0,
-            }
-          : null,
+        justificacion: justificacionResumen,
         slots: slots.map((slot, index) =>
           slot
             ? {
                 position: index + 1, // 1..4
-                tipo: slot.tipo,     // 'entrada' | 'salida'
+                tipo: slot.tipo, // 'entrada' | 'salida'
                 hora: slot.hora.slice(0, 5), // "HH:MM"
                 id_marcaje: slot.id_marcaje,
               }
@@ -431,7 +454,10 @@ async function obtenerMarcajesIndividuales(rutUsuario, mes = null, anio = null) 
     return 0;
   });
 
-  console.log("✅ [ASISTENCIA-SERVICE] Total registros individuales procesados:", registrosIndividuales.length);
+  console.log(
+    "✅ [ASISTENCIA-SERVICE] Total registros individuales procesados:",
+    registrosIndividuales.length
+  );
 
   // Calcular resumen basado en registros individuales
   const diasUnicos = new Set(registrosIndividuales.map((r) => r.fecha));
@@ -475,7 +501,7 @@ async function obtenerMarcajesIndividuales(rutUsuario, mes = null, anio = null) 
       fechaInicio: fechaInicioStr,
       fechaFin: fechaFinStr,
     },
-    calendario: calendarioPorDia, // 👈 NUEVO PARA EL CALENDARIO
+    calendario: calendarioPorDia, // 👈 para front (si lo usas)
   };
 }
 
@@ -488,7 +514,9 @@ export async function getAsistenciaUsuarioService(
   anio = null
 ) {
   try {
-    console.log("📅 [ASISTENCIA-SERVICE] === OBTENIENDO ASISTENCIA (v5 individual) ===");
+    console.log(
+      "📅 [ASISTENCIA-SERVICE] === OBTENIENDO ASISTENCIA (v5 individual) ==="
+    );
     console.log("📅 [ASISTENCIA-SERVICE] Usuario:", rutUsuario);
     console.log("📅 [ASISTENCIA-SERVICE] Filtros:", { mes, anio });
 
@@ -496,7 +524,9 @@ export async function getAsistenciaUsuarioService(
       await obtenerMarcajesIndividuales(rutUsuario, mes, anio);
 
     if (!dias || dias.length === 0) {
-      console.log("⚠️ [ASISTENCIA-SERVICE] Sin datos de marcaje ni justificaciones");
+      console.log(
+        "⚠️ [ASISTENCIA-SERVICE] Sin datos de marcaje ni justificaciones"
+      );
       return {
         asistencias: [],
         resumen: {
@@ -506,7 +536,7 @@ export async function getAsistenciaUsuarioService(
           faltas: 0,
         },
         periodo,
-        calendario: [], // 👈 CONSISTENTE PARA EL FRONT
+        calendario: [],
       };
     }
 
@@ -526,13 +556,16 @@ export async function getAsistenciaUsuarioService(
       es_manual: d.es_manual || false,
     }));
 
-    console.log("✅ [ASISTENCIA-SERVICE] Total asistencias individuales:", asistencias.length);
+    console.log(
+      "✅ [ASISTENCIA-SERVICE] Total asistencias individuales:",
+      asistencias.length
+    );
 
     return {
       asistencias,
       resumen,
       periodo,
-      calendario, // 👈 AQUÍ LO USA EL WeeklyCalendar
+      calendario,
     };
   } catch (error) {
     console.error("❌ [ASISTENCIA-SERVICE] Error v5:", error);
@@ -549,7 +582,9 @@ export async function getEstadisticasAsistenciaService(
   anio = null
 ) {
   try {
-    console.log("📊 [ESTADISTICAS-SERVICE] === OBTENIENDO ESTADÍSTICAS v3 ===");
+    console.log(
+      "📊 [ESTADISTICAS-SERVICE] === OBTENIENDO ESTADÍSTICAS v3 ==="
+    );
     console.log("📊 [ESTADISTICAS-SERVICE] Usuario:", rutUsuario);
 
     const usuario = await Usuario.findOne({ where: { rut_usuario: rutUsuario } });
@@ -760,14 +795,15 @@ export async function getEstadisticasAsistenciaService(
 
     const promedioMinutos =
       horasIngresoMin.length > 0
-        ? horasIngresoMin.reduce((s, v) => s + v, 0) / horasIngresoMin.length
+        ? horasIngresoMin.reduce((s, v) => s + v, 0) /
+          horasIngresoMin.length
         : 0;
 
     const hProm = Math.floor(promedioMinutos / 60);
     const mProm = Math.floor(promedioMinutos % 60);
-    const promedioHoraIngreso = `${hProm.toString().padStart(2, "0")}:${mProm
+    const promedioHoraIngreso = `${hProm
       .toString()
-      .padStart(2, "0")}`;
+      .padStart(2, "0")}:${mProm.toString().padStart(2, "0")}`;
 
     console.log("✅ [ESTADISTICAS-SERVICE] v3 OK");
 
@@ -787,6 +823,7 @@ export async function getEstadisticasAsistenciaService(
 
 /**
  * 📝 CREAR JUSTIFICACIÓN
+ * (esta es la que usas desde rutas de asistencia/manual, si corresponde)
  */
 export async function crearJustificacionService(
   rutUsuario,
@@ -795,24 +832,13 @@ export async function crearJustificacionService(
   try {
     console.log("📝 [JUSTIFICACION-SERVICE] === CREANDO ===");
 
-    const { fecha, fecha_justificacion, motivo, descripcion, tipo } =
+    const { fecha, fecha_justificacion, motivo, descripcion } =
       datosJustificacion;
 
     const fechaFinal = fecha || fecha_justificacion;
 
     if (!fechaFinal || !motivo) {
       throw new Error("Fecha y motivo son requeridos");
-    }
-
-    const justificacionExistente = await Justificacion.findOne({
-      where: {
-        rut_usuario: rutUsuario,
-        fecha_justificacion: fechaFinal,
-      },
-    });
-
-    if (justificacionExistente) {
-      throw new Error("Ya existe una justificación para esta fecha");
     }
 
     const nuevaJustificacion = await Justificacion.create({

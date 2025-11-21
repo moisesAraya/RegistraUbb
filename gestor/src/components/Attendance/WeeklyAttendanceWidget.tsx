@@ -1,4 +1,4 @@
-// components/Dashboard/WeeklyAttendanceWidget.tsx
+// components/Attendance/WeeklyAttendanceWidget.tsx
 import React, { useState, useEffect } from "react";
 import {
   ChevronLeft,
@@ -15,6 +15,15 @@ import {
 import { useAsistenciaContext } from "../../context/AsistenciaContext";
 import TimeInput from "../Common/TimeInput";
 
+interface JustificacionItem {
+  motivo: string;
+  descripcion: string | null;
+  es_justificada: boolean;
+  horas_compensadas: number;
+  tipo?: string;
+  jornada?: string;
+}
+
 interface AsistenciaItem {
   id_marcaje?: number;
   id_justificacion?: number;
@@ -24,13 +33,8 @@ interface AsistenciaItem {
   horasTrabajadas: number;
   estado: string;
   observacion?: string | null;
-  justificacion?: {
-    motivo: string;
-    descripcion: string | null;
-    es_justificada: boolean;
-    horas_compensadas: number;
-  } | null;
-  tipoMarcaje?: string | null;
+  justificacion?: JustificacionItem | null;
+  tipoMarcaje?: string | null; // entrada_manana | salida_almuerzo | entrada_tarde | salida_dia
   ubicacion?: string | null;
   colacion?: boolean;
   es_manual?: boolean;
@@ -176,15 +180,95 @@ const timeToMinutes = (timeString: string | null): number | null => {
   }
 };
 
+/** Diferencia en horas entre dos tiempos */
+const diffHours = (t1: string | null, t2: string | null): number => {
+  const m1 = timeToMinutes(t1);
+  const m2 = timeToMinutes(t2);
+  if (m1 == null || m2 == null) return 0;
+  let diff = m2 - m1;
+  if (diff < 0) diff += 24 * 60;
+  return diff / 60;
+};
+
+/** Humaniza el tipo de marcaje */
+const humanizeTipoMarcaje = (
+  tipo?: string | null,
+  tipoEvento?: TipoEvento
+): string => {
+  const map: Record<string, string> = {
+    entrada_manana: "Entrada mañana",
+    salida_almuerzo: "Salida a colación",
+    entrada_tarde: "Entrada después de colación",
+    salida_dia: "Salida fin de jornada",
+  };
+  if (tipo && map[tipo]) return map[tipo];
+
+  if (tipoEvento === "entrada") return "Entrada";
+  if (tipoEvento === "salida") return "Salida";
+  if (tipoEvento === "justificacion") return "Justificación";
+  return "Marcaje";
+};
+
 /**
  * Construye los "eventos" a mostrar en los 4 slots de un día:
  * - Un evento por hora de entrada
  * - Un evento por hora de salida
- * - Si solo hay justificación (sin horas), un evento de tipo "justificacion"
+ * - Si solo hay justificación (sin horas), se replica para ocupar
+ *   4, 2 mañana o 2 tarde según horas_compensadas / tipo.
  */
 const buildEventosFromMarcajes = (
   marcajes: AsistenciaItem[]
-): EventoSlot[] => {
+): (EventoSlot | null)[] => {
+  // 🔹 CASO ESPECIAL: día SOLO con justificación (sin horaIngreso ni horaSalida)
+  const tieneSoloJustificacion =
+    marcajes.length > 0 &&
+    marcajes.every(
+      (m) => !m.horaIngreso && !m.horaSalida && !!m.justificacion
+    );
+
+  if (tieneSoloJustificacion) {
+    const baseMarcaje = marcajes[0];
+    const just = baseMarcaje.justificacion!;
+    const horas = just.horas_compensadas ?? 0;
+
+    const rawJornada =
+      (just.jornada || just.tipo || "").toString().toLowerCase();
+
+    const makeEvt = (): EventoSlot => ({
+      marcaje: baseMarcaje,
+      tipo: "justificacion",
+      displayTime: null,
+    });
+
+    const esDiaCompleto =
+      horas >= 7 ||
+      rawJornada === "completa" ||
+      rawJornada === "dia_completo" ||
+      rawJornada === "jornada_completa";
+
+    if (esDiaCompleto) {
+      return [makeEvt(), makeEvt(), makeEvt(), makeEvt()];
+    }
+
+    const esMediaJornada = horas > 0 && horas <= 5;
+
+    if (esMediaJornada) {
+      const esTarde =
+        rawJornada === "tarde" ||
+        rawJornada === "media_tarde" ||
+        rawJornada === "jornada_tarde";
+
+      if (esTarde) {
+        return [null, null, makeEvt(), makeEvt()];
+      } else {
+        return [makeEvt(), makeEvt(), null, null];
+      }
+    }
+
+    return [makeEvt()];
+  }
+
+  // 🔹 LÓGICA NORMAL (marcajes con horas)
   const eventos: EventoSlot[] = [];
 
   marcajes.forEach((m) => {
@@ -192,7 +276,6 @@ const buildEventosFromMarcajes = (
     const hasSalida = !!m.horaSalida;
     const hasJust = !!m.justificacion;
 
-    // Entradas y salidas normales
     if (hasIngreso) {
       eventos.push({
         marcaje: m,
@@ -209,7 +292,6 @@ const buildEventosFromMarcajes = (
       });
     }
 
-    // Justificación sin marcaje (falta justificada / no justificada)
     if (!hasIngreso && !hasSalida && hasJust) {
       eventos.push({
         marcaje: m,
@@ -230,8 +312,103 @@ const buildEventosFromMarcajes = (
     return ta - tb;
   });
 
-  // Limitar a 4 eventos máximo
+  // ⚠️ Regla especial de las 6 horas (entrada/salida separadas)
+  if (
+    eventos.length === 2 &&
+    eventos.every((e) => e.displayTime && e.tipo !== "justificacion")
+  ) {
+    const t1 = timeToMinutes(eventos[0].displayTime!)!;
+    const t2 = timeToMinutes(eventos[1].displayTime!)!;
+    let diffMin = t2 - t1;
+    if (diffMin < 0) diffMin += 24 * 60;
+
+    if (diffMin > 6 * 60) {
+      return [eventos[0], null, null, eventos[1]];
+    }
+  }
+
+  // Caso general
   return eventos.slice(0, 4);
+};
+
+/**
+ * Lógica para decidir el tipo de marcaje (registroTipo) en un ingreso manual.
+ *
+ * Reglas:
+ * 1) Primer marcaje del día → entrada_manana
+ * 2) Segundo marcaje:
+ *      - salida_almuerzo SI y SOLO SI pasaron > 5 horas desde el marcaje anterior
+ *      - en otro caso, se asume salida_dia (fallback)
+ * 3) Tercer marcaje → entrada_tarde (si ya hubo 2 marcajes previos)
+ * 4) Cuarto marcaje (o más) → salida_dia si:
+ *      - han pasado > 5 horas desde el primer marcaje
+ *      - o ya hay 3 marcajes previos
+ */
+const inferRegistroTipo = (
+  date: string,
+  newTime: string,
+  asistencias: AsistenciaItem[] | undefined
+): string => {
+  if (!asistencias || asistencias.length === 0) {
+    return "entrada_manana";
+  }
+
+  const registrosDelDia = asistencias.filter(
+    (a) => normalizeFecha(a.fecha) === date
+  );
+
+  // Construimos lista de tiempos de TODOS los eventos (ingresos y salidas)
+  const tiempos: string[] = [];
+  registrosDelDia.forEach((m) => {
+    if (m.horaIngreso) tiempos.push(m.horaIngreso);
+    if (m.horaSalida) tiempos.push(m.horaSalida);
+  });
+
+  if (tiempos.length === 0) {
+    return "entrada_manana";
+  }
+
+  // Ordenados cronológicamente
+  tiempos.sort((a, b) => {
+    const ta = timeToMinutes(a)!;
+    const tb = timeToMinutes(b)!;
+    return ta - tb;
+  });
+
+  const count = tiempos.length;
+  const firstTime = tiempos[0] || null;
+  const lastTime = tiempos[tiempos.length - 1] || null;
+  const horasDesdeUltimo = diffHours(lastTime, newTime);
+  const horasDesdePrimero = diffHours(firstTime, newTime);
+
+  // 1er marcaje (no hay nada aún)
+  if (count === 0) {
+    return "entrada_manana";
+  }
+
+  // 2º marcaje del día
+  if (count === 1) {
+    if (horasDesdeUltimo > 5) {
+      return "salida_almuerzo";
+    }
+    // fallback razonable
+    return "salida_dia";
+  }
+
+  // 3er marcaje del día → entrada_tarde
+  if (count === 2) {
+    return "entrada_tarde";
+  }
+
+  // 4º marcaje o más → salida_dia si:
+  //  - han pasado >5h desde el primero
+  //  - o ya hay 3 marcajes previos
+  if (count >= 3 || horasDesdePrimero > 5) {
+    return "salida_dia";
+  }
+
+  // Fallback general
+  return "salida_dia";
 };
 
 const WeeklyAttendanceWidget: React.FC = () => {
@@ -249,12 +426,12 @@ const WeeklyAttendanceWidget: React.FC = () => {
   const [editing, setEditing] = useState<null | {
     id_marcaje: number;
     date: string;
-    checkInTime: string;
-    checkOutTime: string;
+    time: string;
     notes: string;
+    tipoEvento: TipoEvento;
+    tipoMarcaje?: string | null;
   }>(null);
 
-  // Parte en null, se abre solo cuando el usuario lo pide
   const [manualModal, setManualModal] = useState<{ date: string } | null>(null);
 
   // ---------- CALCULAR SEMANA (LUNES–SÁBADO) ----------
@@ -362,16 +539,18 @@ const WeeklyAttendanceWidget: React.FC = () => {
 
   // ---------- HANDLERS MARCAJES ----------
 
-  const handleMarcajeClick = (marcaje: AsistenciaItem) => {
-    if (!marcaje.id_marcaje) return; // solo manual/propio
+  const handleMarcajeClick = (marcaje: AsistenciaItem, evento: EventoSlot) => {
+    if (!marcaje.id_marcaje) return; // por ahora solo editamos marcajes, no justificaciones
 
     const fechaNorm = normalizeFecha(marcaje.fecha) || marcaje.fecha;
+
     setEditing({
       id_marcaje: marcaje.id_marcaje,
       date: fechaNorm,
-      checkInTime: formatTimeForInput(marcaje.horaIngreso || marcaje.horaSalida),
-      checkOutTime: "",
+      time: formatTimeForInput(evento.displayTime),
       notes: marcaje.observacion || "",
+      tipoEvento: evento.tipo,
+      tipoMarcaje: marcaje.tipoMarcaje || null,
     });
   };
 
@@ -387,16 +566,18 @@ const WeeklyAttendanceWidget: React.FC = () => {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editing) return;
-    if (!editing.checkInTime) {
-      alert("Debes ingresar la hora de entrada");
+    if (!editing.time) {
+      alert("Debes ingresar la hora del marcaje");
       return;
     }
 
     await editarMarcaje({
       id_marcaje: editing.id_marcaje,
       date: editing.date,
-      checkInTime: editing.checkInTime,
-      checkOutTime: editing.checkOutTime || undefined,
+      checkInTime:
+        editing.tipoEvento === "salida" ? undefined : editing.time,
+      checkOutTime:
+        editing.tipoEvento === "salida" ? editing.time : undefined,
       notes: editing.notes || undefined,
     });
 
@@ -411,21 +592,28 @@ const WeeklyAttendanceWidget: React.FC = () => {
     const formData = new FormData(form);
     const date = manualModal.date;
     const checkInTime = (formData.get("checkInTime") as string) || "";
-    const checkOutTime = (formData.get("checkOutTime") as string) || "";
 
     if (!checkInTime) {
-      alert("Debes ingresar al menos la hora de entrada");
+      alert("Debes ingresar la hora del marcaje");
       return;
     }
+
+    // 👉 Aplicamos tu lógica para decidir el tipo de marcaje
+    const registroTipo = inferRegistroTipo(
+      date,
+      checkInTime,
+      asistenciaData?.asistencias as AsistenciaItem[]
+    );
 
     await registrarMarcajeManual({
       date,
       checkInTime,
-      checkOutTime: checkOutTime || null,
+      checkOutTime: null, // siempre null, solo usamos hora de marcaje
       notes: (formData.get("notes") as string) || "",
       location: null,
       activityType: null,
       id_totem: null,
+      registroTipo,
     });
 
     setManualModal(null);
@@ -507,30 +695,6 @@ const WeeklyAttendanceWidget: React.FC = () => {
           </div>
         </div>
 
-        {/* Leyenda */}
-        <div className="flex flex-wrap items-center gap-3 mb-4 p-2 bg-slate-50 rounded-lg text-[11px]">
-          <div className="flex items-center space-x-1">
-            <div className="w-2 h-2 bg-green-500 rounded-full" />
-            <span className="text-slate-700">≥7h</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <div className="w-2 h-2 bg-yellow-500 rounded-full" />
-            <span className="text-slate-700">4-6h</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <div className="w-2 h-2 bg-red-500 rounded-full" />
-            <span className="text-slate-700">&lt;4h</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[6px] border-b-green-500" />
-            <span className="text-slate-700">Justificada</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[6px] border-b-red-500" />
-            <span className="text-slate-700">No justificada</span>
-          </div>
-        </div>
-
         {/* Tabla Lunes–Sábado con 4 recuadros + horas totales */}
         <div className="overflow-x-auto">
           <div className="min-w-[640px]">
@@ -576,11 +740,10 @@ const WeeklyAttendanceWidget: React.FC = () => {
                       : "unjustified"
                     : dia.status;
 
-                  // Solo el primer evento de cada marcaje muestra el basurero
                   const isFirstOccurrence =
                     isEditable &&
                     eventos.findIndex(
-                      (e) => e.marcaje.id_marcaje === marcaje.id_marcaje
+                      (e) => e && e.marcaje.id_marcaje === marcaje.id_marcaje
                     ) === slotIndex;
 
                   let label = "";
@@ -605,7 +768,7 @@ const WeeklyAttendanceWidget: React.FC = () => {
                     >
                       <div
                         className={`w-full h-full rounded-md flex items-center justify-between px-2 text-[11px] cursor-pointer ${bgClass}`}
-                        onClick={() => handleMarcajeClick(marcaje)}
+                        onClick={() => handleMarcajeClick(marcaje, evento)}
                       >
                         <div className="flex items-center gap-1">
                           {getStatusIcon(status)}
@@ -669,36 +832,39 @@ const WeeklyAttendanceWidget: React.FC = () => {
                   required
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Hora entrada
-                  </label>
-                  <TimeInput
-                    value={editing.checkInTime}
-                    onChange={(value) =>
-                      setEditing({ ...editing, checkInTime: value })
-                    }
-                    required
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Hora salida
-                  </label>
-                  <TimeInput
-                    value={editing.checkOutTime}
-                    onChange={(value) =>
-                      setEditing({ ...editing, checkOutTime: value })
-                    }
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <p className="text-[10px] text-gray-400 mt-1">
-                    Puedes dejarla vacía si aún no quieres cerrar el día.
-                  </p>
-                </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Hora del marcaje
+                </label>
+                <TimeInput
+                  value={editing.time}
+                  onChange={(value) =>
+                    setEditing({ ...editing, time: value })
+                  }
+                  required
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Esta es la hora exacta del registro seleccionado.
+                </p>
               </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Tipo de marcaje
+                </label>
+                <input
+                  type="text"
+                  value={humanizeTipoMarcaje(
+                    editing.tipoMarcaje,
+                    editing.tipoEvento
+                  )}
+                  readOnly
+                  className="w-full border border-gray-200 bg-gray-50 rounded-md px-3 py-2 text-sm text-gray-700"
+                />
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Observaciones (opcional)
@@ -713,6 +879,7 @@ const WeeklyAttendanceWidget: React.FC = () => {
                   placeholder="Agrega cualquier observación..."
                 />
               </div>
+
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
@@ -754,29 +921,19 @@ const WeeklyAttendanceWidget: React.FC = () => {
                   required
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Hora entrada
-                  </label>
-                  <input
-                    name="checkInTime"
-                    type="time"
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Hora salida
-                  </label>
-                  <input
-                    name="checkOutTime"
-                    type="time"
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Hora del marcaje
+                </label>
+                <input
+                  name="checkInTime"
+                  type="time"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
               </div>
+
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Observaciones (opcional)
@@ -788,6 +945,7 @@ const WeeklyAttendanceWidget: React.FC = () => {
                   placeholder="Agrega cualquier observación..."
                 />
               </div>
+
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"

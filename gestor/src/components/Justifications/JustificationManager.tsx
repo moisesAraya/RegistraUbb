@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useJustificaciones } from '../../hooks/useJustifications';
-import { 
-  Plus, 
-  FileText, 
-  CheckCircle, 
+import {
+  Plus,
+  FileText,
+  CheckCircle,
   XCircle,
   Calendar,
   Trash2,
@@ -34,33 +34,38 @@ const JustificationManager: React.FC = () => {
     const [formData, setFormData] = useState({
       fecha_justificacion: '',
       motivo: '',
-      descripcion: ''
+      descripcion: '',
+      tipoPermiso: 'jornada_completa', // 👈 NUEVO para permiso administrativo
     });
 
     const motivoSeleccionado = motivos.find(m => m.id === formData.motivo);
+    const esPermisoAdministrativo = formData.motivo === 'permiso_administrativo';
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      
-    try {
-    await crearJustificacion({
-      // El backend ahora acepta cualquiera de los dos, pero mandemos ambos por claridad
-      fecha: formData.fecha_justificacion,
-      fecha_justificacion: formData.fecha_justificacion,
-      motivo: formData.motivo,
-      descripcion: formData.descripcion.trim() || null
-    });
 
-    setMostrarFormulario(false);
-    setFormData({
-      fecha_justificacion: '',
-      motivo: '',
-      descripcion: ''
-    });
-  } catch (err) {
-    console.error('Error guardando justificación:', err);
-  }
-};
+      try {
+        await crearJustificacion({
+          // El backend ahora acepta cualquiera de los dos, pero mandemos ambos por claridad
+          fecha: formData.fecha_justificacion,
+          fecha_justificacion: formData.fecha_justificacion,
+          motivo: formData.motivo,
+          descripcion: formData.descripcion.trim() || null,
+          // 👇 Solo para permiso administrativo mandamos tipo
+          tipo: esPermisoAdministrativo ? formData.tipoPermiso : null,
+        });
+
+        setMostrarFormulario(false);
+        setFormData({
+          fecha_justificacion: '',
+          motivo: '',
+          descripcion: '',
+          tipoPermiso: 'jornada_completa',
+        });
+      } catch (err) {
+        console.error('Error guardando justificación:', err);
+      }
+    };
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -95,7 +100,7 @@ const JustificationManager: React.FC = () => {
                 type="date"
                 required
                 value={formData.fecha_justificacion}
-                onChange={(e) => setFormData({...formData, fecha_justificacion: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, fecha_justificacion: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 max={new Date().toISOString().split('T')[0]}
                 min={new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
@@ -113,24 +118,26 @@ const JustificationManager: React.FC = () => {
               <select
                 required
                 value={formData.motivo}
-                onChange={(e) => setFormData({...formData, motivo: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, motivo: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               >
                 <option value="">Selecciona un motivo</option>
                 {motivos.map((m) => (
                   <option key={m.id} value={m.id}>
-                  {m.nombre} {m.es_justificada ? '' : ''}
-                </option>
+                    {m.nombre} {m.es_justificada ? '' : ''}
+                  </option>
                 ))}
               </select>
-              
+
               {/* Info del motivo seleccionado */}
               {motivoSeleccionado && (
-                <div className={`mt-3 p-4 rounded-lg border-2 ${
-                  motivoSeleccionado.es_justificada 
-                    ? 'bg-green-50 border-green-200' 
-                    : 'bg-orange-50 border-orange-200'
-                }`}>
+                <div
+                  className={`mt-3 p-4 rounded-lg border-2 ${
+                    motivoSeleccionado.es_justificada
+                      ? 'bg-green-50 border-green-200'
+                      : 'bg-orange-50 border-orange-200'
+                  }`}
+                >
                   <div className="flex items-start space-x-3">
                     {motivoSeleccionado.es_justificada ? (
                       <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
@@ -138,21 +145,98 @@ const JustificationManager: React.FC = () => {
                       <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
                     )}
                     <div>
-                      <p className={`text-sm font-semibold ${
-                        motivoSeleccionado.es_justificada ? 'text-green-800' : 'text-orange-800'
-                      }`}>
-                        {motivoSeleccionado.es_justificada 
-                          ? 'Ausencia Justificada' 
+                      <p
+                        className={`text-sm font-semibold ${
+                          motivoSeleccionado.es_justificada ? 'text-green-800' : 'text-orange-800'
+                        }`}
+                      >
+                        {motivoSeleccionado.es_justificada
+                          ? 'Ausencia Justificada'
                           : 'Ausencia No Justificada'}
                       </p>
-                      <p className={`text-xs mt-1 ${
-                        motivoSeleccionado.es_justificada ? 'text-green-700' : 'text-orange-700'
-                      }`}>
-                        {motivoSeleccionado.es_justificada 
-                          ? `Se compensarán ${motivoSeleccionado.horas_compensadas} horas en tu registro` 
+                      <p
+                        className={`text-xs mt-1 ${
+                          motivoSeleccionado.es_justificada ? 'text-green-700' : 'text-orange-700'
+                        }`}
+                      >
+                        {esPermisoAdministrativo
+                          ? 'Selecciona si será jornada completa (8h) o media jornada (4h).'
+                          : motivoSeleccionado.es_justificada
+                          ? `Se compensarán ${motivoSeleccionado.horas_compensadas} horas en tu registro`
                           : 'Esta ausencia no suma horas trabajadas'}
                       </p>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Opciones especiales para PERMISO ADMINISTRATIVO */}
+              {esPermisoAdministrativo && (
+                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm font-semibold text-blue-800 mb-2">
+                    Tipo de permiso administrativo
+                  </p>
+
+                  <div className="space-y-2 text-sm text-blue-900">
+                    <label className="flex items-start space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="tipoPermiso"
+                        value="jornada_completa"
+                        checked={formData.tipoPermiso === 'jornada_completa'}
+                        onChange={(e) =>
+                          setFormData({ ...formData, tipoPermiso: e.target.value })
+                        }
+                        className="mt-0.5"
+                      />
+                      <span>
+                        <span className="font-semibold">Jornada completa (8 horas)</span>
+                        <br />
+                        <span className="text-xs text-blue-700">
+                          Se compensarán 8 horas en tu registro de asistencia.
+                        </span>
+                      </span>
+                    </label>
+
+                    <label className="flex items-start space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="tipoPermiso"
+                        value="media_manana"
+                        checked={formData.tipoPermiso === 'media_manana'}
+                        onChange={(e) =>
+                          setFormData({ ...formData, tipoPermiso: e.target.value })
+                        }
+                        className="mt-0.5"
+                      />
+                      <span>
+                        <span className="font-semibold">Media jornada – Mañana (4 horas)</span>
+                        <br />
+                        <span className="text-xs text-blue-700">
+                          Se compensarán 4 horas en tu registro (bloque AM).
+                        </span>
+                      </span>
+                    </label>
+
+                    <label className="flex items-start space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="tipoPermiso"
+                        value="media_tarde"
+                        checked={formData.tipoPermiso === 'media_tarde'}
+                        onChange={(e) =>
+                          setFormData({ ...formData, tipoPermiso: e.target.value })
+                        }
+                        className="mt-0.5"
+                      />
+                      <span>
+                        <span className="font-semibold">Media jornada – Tarde (4 horas)</span>
+                        <br />
+                        <span className="text-xs text-blue-700">
+                          Se compensarán 4 horas en tu registro (bloque PM).
+                        </span>
+                      </span>
+                    </label>
                   </div>
                 </div>
               )}
@@ -166,7 +250,7 @@ const JustificationManager: React.FC = () => {
               <textarea
                 rows={4}
                 value={formData.descripcion}
-                onChange={(e) => setFormData({...formData, descripcion: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
                 placeholder="Agrega detalles adicionales sobre tu ausencia..."
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
               />
@@ -273,7 +357,7 @@ const JustificationManager: React.FC = () => {
               <FileText className="w-12 h-12 text-blue-600 opacity-20" />
             </div>
           </div>
-          
+
           <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg border-2 border-green-200">
             <div className="flex items-center justify-between">
               <div>
@@ -286,7 +370,7 @@ const JustificationManager: React.FC = () => {
               <CheckCircle className="w-12 h-12 text-green-600 opacity-30" />
             </div>
           </div>
-          
+
           <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-lg border-2 border-orange-200">
             <div className="flex items-center justify-between">
               <div>
@@ -326,7 +410,9 @@ const JustificationManager: React.FC = () => {
           <div className="text-center py-16">
             <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500 text-lg font-medium">No tienes ausencias registradas</p>
-            <p className="text-gray-400 text-sm mt-2">Registra tus ausencias para mantener un historial completo</p>
+            <p className="text-gray-400 text-sm mt-2">
+              Registra tus ausencias para mantener un historial completo
+            </p>
             <button
               onClick={() => setMostrarFormulario(true)}
               className="mt-6 text-blue-600 hover:text-blue-700 font-medium flex items-center justify-center mx-auto"
@@ -353,10 +439,12 @@ const JustificationManager: React.FC = () => {
                           <span className="text-xs font-semibold text-orange-700">NO JUSTIFICADA</span>
                         </div>
                       )}
-                      
+
                       <span className="text-sm font-medium text-gray-900">
                         {(() => {
-                          const [year, month, day] = justificacion.fecha_justificacion.split('-').map(Number);
+                          const [year, month, day] = justificacion.fecha_justificacion
+                            .split('-')
+                            .map(Number);
                           const date = new Date(year, month - 1, day);
                           return date.toLocaleDateString('es-CL', {
                             weekday: 'long',
@@ -367,7 +455,7 @@ const JustificationManager: React.FC = () => {
                         })()}
                       </span>
                     </div>
-                    
+
                     <div className="mb-2">
                       <p className="font-semibold text-gray-900 text-lg">
                         {justificacion.motivo_nombre || justificacion.motivo}
@@ -378,7 +466,7 @@ const JustificationManager: React.FC = () => {
                         </p>
                       )}
                     </div>
-                    
+
                     <div className="flex items-center space-x-4 text-xs text-gray-500 mt-3">
                       {justificacion.es_justificada && (
                         <span className="flex items-center space-x-1 bg-green-50 px-2 py-1 rounded">
@@ -389,11 +477,12 @@ const JustificationManager: React.FC = () => {
                         </span>
                       )}
                       <span>
-                        Registrado: {new Date(justificacion.fecha_registro).toLocaleDateString('es-CL')}
+                        Registrado:{' '}
+                        {new Date(justificacion.fecha_registro).toLocaleDateString('es-CL')}
                       </span>
                     </div>
                   </div>
-                  
+
                   <button
                     onClick={() => {
                       if (window.confirm('¿Estás seguro de eliminar esta justificación?')) {
