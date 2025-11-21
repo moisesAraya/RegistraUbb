@@ -1,20 +1,19 @@
-// components/Dashboard/PersonalDashboard.tsx
 import React from 'react';
 import { RefreshCw, Target, AlertTriangle, Activity } from 'lucide-react';
 import { useAuth } from '../Context/AuthContext';
 import { useAsistenciaContext } from '../../context/AsistenciaContext';
+import WeeklyAttendanceWidget from '../Attendance/WeeklyAttendanceWidget';
 
 const PersonalDashboard: React.FC = () => {
   const { user } = useAuth();
 
-  // 👇 AHORA USAMOS ASISTENCIA (no useDashboard)
   const {
     asistenciaData,   // { asistencias, resumen, periodo }
     estadisticas,     // { horasObjetivo, horasReales, porcentajeCumplimiento, tendenciaSemanal, ... }
     isLoading,
     error,
-    refetch,
-  } = useAsistenciaContext();
+    refetch: fetchAsistencia, // si tenías otro nombre, ajústalo
+  } = useAsistenciaContext() as any;
 
   console.log('👤 [PERSONAL-DASHBOARD] Renderizando para:', user?.nombres);
 
@@ -48,7 +47,7 @@ const PersonalDashboard: React.FC = () => {
               </h3>
               <p className="text-slate-600 mb-4">{error}</p>
               <button
-                onClick={refetch}
+                onClick={() => fetchAsistencia()}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Intentar de nuevo
@@ -66,18 +65,15 @@ const PersonalDashboard: React.FC = () => {
   const resumen = asistenciaData?.resumen || null;
 
   // ---------------- CÁLCULO DE PROGRESO SEMANAL (FRONT) ----------------
-  // 👉 Esto asegura que SIEMPRE considere lo que marcaste hoy.
 
   const today = new Date();
 
-  // Semana que empieza el lunes (0 = domingo, 1 = lunes, ...)
   const dayOfWeek = today.getDay(); // 0-6
   const diffToMonday = (dayOfWeek + 6) % 7; // lunes = 0
   const startOfWeek = new Date(today);
   startOfWeek.setHours(0, 0, 0, 0);
   startOfWeek.setDate(today.getDate() - diffToMonday);
 
-  // Sumar horas de esta semana a partir de los registros del mes
   type RegistroAsistencia = {
     fecha: string;
     horasTrabajadas?: number;
@@ -114,7 +110,6 @@ const PersonalDashboard: React.FC = () => {
   const estimatedDaysToComplete =
     hoursRemaining > 0 ? Math.ceil(hoursRemaining / 8) : 0;
 
-  // Construir "week_days" para cálculo interno (aunque ya no se renderiza el detalle)
   const weekDays: {
     date: string;
     hours: number;
@@ -181,9 +176,6 @@ const PersonalDashboard: React.FC = () => {
       }
     : null;
 
-  // ---------------- TENDENCIA SEMANAL (BACKEND) ----------------
-  // Usamos estadisticas.tendenciaSemanal para el gráfico de barras.
-
   const weeklyTrends = Array.isArray(estadisticas?.tendenciaSemanal)
     ? estadisticas!.tendenciaSemanal
     : [];
@@ -192,8 +184,6 @@ const PersonalDashboard: React.FC = () => {
     weeklyTrends.length > 0
       ? Math.max(...weeklyTrends.map((w: any) => Number(w.horas) || 0))
       : 0;
-
-  // ---------------- RENDER ----------------
 
   return (
     <div className="bg-transparent">
@@ -215,7 +205,7 @@ const PersonalDashboard: React.FC = () => {
             )}
           </div>
           <button
-            onClick={refetch}
+            onClick={() => fetchAsistencia()}
             className="flex items-center space-x-2 px-3 py-2 bg-white rounded-lg shadow-sm border border-slate-200 hover:bg-slate-50 transition-colors text-sm"
           >
             <RefreshCw className="h-4 w-4" />
@@ -223,7 +213,7 @@ const PersonalDashboard: React.FC = () => {
           </button>
         </div>
 
-        {/* 1. Progreso semanal (sin detalle semanal en cards, solo resumen) */}
+        {/* 1. Progreso semanal */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
           {!weeklyProgress ? (
             <div className="flex flex-col items-center justify-center h-32">
@@ -314,7 +304,6 @@ const PersonalDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Chips resumidos (se mantienen) */}
               <div className="flex flex-wrap gap-2 mt-3 text-xs md:text-sm">
                 <div className="px-3 py-1 rounded-full bg-slate-100 text-slate-700">
                   Días trabajados:{' '}
@@ -339,14 +328,14 @@ const PersonalDashboard: React.FC = () => {
                   </div>
                 )}
               </div>
-
-              {/* 👇 AQUÍ SE ELIMINÓ EL "Detalle semanal" en cards
-                  porque ahora ese detalle lo maneja WeeklyCalendar */}
             </>
           )}
         </div>
 
-        {/* 2. Gráfico de evolución por semana */}
+        {/* 2. Calendario semanal con marcajes (ver / editar / eliminar) */}
+        <WeeklyAttendanceWidget />
+
+        {/* 3. Gráfico de evolución por semana */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">

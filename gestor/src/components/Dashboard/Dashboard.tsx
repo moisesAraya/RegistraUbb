@@ -4,7 +4,6 @@ import PersonalDashboard from './PersonalDashboard';
 import AdminDashboard from './AdminDashboard';
 
 import ManualAttendanceButton from '../Attendance/ManualAttendanceButton';
-import WeeklyAttendanceWidget from '../Dashboard/WeeklyCalendar';
 import { useAsistenciaContext } from '../../context/AsistenciaContext';
 
 import { AlertTriangle, Shield, User } from 'lucide-react';
@@ -69,8 +68,6 @@ const Dashboard: React.FC = () => {
           {/* 📊 Dashboard personal (FULL WIDTH) */}
           <PersonalDashboard />
 
-          {/* 🗓️ Calendario semanal (FULL WIDTH) */}
-          <WeeklyAttendanceWidget />
 
         </div>
       </div>
