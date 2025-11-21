@@ -362,82 +362,24 @@ export async function getAsistenciaUsuarioService(rutUsuario, mes = null, anio =
       };
     }
 
-    // 🧠 Prioridad de estado para combinar varios registros del mismo día
-    const estadoPriority = {
-      no_justificada: 4,
-      falta: 3,
-      justificada: 2,
-      presente: 1,
-      undefined: 0,
-      null: 0,
-      "": 0,
-    };
-
-    // 1) Agrupar por fecha → un sólo objeto por día
-    const diasPorFecha = new Map(); // fecha -> objeto agregado
-
-    for (const d of dias) {
-      const fecha = d.fecha;
-      if (!fecha) continue;
-
-      const existente = diasPorFecha.get(fecha);
-
-      if (!existente) {
-        // Primer registro de ese día
-        diasPorFecha.set(fecha, { ...d });
-      } else {
-        // Ya había algo para ese día → fusionamos
-        const estadoNuevo = d.estado;
-        const estadoExistente = existente.estado;
-
-        const estadoFinal =
-          (estadoPriority[estadoNuevo] || 0) >= (estadoPriority[estadoExistente] || 0)
-            ? estadoNuevo
-            : estadoExistente;
-
-        // 🔹 Horas: nos quedamos con las del "último" registro (normalmente el ajuste manual)
-        const horasFinal = d.horas != null ? d.horas : existente.horas;
-
-        // 🔹 Justificación: preferimos la que exista
-        const justificacionFinal = existente.justificacion || d.justificacion || null;
-
-        // 🔹 Observación: concatenamos textos para tener trazabilidad
-        const observacionFinal = [existente.observacion, d.observacion]
-          .filter(Boolean)
-          .join(" | ");
-
-        diasPorFecha.set(fecha, {
-          ...existente,
-          ...d,
-          horas: horasFinal,
-          estado: estadoFinal,
-          justificacion: justificacionFinal,
-          observacion: observacionFinal || null,
-          // ⭐ mantenemos id_marcaje si ya estaba seteado
-          id_marcaje: existente.id_marcaje || d.id_marcaje || null,
-        });
-      }
-    }
-
-    // 2) Convertir Map a Array para procesamiento
-    const diasAgrupados = Array.from(diasPorFecha.values());
-
-    // 3) Construir array para frontend (Mi Asistencia)
-    const asistencias = diasAgrupados.map((d) => ({
-      id_marcaje: d.id_marcaje || null,      // ⭐ ahora viaja al frontend
+    // 🔹 DEVOLVER CADA MARCAJE INDIVIDUAL EN LUGAR DE AGRUPAR POR DÍA
+    const asistencias = dias.map((d) => ({
+      id_marcaje: d.id_marcaje || null,
+      id_justificacion: d.id_justificacion || null,
       fecha: d.fecha,
-      horaIngreso: d.horaIngreso,
-      horaSalida: d.horaSalida,
+      horaIngreso: d.horaIngreso || null,
+      horaSalida: d.horaSalida || null,
       horasTrabajadas: d.horas || 0,
-      estado: d.estado, // 'presente' | 'justificada' | 'no_justificada' | 'falta'
-      observacion: d.observacion,
-      tipoMarcaje: d.justificacion ? "justificacion" : "qr",
-      ubicacion: d.justificacion ? "Justificación" : "Campus",
-      justificacion: d.justificacion,
+      estado: d.estado || "presente",
+      observacion: d.observacion || null,
+      justificacion: d.justificacion || null,
+      tipoMarcaje: d.tipoMarcaje || null,
+      ubicacion: d.ubicacion || null,
+      colacion: d.colacion || false,
+      es_manual: d.es_manual || false,
     }));
 
-    console.log("✅ [ASISTENCIA-SERVICE] Resumen v6 (marcajes individuales):", resumen);
-    console.log("✅ [ASISTENCIA-SERVICE] Total registros individuales mostrados:", asistencias.length);
+    console.log("✅ [ASISTENCIA-SERVICE] Total asistencias individuales:", asistencias.length);
 
     return {
       asistencias,

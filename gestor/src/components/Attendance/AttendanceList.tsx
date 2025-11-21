@@ -4,7 +4,8 @@ import 'react-toastify/dist/ReactToastify.css';
 import { 
   Clock, Calendar, CheckCircle, XCircle, TrendingUp, BarChart3, Shield, Edit2, Trash2 
 } from 'lucide-react';
-import { useAsistencia } from '../../hooks/useAsistencia';
+import { useAsistenciaContext } from '../../context/AsistenciaContext';
+import TimeInput from '../Common/TimeInput';
 
 const AttendanceList: React.FC = () => {
   const {
@@ -12,12 +13,11 @@ const AttendanceList: React.FC = () => {
     estadisticas,
     isLoading,
     error,
-    refetch,
     fetchAsistencia,
     fetchEstadisticas,
-    updateMarcajeManual,
-    deleteMarcajeManual,
-  } = useAsistencia();
+    editarMarcaje,
+    eliminarMarcaje,
+  } = useAsistenciaContext();
 
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -196,7 +196,7 @@ const AttendanceList: React.FC = () => {
     const ok = window.confirm('¿Seguro que quieres eliminar este marcaje? Esta acción no se puede deshacer.');
     if (!ok) return;
 
-    const result = await deleteMarcajeManual(registro.id_marcaje);
+    const result = await eliminarMarcaje(registro.id_marcaje);
     if (!result.success) {
       alert(result.message || 'Error al eliminar el marcaje');
     }
@@ -211,14 +211,12 @@ const AttendanceList: React.FC = () => {
       return;
     }
 
-    const result = await updateMarcajeManual(editing.id_marcaje, {
+    const result = await editarMarcaje({
+      id_marcaje: editing.id_marcaje,
       date: editing.date,
       checkInTime: editing.checkInTime,
       checkOutTime: editing.checkOutTime || undefined,
       notes: editing.notes || undefined,
-      location: editing.location || undefined,
-      activityType: 'other',
-      registroTipo: 'entrada_otro',
     });
 
     if (!result.success) {
@@ -274,7 +272,7 @@ const AttendanceList: React.FC = () => {
             <h3 className="text-sm font-medium text-red-800">Error al cargar datos</h3>
             <div className="mt-2 text-sm text-red-700">{error}</div>
             <button
-              onClick={() => refetch()}
+              onClick={() => fetchAsistencia()}
               className="mt-2 bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded text-sm"
             >
               Reintentar
@@ -665,20 +663,18 @@ const AttendanceList: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Hora entrada</label>
-                  <input
-                    type="time"
+                  <TimeInput
                     value={editing.checkInTime}
-                    onChange={(e) => setEditing({ ...editing, checkInTime: e.target.value })}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(value) => setEditing({ ...editing, checkInTime: value })}
                     required
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Hora salida</label>
-                  <input
-                    type="time"
+                  <TimeInput
                     value={editing.checkOutTime}
-                    onChange={(e) => setEditing({ ...editing, checkOutTime: e.target.value })}
+                    onChange={(value) => setEditing({ ...editing, checkOutTime: value })}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <p className="text-[10px] text-gray-400 mt-1">
@@ -687,21 +683,13 @@ const AttendanceList: React.FC = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Ubicación (opcional)</label>
-                <input
-                  type="text"
-                  value={editing.location}
-                  onChange={(e) => setEditing({ ...editing, location: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Notas / Observación</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Observaciones (opcional)</label>
                 <textarea
-                  value={editing.notes}
+                  value={editing.notes || ''}
                   onChange={(e) => setEditing({ ...editing, notes: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   rows={3}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  placeholder="Agrega cualquier observación sobre este marcaje..."
                 />
               </div>
               <div className="flex justify-end gap-3 pt-2">

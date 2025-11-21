@@ -5,13 +5,13 @@ import AdminDashboard from './AdminDashboard';
 
 import ManualAttendanceButton from '../Attendance/ManualAttendanceButton';
 import WeeklyAttendanceWidget from '../Dashboard/WeeklyCalendar';
-import { useAsistencia } from '../../hooks/useAsistencia';
+import { useAsistenciaContext } from '../../context/AsistenciaContext';
 
 import { AlertTriangle, Shield, User } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
-  const { registrarMarcajeManual } = useAsistencia();
+  const { registrarMarcajeManual } = useAsistenciaContext();
 
   // Si no hay sesión
   if (!user) {

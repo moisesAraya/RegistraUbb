@@ -2,7 +2,7 @@
 import React from 'react';
 import { RefreshCw, Target, AlertTriangle, Activity } from 'lucide-react';
 import { useAuth } from '../Context/AuthContext';
-import { useAsistencia } from '../../hooks/useAsistencia';
+import { useAsistenciaContext } from '../../context/AsistenciaContext';
 
 const PersonalDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -14,7 +14,7 @@ const PersonalDashboard: React.FC = () => {
     isLoading,
     error,
     refetch,
-  } = useAsistencia();
+  } = useAsistenciaContext();
 
   console.log('👤 [PERSONAL-DASHBOARD] Renderizando para:', user?.nombres);
 

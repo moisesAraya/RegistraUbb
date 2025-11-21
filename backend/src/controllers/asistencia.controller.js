@@ -292,36 +292,8 @@ export async function createManualEntryController(req, res) {
       });
     }
 
-    // 🎭 Labels bonitos
-    const activityLabels = {
-      teaching: "Docencia",
-      research: "Investigación",
-      management: "Gestión Administrativa",
-      other: "Otra actividad"
-    };
-
-    const registroTipoLabels = {
-      entrada_manana: "Entrada mañana",
-      salida_almuerzo: "Salida a almorzar",
-      entrada_tarde: "Entrada tarde",
-      salida_dia: "Salida día",
-      entrada_otro: "Entrada (otro)",
-      salida_otro: "Salida (otro)"
-    };
-
-    const actividadTexto = activityLabels[activityType] || "Actividad no especificada";
-    const tipoTexto = registroTipoLabels[registroTipo] || registroTipo || "Marcaje manual";
-
-    const observacionBase = `Actividad: ${actividadTexto} | Tipo: ${tipoTexto}`;
-    const observacionExtra = [
-      notes ? `Notas: ${notes}` : null,
-      location ? `Ubicación: ${location}` : null,
-      justificationReason ? `Justificación: ${justificationReason}` : null
-    ].filter(Boolean).join(" | ");
-
-    const observacion = observacionExtra
-      ? `${observacionBase} | ${observacionExtra}`
-      : observacionBase;
+    // 📝 Observación directa sin etiquetas
+    const observacion = notes || null;
 
     // 🏷️ Tótem virtual para registros manuales
     const [totemManual] = await Totem.findOrCreate({
@@ -435,10 +407,13 @@ export async function createManualEntryController(req, res) {
       }
 
       marcajeAbierto.hora_salida = timestamp; // usamos timestamp completo
-      marcajeAbierto.observacion = [
-        marcajeAbierto.observacion,
-        observacion
-      ].filter(Boolean).join(" | ");
+      
+      // Agregar nueva observación si existe
+      if (observacion) {
+        marcajeAbierto.observacion = marcajeAbierto.observacion 
+          ? `${marcajeAbierto.observacion} | ${observacion}`
+          : observacion;
+      }
 
       await marcajeAbierto.save();
       marcajeFinal = marcajeAbierto;
@@ -947,35 +922,8 @@ export async function updateManualEntryController(req, res) {
       });
     }
 
-    const activityLabels = {
-      teaching: "Docencia",
-      research: "Investigación",
-      management: "Gestión Administrativa",
-      other: "Otra actividad"
-    };
-
-    const registroTipoLabels = {
-      entrada_manana: "Entrada mañana",
-      salida_almuerzo: "Salida a almorzar",
-      entrada_tarde: "Entrada tarde",
-      salida_dia: "Salida día",
-      entrada_otro: "Entrada (otro)",
-      salida_otro: "Salida (otro)"
-    };
-
-    const actividadTexto = activityLabels[activityType] || "Actividad no especificada";
-    const tipoTexto = registroTipoLabels[registroTipo] || registroTipo || "Marcaje manual";
-
-    const observacionBase = `Actividad: ${actividadTexto} | Tipo: ${tipoTexto}`;
-    const observacionExtra = [
-      notes ? `Notas: ${notes}` : null,
-      location ? `Ubicación: ${location}` : null,
-      justificationReason ? `Justificación: ${justificacionReason}` : null
-    ].filter(Boolean).join(" | ");
-
-    const observacion = observacionExtra
-      ? `${observacionBase} | ${observacionExtra}`
-      : observacionBase;
+    // 📝 Observación directa sin etiquetas
+    const observacion = notes || null;
 
     // 👉 Actualizar campos básicos
     marcaje.fecha = date;

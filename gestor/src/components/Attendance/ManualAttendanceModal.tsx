@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Clock, MapPin, FileText, AlertTriangle, CheckCircle, X } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { FileText, AlertTriangle, CheckCircle, X } from 'lucide-react';
 import TimeInput from '../Common/TimeInput';
+import { useAsistenciaContext } from '../../context/AsistenciaContext';
 
 interface ManualAttendanceModalProps {
   isOpen: boolean;
@@ -9,7 +10,6 @@ interface ManualAttendanceModalProps {
     date: string;
     checkInTime: string;
     checkOutTime?: string;
-    activityType: string;
     location?: string;
     notes?: string;
     justificationReason: string;
@@ -22,11 +22,12 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
   onClose, 
   onSubmit 
 }) => {
+  const { asistenciaData, fetchAsistencia } = useAsistenciaContext();
+  
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     checkInTime: '',
     checkOutTime: '',
-    activityType: 'Docencia',
     location: '',
     notes: '',
     justificationReason: '',
@@ -35,6 +36,136 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+
+  // Función para calcular las horas entre dos tiempos
+  const calculateHoursDifference = (time1: string, time2: string): number => {
+    const [h1, m1] = time1.split(':').map(Number);
+    const [h2, m2] = time2.split(':').map(Number);
+    const minutes1 = h1 * 60 + m1;
+    const minutes2 = h2 * 60 + m2;
+    return Math.abs(minutes2 - minutes1) / 60;
+  };
+
+  // Obtener los marcajes del día seleccionado
+  const marcajesDelDia = useMemo(() => {
+    if (!asistenciaData?.asistencias || !formData.date) return [];
+    
+    const marcajes = asistenciaData.asistencias.filter((marcaje: any) => {
+      const fechaMarcaje = new Date(marcaje.fecha).toISOString().split('T')[0];
+      return fechaMarcaje === formData.date;
+    });
+    
+    console.log('📅 Fecha seleccionada:', formData.date);
+    console.log('📊 Total asistencias:', asistenciaData.asistencias.length);
+    console.log('🔍 Marcajes del día:', marcajes);
+    console.log('🎯 Tipos de marcaje del día:', marcajes.map((m: any) => m.tipoMarcaje));
+    
+    return marcajes;
+  }, [asistenciaData, formData.date]);
+
+  // Determinar qué opciones de tipo de marcaje están disponibles
+  const availableTipoMarcaje = useMemo(() => {
+    const allOptions = [
+      { value: 'entrada_manana', label: 'Entrada Mañana' },
+      { value: 'salida_almuerzo', label: 'Salida Almuerzo' },
+      { value: 'entrada_tarde', label: 'Entrada Tarde' },
+      { value: 'salida_dia', label: 'Salida fin de jornada' }
+    ];
+
+    if (marcajesDelDia.length === 0) {
+      // Si no hay marcajes, solo permitir entrada_manana
+      return allOptions.filter(opt => opt.value === 'entrada_manana');
+    }
+
+    const tiposExistentes = marcajesDelDia.map((m: any) => m.tipoMarcaje);
+    
+    // Verificar si hay una entrada sin salida (entrada_manana sin salida_almuerzo)
+    const hayEntradaMañana = tiposExistentes.includes('entrada_manana');
+    const haySalidaAlmuerzo = tiposExistentes.includes('salida_almuerzo');
+    const hayEntradaTarde = tiposExistentes.includes('entrada_tarde');
+    const haySalidaDia = tiposExistentes.includes('salida_dia');
+
+    // Si hay entrada de mañana sin salida a almuerzo, solo permitir salida_almuerzo
+    if (hayEntradaMañana && !haySalidaAlmuerzo) {
+      return allOptions.filter(opt => opt.value === 'salida_almuerzo');
+    }
+
+    // Si hay entrada de tarde sin salida de día, solo permitir salida_dia
+    if (hayEntradaTarde && !haySalidaDia) {
+      return allOptions.filter(opt => opt.value === 'salida_dia');
+    }
+
+    // Si ya existe entrada_manana con salida_almuerzo, verificar las horas
+    if (hayEntradaMañana && haySalidaAlmuerzo) {
+      const entradaMañana = marcajesDelDia.find((m: any) => m.tipoMarcaje === 'entrada_manana');
+      const salidaAlmuerzo = marcajesDelDia.find((m: any) => m.tipoMarcaje === 'salida_almuerzo');
+      
+      if (entradaMañana && salidaAlmuerzo) {
+        const horaEntrada = entradaMañana.horaIngreso;
+        const horaSalida = salidaAlmuerzo.horaSalida;
+        
+        if (horaEntrada && horaSalida) {
+          const horas = calculateHoursDifference(horaEntrada, horaSalida);
+          
+          if (horas < 6) {
+            // Si fue menos de 6 horas, forzar entrada_tarde
+            if (hayEntradaTarde) {
+              // Ya existe entrada_tarde, permitir solo salida_dia
+              return allOptions.filter(opt => opt.value === 'salida_dia');
+            }
+            return allOptions.filter(opt => opt.value === 'entrada_tarde');
+          } else {
+            // Si fue 6 o más horas, permitir solo salida_dia
+            return allOptions.filter(opt => opt.value === 'salida_dia');
+          }
+        }
+      }
+    }
+    
+    // Filtrar las opciones según lo que ya existe
+    return allOptions.filter(opt => !tiposExistentes.includes(opt.value));
+  }, [marcajesDelDia]);
+
+  const resetForm = () => {
+    setFormData({
+      date: new Date().toISOString().split('T')[0],
+      checkInTime: '',
+      checkOutTime: '',
+      location: '',
+      notes: '',
+      justificationReason: '',
+      registroTipo: 'entrada_manana'
+    });
+    setIsSubmitting(false);
+    setIsSuccess(false);
+    setIsClosing(false);
+  };
+
+  const handleClose = React.useCallback(() => {
+    if (!isSubmitting) {
+      setIsClosing(true);
+      setTimeout(() => {
+        resetForm();
+        onClose();
+      }, 200);
+    }
+  }, [isSubmitting, onClose]);
+
+  // Actualizar el tipo de marcaje cuando cambien las opciones disponibles
+  useEffect(() => {
+    if (availableTipoMarcaje.length > 0) {
+      const currentValueAvailable = availableTipoMarcaje.some(
+        opt => opt.value === formData.registroTipo
+      );
+      
+      if (!currentValueAvailable) {
+        setFormData(prev => ({
+          ...prev,
+          registroTipo: availableTipoMarcaje[0].value
+        }));
+      }
+    }
+  }, [availableTipoMarcaje, formData.registroTipo]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -52,33 +183,7 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, isSubmitting]);
-
-  const resetForm = () => {
-    setFormData({
-      date: new Date().toISOString().split('T')[0],
-      checkInTime: '',
-      checkOutTime: '',
-      activityType: 'Docencia',
-      location: '',
-      notes: '',
-      justificationReason: '',
-      registroTipo: 'entrada_manana'
-    });
-    setIsSubmitting(false);
-    setIsSuccess(false);
-    setIsClosing(false);
-  };
-
-  const handleClose = () => {
-    if (!isSubmitting) {
-      setIsClosing(true);
-      setTimeout(() => {
-        resetForm();
-        onClose();
-      }, 200);
-    }
-  };
+  }, [isOpen, isSubmitting, handleClose]);
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -88,6 +193,19 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validar que la fecha no sea futura (usando fecha local, no UTC)
+    const hoy = new Date();
+    const year = hoy.getFullYear();
+    const month = String(hoy.getMonth() + 1).padStart(2, '0');
+    const day = String(hoy.getDate()).padStart(2, '0');
+    const fechaHoyLocal = `${year}-${month}-${day}`;
+    
+    if (formData.date > fechaHoyLocal) {
+      alert('No puedes registrar marcajes para fechas futuras. Por favor selecciona la fecha de hoy o una fecha pasada.');
+      return;
+    }
+    
     setIsSubmitting(true);
 
     try {
@@ -190,6 +308,13 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
                       type="date"
                       value={formData.date}
                       onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                      max={(() => {
+                        const hoy = new Date();
+                        const year = hoy.getFullYear();
+                        const month = String(hoy.getMonth() + 1).padStart(2, '0');
+                        const day = String(hoy.getDate()).padStart(2, '0');
+                        return `${year}-${month}-${day}`;
+                      })()}
                       className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm transition-all"
                       required
                       disabled={isSubmitting}
@@ -209,43 +334,34 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
                   </div>
                 </div>
 
-                {/* Tipo de marcaje y Actividad */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      Tipo de marcaje *
-                    </label>
-                    <select
-                      value={formData.registroTipo}
-                      onChange={(e) => setFormData({ ...formData, registroTipo: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm transition-all"
-                      required
-                      disabled={isSubmitting}
-                    >
-                      <option value="entrada_manana">Entrada mañana</option>
-                      <option value="salida_almuerzo">Salida a colación</option>
-                      <option value="entrada_tarde">Entrada después de colación</option>
-                      <option value="salida_dia">Salida fin de jornada</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      Tipo de actividad *
-                    </label>
-                    <select
-                      value={formData.activityType}
-                      onChange={(e) => setFormData({ ...formData, activityType: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm transition-all"
-                      required
-                      disabled={isSubmitting}
-                    >
-                      <option value="Docencia">Docencia</option>
-                      <option value="research">Investigación</option>
-                      <option value="management">Gestión Administrativa</option>
-                      <option value="other">Otra actividad</option>
-                    </select>
-                  </div>
+                {/* Tipo de marcaje */}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Tipo de marcaje *
+                  </label>
+                  <select
+                    value={formData.registroTipo}
+                    onChange={(e) => setFormData({ ...formData, registroTipo: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm transition-all"
+                    required
+                    disabled={isSubmitting}
+                  >
+                    {availableTipoMarcaje.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  {availableTipoMarcaje.length === 1 && availableTipoMarcaje[0].value === 'entrada_tarde' && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      ℹ️ La jornada de mañana fue menor a 6 horas, debe registrar entrada de tarde
+                    </p>
+                  )}
+                  {availableTipoMarcaje.length === 1 && availableTipoMarcaje[0].value === 'salida_dia' && (
+                    <p className="mt-1 text-xs text-blue-600">
+                      ℹ️ Solo puede registrar salida de jornada
+                    </p>
+                  )}
                 </div>
 
                 {/* Descripción */}

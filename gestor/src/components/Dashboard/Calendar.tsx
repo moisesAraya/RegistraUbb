@@ -10,7 +10,7 @@ import {
   BarChart3,
   Shield
 } from 'lucide-react';
-import { useAsistencia } from '../../hooks/useAsistencia';
+import { useAsistenciaContext } from '../../context/AsistenciaContext';
 
 interface DayData {
   date: Date;
@@ -35,7 +35,7 @@ interface DayData {
 }
 
 const AttendanceCalendar: React.FC = () => {
-  const { asistenciaData, isLoading, fetchAsistencia } = useAsistencia();
+  const { asistenciaData, isLoading, fetchAsistencia } = useAsistenciaContext();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
 
