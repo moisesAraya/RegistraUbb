@@ -188,7 +188,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <div class="config-icon">⚙️</div>
+            <div class="config-icon"></div>
             <h1>Configuración del Dispositivo</h1>
             <p>Selecciona el totem correspondiente a este dispositivo</p>
         </div>
@@ -197,8 +197,8 @@
             {% for totem in totems %}
             <div class="totem-card" data-totem-id="{{ totem.id_totem }}" onclick="seleccionarTotem('{{ totem.id_totem }}')">
                 <div class="check-mark">✓</div>
-                <div class="totem-icon">🖥️</div>
-                <div class="totem-location">📍 {{ totem.ubicacion }}</div>
+                <div class="totem-icon"></div>
+                <div class="totem-location">{{ totem.ubicacion }}</div>
             </div>
             {% empty %}
             <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
@@ -211,7 +211,7 @@
         <div id="alert" class="alert"></div>
 
         <div style="margin-top: 40px;">
-            <button id="confirmar-btn" class="btn btn-success">✅ Confirmar Configuración</button>
+            <button id="confirmar-btn" class="btn btn-success">Confirmar Configuración</button>
         </div>
     </div>
 
@@ -240,8 +240,7 @@
                 mostrarAlerta('Selecciona un totem primero', 'error');
                 return;
             }
-
-            this.textContent = '⏳ Configurando...';
+            this.textContent = 'Configurando...';
             this.disabled = true;
 
             fetch('/guardar_totem/', {
@@ -256,19 +255,19 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    mostrarAlerta(`✅ Dispositivo configurado como: ${data.totem.nombre}`, 'success');
+                    mostrarAlerta(`Dispositivo configurado como: ${data.totem.nombre}`, 'success');
                     setTimeout(() => {
                         window.location.href = '/';
                     }, 2000);
                 } else {
                     mostrarAlerta(data.error, 'error');
-                    this.textContent = '✅ Confirmar Configuración';
+                    this.textContent = 'Confirmar Configuración';
                     this.disabled = false;
                 }
             })
             .catch(error => {
                 mostrarAlerta('Error de conexión', 'error');
-                this.textContent = '✅ Confirmar Configuración';
+                this.textContent = 'Confirmar Configuración';
                 this.disabled = false;
             });
         });
