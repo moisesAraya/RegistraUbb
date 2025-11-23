@@ -213,24 +213,30 @@ export async function eliminarJustificacionController(req, res) {
 }
 
 // ✅ OBTENER MOTIVOS
+// controllers/justificaciones.controller.js (o donde armes la lista)
 export async function getMotivosController(req, res) {
-    console.log('📋 [JUSTIFICACIONES-CONTROLLER] ===== GET MOTIVOS =====');
-    
-    try {
-        const motivos = await getMotivosJustificacion();
+  try {
+    const motivos = [
+      { id: "congreso", nombre: "Congreso", es_justificada: true, horas_compensadas: 8 },
+      { id: "charla", nombre: "Charla / Capacitación", es_justificada: true, horas_compensadas: 8 },
+      { id: "enfermedad", nombre: "Enfermedad", es_justificada: true, horas_compensadas: 8 },
+      { id: "personal", nombre: "Motivo personal", es_justificada: false, horas_compensadas: 0 },
+      { id: "otro", nombre: "Otro", es_justificada: false, horas_compensadas: 0 },
 
-        return res.status(200).json({
-            success: true,
-            data: motivos
-        });
+      {
+        id: "permiso_administrativo",
+        nombre: "Permiso administrativo",
+        es_justificada: true,
+        horas_compensadas: 8, 
+        permite_media_jornada: true,
+      },
+    ];
 
-    } catch (error) {
-        console.error('❌ [JUSTIFICACIONES-CONTROLLER] Error motivos:', error.message);
-        return res.status(500).json({
-            success: false,
-            error: 'Error obteniendo motivos'
-        });
-    }
+    res.json({ success: true, data: motivos });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 }
+
 
 console.log('📋 [JUSTIFICACIONES-CONTROLLER] ✅ Controlador de justificaciones cargado');

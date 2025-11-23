@@ -209,20 +209,31 @@ export const AsistenciaProvider: React.FC<{ children: ReactNode }> = ({ children
     setError(null);
 
     try {
+      // 👇 PATCH parcial: solo campo + hora (+ opcionalmente fecha y notas)
+      const body = {
+        date: data.date,                 // fecha del marcaje
+        campo: data.campo,               // 'entrada' | 'salida'
+        time: data.time,                 // 'HH:MM'
+        notes: data.notes || null,       // observaciones
+      };
+
       const result = await makeApiCall(`asistencia/manual/${data.id_marcaje}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
+        method: 'PATCH',                 // 🔥 ahora PATCH
+        body: JSON.stringify(body),
       });
 
       if (result.success) {
         if (asistenciaData?.periodo) {
           await fetchAsistencia(asistenciaData.periodo.mes, asistenciaData.periodo.anio);
+        } else {
+          await fetchAsistencia();
         }
-        return { success: true, message: result.message };
+        return { success: true, message: result.message || 'Marcaje actualizado' };
       }
       throw new Error(result.error);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      console.error('❌ Error editando marcaje:', err);
       setError(errorMessage);
       return { success: false, message: errorMessage };
     } finally {

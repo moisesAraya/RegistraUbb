@@ -639,7 +639,7 @@ const AttendanceCalendar: React.FC = () => {
                 <p className="text-xl font-bold text-red-600">
                   {asistenciaData.resumen.faltas}
                 </p>
-                <p className="text-xs text-slate-600">Faltas</p>
+                <p className="text-xs text-slate-600">faltas</p>
               </div>
             </div>
           </div>

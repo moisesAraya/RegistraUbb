@@ -150,7 +150,6 @@ const AttendanceList: React.FC = () => {
         es_justificada: !!j.es_justificada,
         horas_compensadas: j.horas_compensadas || 0
       },
-      // este flag ya no lo usamos para decidir si es editable
       es_manual: false,
     };
   });
@@ -290,7 +289,7 @@ const AttendanceList: React.FC = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Mi Asistencia</h2>
-          <p className="text-gray-600">Registro de asistencia y estadísticas</p>
+          <p className="text-gray-600">Registro detallado de mis marcajes</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 justify-start sm:justify-end">
@@ -307,108 +306,7 @@ const AttendanceList: React.FC = () => {
         </div>
       </div>
 
-      {/* Resumen de estadísticas */}
-      {asistenciaData?.resumen && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-lg shadow border flex items-center h-full">
-            <Calendar className="h-8 w-8 text-blue-500 flex-shrink-0" />
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Días Trabajados</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {asistenciaData.resumen.diasTrabajados}
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg shadow border flex items-center h-full">
-            <Clock className="h-8 w-8 text-green-500 flex-shrink-0" />
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Horas Totales</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {asistenciaData.resumen.horasTotales}h
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg shadow border flex items-center h-full">
-            <TrendingUp className="h-8 w-8 text-purple-500 flex-shrink-0" />
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Promedio Diario</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {asistenciaData.resumen.horasPromedio}h
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg shadow border flex items-center h-full">
-            <XCircle className="h-8 w-8 text-red-500 flex-shrink-0" />
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Faltas</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {asistenciaData.resumen.faltas}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Estadísticas avanzadas */}
-      {estadisticas && estadisticas.horasReales > 0 ? (
-        <div className="bg-white p-6 rounded-lg shadow border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Estadísticas de la Semana</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 mb-2">Cumplimiento de Objetivo</h4>
-              <div className="flex items-center">
-                <div className="flex-1 bg-gray-200 rounded-full h-2 mr-3 overflow-hidden">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                    style={{
-                      width: `${Math.min(100, estadisticas.porcentajeCumplimiento || 0)}%`
-                    }}
-                  ></div>
-                </div>
-                <span className="text-sm font-medium">
-                  {Math.round(estadisticas.porcentajeCumplimiento || 0)}%
-                </span>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                {estadisticas.horasReales}h de 44h semanales
-              </p>
-            </div>
-
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 mb-2">Promedio de Ingreso</h4>
-              <p className="text-2xl font-semibold text-gray-900">
-                {estadisticas.promedioHoraIngreso || '-'}
-              </p>
-            </div>
-
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 mb-2">Día Más Productivo</h4>
-              {estadisticas.diasMasProductivos && estadisticas.diasMasProductivos[0] ? (
-                <div>
-                  <p className="text-lg font-medium text-gray-900">
-                    {estadisticas.diasMasProductivos[0].horas}h
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {formatDate(estadisticas.diasMasProductivos[0].fecha)}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500">Sin datos</p>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-white p-6 rounded-lg shadow border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Estadísticas de la Semana</h3>
-          <p className="text-sm text-gray-500">
-            No hay datos suficientes para mostrar estadísticas.
-          </p>
-        </div>
-      )}
+      {/* 🔻 YA NO HAY TARJETAS DE RESUMEN NI ESTADÍSTICAS AVANZADAS AQUÍ 🔻 */}
 
       {/* Lista de asistencias + justificadas */}
       <div className="bg-white shadow overflow-hidden sm:rounded-md">
