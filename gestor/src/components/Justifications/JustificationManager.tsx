@@ -35,24 +35,46 @@ const JustificationManager: React.FC = () => {
       fecha_justificacion: '',
       motivo: '',
       descripcion: '',
-      tipoPermiso: 'jornada_completa', // 👈 NUEVO para permiso administrativo
+      tipoPermiso: 'jornada_completa',      // para permiso administrativo JUSTIFICADO
+      tipoNoJustificada: 'jornada_completa' // para faltas NO justificadas
     });
 
     const motivoSeleccionado = motivos.find(m => m.id === formData.motivo);
     const esPermisoAdministrativo = formData.motivo === 'permiso_administrativo';
+    const esAusenciaNoJustificada =
+      motivoSeleccionado && !motivoSeleccionado.es_justificada;
+
+    // Motivos ordenados: "Otro" SIEMPRE al final
+    const motivosOrdenados = [
+      ...motivos.filter(
+        (m) => !m.nombre?.toLowerCase().includes('otro')
+      ),
+      ...motivos.filter(
+        (m) => m.nombre?.toLowerCase().includes('otro')
+      ),
+    ];
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
 
       try {
+        // 👇 Determinar qué "tipo" mandamos al backend
+        let tipoToSend: string | null = null;
+
+        if (esPermisoAdministrativo) {
+          // permiso administrativo justificado (8h / 4h mañana / 4h tarde)
+          tipoToSend = formData.tipoPermiso;
+        } else if (esAusenciaNoJustificada) {
+          // ausencia NO justificada: igual queremos saber si es día completo o media jornada
+          tipoToSend = formData.tipoNoJustificada;
+        }
+
         await crearJustificacion({
-          // El backend ahora acepta cualquiera de los dos, pero mandemos ambos por claridad
           fecha: formData.fecha_justificacion,
           fecha_justificacion: formData.fecha_justificacion,
           motivo: formData.motivo,
           descripcion: formData.descripcion.trim() || null,
-          // 👇 Solo para permiso administrativo mandamos tipo
-          tipo: esPermisoAdministrativo ? formData.tipoPermiso : null,
+          tipo: tipoToSend, // puede ser null, jornada_completa, media_manana, media_tarde
         });
 
         setMostrarFormulario(false);
@@ -61,6 +83,7 @@ const JustificationManager: React.FC = () => {
           motivo: '',
           descripcion: '',
           tipoPermiso: 'jornada_completa',
+          tipoNoJustificada: 'jornada_completa',
         });
       } catch (err) {
         console.error('Error guardando justificación:', err);
@@ -100,10 +123,14 @@ const JustificationManager: React.FC = () => {
                 type="date"
                 required
                 value={formData.fecha_justificacion}
-                onChange={(e) => setFormData({ ...formData, fecha_justificacion: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, fecha_justificacion: e.target.value })
+                }
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 max={new Date().toISOString().split('T')[0]}
-                min={new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                min={new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+                  .toISOString()
+                  .split('T')[0]}
               />
               <p className="text-xs text-gray-500 mt-1">
                 Solo puedes justificar fechas de los últimos 30 días
@@ -118,11 +145,13 @@ const JustificationManager: React.FC = () => {
               <select
                 required
                 value={formData.motivo}
-                onChange={(e) => setFormData({ ...formData, motivo: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, motivo: e.target.value })
+                }
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               >
                 <option value="">Selecciona un motivo</option>
-                {motivos.map((m) => (
+                {motivosOrdenados.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.nombre} {m.es_justificada ? '' : ''}
                   </option>
@@ -147,7 +176,9 @@ const JustificationManager: React.FC = () => {
                     <div>
                       <p
                         className={`text-sm font-semibold ${
-                          motivoSeleccionado.es_justificada ? 'text-green-800' : 'text-orange-800'
+                          motivoSeleccionado.es_justificada
+                            ? 'text-green-800'
+                            : 'text-orange-800'
                         }`}
                       >
                         {motivoSeleccionado.es_justificada
@@ -156,21 +187,23 @@ const JustificationManager: React.FC = () => {
                       </p>
                       <p
                         className={`text-xs mt-1 ${
-                          motivoSeleccionado.es_justificada ? 'text-green-700' : 'text-orange-700'
+                          motivoSeleccionado.es_justificada
+                            ? 'text-green-700'
+                            : 'text-orange-700'
                         }`}
                       >
                         {esPermisoAdministrativo
                           ? 'Selecciona si será jornada completa (8h) o media jornada (4h).'
                           : motivoSeleccionado.es_justificada
                           ? `Se compensarán ${motivoSeleccionado.horas_compensadas} horas en tu registro`
-                          : 'Esta ausencia no suma horas trabajadas'}
+                          : 'Esta ausencia no suma horas trabajadas, pero puede ser día completo o media jornada.'}
                       </p>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Opciones especiales para PERMISO ADMINISTRATIVO */}
+              {/* Opciones especiales para PERMISO ADMINISTRATIVO (justificada) */}
               {esPermisoAdministrativo && (
                 <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-sm font-semibold text-blue-800 mb-2">
@@ -210,7 +243,9 @@ const JustificationManager: React.FC = () => {
                         className="mt-0.5"
                       />
                       <span>
-                        <span className="font-semibold">Media jornada – Mañana (4 horas)</span>
+                        <span className="font-semibold">
+                          Media jornada – Mañana (4 horas)
+                        </span>
                         <br />
                         <span className="text-xs text-blue-700">
                           Se compensarán 4 horas en tu registro (bloque AM).
@@ -230,10 +265,93 @@ const JustificationManager: React.FC = () => {
                         className="mt-0.5"
                       />
                       <span>
-                        <span className="font-semibold">Media jornada – Tarde (4 horas)</span>
+                        <span className="font-semibold">
+                          Media jornada – Tarde (4 horas)
+                        </span>
                         <br />
                         <span className="text-xs text-blue-700">
                           Se compensarán 4 horas en tu registro (bloque PM).
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Opciones para AUSENCIA NO JUSTIFICADA (media jornada) */}
+              {esAusenciaNoJustificada && !esPermisoAdministrativo && (
+                <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                  <p className="text-sm font-semibold text-orange-800 mb-2">
+                    Tipo de ausencia no justificada
+                  </p>
+
+                  <div className="space-y-2 text-sm text-orange-900">
+                    <label className="flex items-start space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="tipoNoJustificada"
+                        value="jornada_completa"
+                        checked={formData.tipoNoJustificada === 'jornada_completa'}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            tipoNoJustificada: e.target.value,
+                          })
+                        }
+                        className="mt-0.5"
+                      />
+                      <span>
+                        <span className="font-semibold">Día completo</span>
+                        <br />
+                        <span className="text-xs text-orange-700">
+                          Se considerará ausencia de jornada completa (4 recuadros en el
+                          calendario).
+                        </span>
+                      </span>
+                    </label>
+
+                    <label className="flex items-start space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="tipoNoJustificada"
+                        value="media_manana"
+                        checked={formData.tipoNoJustificada === 'media_manana'}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            tipoNoJustificada: e.target.value,
+                          })
+                        }
+                        className="mt-0.5"
+                      />
+                      <span>
+                        <span className="font-semibold">Media jornada – Mañana</span>
+                        <br />
+                        <span className="text-xs text-orange-700">
+                          Se considerará ausencia solo en la mañana (2 recuadros AM).
+                        </span>
+                      </span>
+                    </label>
+
+                    <label className="flex items-start space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="tipoNoJustificada"
+                        value="media_tarde"
+                        checked={formData.tipoNoJustificada === 'media_tarde'}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            tipoNoJustificada: e.target.value,
+                          })
+                        }
+                        className="mt-0.5"
+                      />
+                      <span>
+                        <span className="font-semibold">Media jornada – Tarde</span>
+                        <br />
+                        <span className="text-xs text-orange-700">
+                          Se considerará ausencia solo en la tarde (2 recuadros PM).
                         </span>
                       </span>
                     </label>
@@ -250,7 +368,9 @@ const JustificationManager: React.FC = () => {
               <textarea
                 rows={4}
                 value={formData.descripcion}
-                onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, descripcion: e.target.value })
+                }
                 placeholder="Agrega detalles adicionales sobre tu ausencia..."
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
               />
@@ -305,7 +425,7 @@ const JustificationManager: React.FC = () => {
       <div className="flex items-center justify-center h-64">
         <div className="flex items-center space-x-3">
           <RefreshCw className="w-6 h-6 animate-spin text-blue-500" />
-          <span className="text-gray-600">Cargando ausencias...</span>
+          <span className="text-gray-600">Cargando faltas...</span>
         </div>
       </div>
     );
@@ -316,8 +436,8 @@ const JustificationManager: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Mis Ausencias</h1>
-          <p className="text-gray-600">Gestiona el registro de tus ausencias laborales</p>
+          <h1 className="text-2xl font-bold text-gray-900">Mis faltas</h1>
+          <p className="text-gray-600">Gestiona el registro de tus faltas laborales</p>
         </div>
         <button
           onClick={() => setMostrarFormulario(true)}
@@ -391,7 +511,7 @@ const JustificationManager: React.FC = () => {
           onChange={(e) => setFiltroTipo(e.target.value)}
           className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
-          <option value="">Todas las ausencias</option>
+          <option value="">Todas las faltas</option>
           <option value="justificadas">Solo justificadas</option>
           <option value="no_justificadas">Solo no justificadas</option>
         </select>
@@ -409,9 +529,9 @@ const JustificationManager: React.FC = () => {
         {justificacionesFiltradas.length === 0 ? (
           <div className="text-center py-16">
             <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg font-medium">No tienes ausencias registradas</p>
+            <p className="text-gray-500 text-lg font-medium">No tienes faltas registradas</p>
             <p className="text-gray-400 text-sm mt-2">
-              Registra tus ausencias para mantener un historial completo
+              Registra tus faltas para mantener un historial completo
             </p>
             <button
               onClick={() => setMostrarFormulario(true)}
@@ -424,33 +544,39 @@ const JustificationManager: React.FC = () => {
         ) : (
           <div className="divide-y divide-gray-200">
             {justificacionesFiltradas.map((justificacion) => (
-              <div key={justificacion.id_justificacion} className="p-6 hover:bg-gray-50 transition-colors">
+              <div
+                key={justificacion.id_justificacion}
+                className="p-6 hover:bg-gray-50 transition-colors"
+              >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-3">
                       {justificacion.es_justificada ? (
                         <div className="flex items-center space-x-2 px-3 py-1 bg-green-100 border border-green-300 rounded-full">
                           <CheckCircle className="h-4 w-4 text-green-600" />
-                          <span className="text-xs font-semibold text-green-700">JUSTIFICADA</span>
+                          <span className="text-xs font-semibold text-green-700">
+                            JUSTIFICADA
+                          </span>
                         </div>
                       ) : (
                         <div className="flex items-center space-x-2 px-3 py-1 bg-orange-100 border border-orange-300 rounded-full">
                           <XCircle className="h-4 w-4 text-orange-600" />
-                          <span className="text-xs font-semibold text-orange-700">NO JUSTIFICADA</span>
+                          <span className="text-xs font-semibold text-orange-700">
+                            NO JUSTIFICADA
+                          </span>
                         </div>
                       )}
 
                       <span className="text-sm font-medium text-gray-900">
                         {(() => {
-                          const [year, month, day] = justificacion.fecha_justificacion
-                            .split('-')
-                            .map(Number);
+                          const [year, month, day] =
+                            justificacion.fecha_justificacion.split('-').map(Number);
                           const date = new Date(year, month - 1, day);
                           return date.toLocaleDateString('es-CL', {
                             weekday: 'long',
                             year: 'numeric',
                             month: 'long',
-                            day: 'numeric'
+                            day: 'numeric',
                           });
                         })()}
                       </span>
@@ -478,14 +604,20 @@ const JustificationManager: React.FC = () => {
                       )}
                       <span>
                         Registrado:{' '}
-                        {new Date(justificacion.fecha_registro).toLocaleDateString('es-CL')}
+                        {new Date(justificacion.fecha_registro).toLocaleDateString(
+                          'es-CL'
+                        )}
                       </span>
                     </div>
                   </div>
 
                   <button
                     onClick={() => {
-                      if (window.confirm('¿Estás seguro de eliminar esta justificación?')) {
+                      if (
+                        window.confirm(
+                          '¿Estás seguro de eliminar esta justificación?'
+                        )
+                      ) {
                         eliminarJustificacion(justificacion.id_justificacion);
                       }
                     }}

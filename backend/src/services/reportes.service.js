@@ -57,6 +57,16 @@ function formatTimeToString(value) {
 }
 
 // -----------------------
+// Helper: motivo legible
+// -----------------------
+function formatearMotivoLegible(motivo) {
+  if (!motivo || typeof motivo !== "string") return motivo;
+  // "permiso_administrativo" -> "Permiso administrativo"
+  const limpio = motivo.replace(/_/g, " ").trim();
+  return limpio.charAt(0).toUpperCase() + limpio.slice(1);
+}
+
+// -----------------------
 // Reporte mensual / rango
 // -----------------------
 export async function getReportePersonalMensual(
@@ -122,7 +132,7 @@ export async function getReportePersonalMensual(
       },
     });
 
-    // Marcajes del usuario en el mes (con filtrado y ordenamiento)
+    // Marcajes del usuario en el mes
     const marcajes = await Marcaje.findAll({
       where: {
         rut_usuario,
@@ -263,14 +273,13 @@ function agruparMarcajesPorFecha(marcajes) {
       marcajesPorFecha[fecha] = [];
     }
 
-    // 🔹 Normalizamos acá: siempre quedarán como "HH:MM:SS"
     const horaEntrada = formatTimeToString(marcaje.hora_ingreso);
     const horaSalida = formatTimeToString(marcaje.hora_salida);
 
     marcajesPorFecha[fecha].push({
       id_marcaje: marcaje.id_marcaje,
-      hora_entrada: horaEntrada, // ya normalizada
-      hora_salida: horaSalida, // ya normalizada
+      hora_entrada: horaEntrada,
+      hora_salida: horaSalida,
       observacion: marcaje.observacion,
     });
   });
@@ -294,9 +303,7 @@ function formatearFechaLocal(fechaStr) {
   };
 }
 
-// -----------------------
-// Procesar asistencias (marcajes + justificaciones)
-// -----------------------
+
 function procesarAsistenciasDetalle(marcajesPorFecha, justificaciones) {
   const asistencias = [];
 
@@ -344,79 +351,80 @@ function procesarAsistenciasDetalle(marcajesPorFecha, justificaciones) {
 
     // === CASO 2: HAY MARCAJES (con o sin justificación) ===
 
-    // Aseguramos horas normalizadas HH:MM:SS
+    // Normalizamos horas
     marcajes.forEach((m) => {
       m.hora_entrada = formatTimeToString(m.hora_entrada);
       m.hora_salida = formatTimeToString(m.hora_salida);
     });
 
-    // Ordenar por hora de entrada
     marcajes.sort((a, b) => {
       const horaA = a.hora_entrada || "00:00:00";
       const horaB = b.hora_entrada || "00:00:00";
       return horaA.localeCompare(horaB);
     });
 
-    // --- Construir campos de mañana / tarde SOLO para mostrar ---
-    const manana = { entrada: null, salida: null };
-    const tarde = { entrada: null, salida: null };
+    // --- Separar en mañana / tarde según la hora de ENTRADA ---
+    // Regla: < 12:00 → mañana, >= 12:00 → tarde
+    const morningMarks = [];
+    const afternoonMarks = [];
 
-    if (marcajes.length >= 1) {
-      const primer = marcajes[0];
-      manana.entrada = primer.hora_entrada;
-
-      if (primer.hora_salida) {
-        const horaSalidaStr = primer.hora_salida || "00:00:00";
-        const horaSalida = parseInt(horaSalidaStr.split(":")[0], 10);
-
-        if (horaSalida >= 14) {
-          // si sale después de almuerzo la consideramos salida tarde
-          tarde.salida = primer.hora_salida;
-        } else {
-          manana.salida = primer.hora_salida;
-        }
+    marcajes.forEach((m) => {
+      const baseTime = m.hora_entrada || m.hora_salida || "00:00:00";
+      const hour = parseInt(baseTime.split(":")[0], 10);
+      if (!isNaN(hour) && hour >= 12) {
+        afternoonMarks.push(m);
+      } else {
+        morningMarks.push(m);
       }
-    }
+    });
 
-    if (marcajes.length >= 2) {
-      const segundo = marcajes[1];
-      if (!tarde.salida) {
-        tarde.entrada = segundo.hora_entrada;
-        tarde.salida = segundo.hora_salida;
-      }
-    }
+    const getSegmentTimes = (arr) => {
+      if (!arr || arr.length === 0) return { entrada: null, salida: null };
 
-    if (marcajes.length >= 3 && !tarde.entrada) {
-      tarde.entrada = marcajes[1].hora_entrada;
-      tarde.salida = marcajes[1].hora_salida || marcajes[2]?.hora_salida;
-    }
+      const entradas = arr
+        .map((m) => m.hora_entrada)
+        .filter(Boolean)
+        .sort();
+      const salidas = arr
+        .map((m) => m.hora_salida)
+        .filter(Boolean)
+        .sort();
 
-    // --- Horas por tramo (para info, no para el resumen global) ---
+      return {
+        entrada: entradas[0] || null,
+        salida: salidas.length > 0 ? salidas[salidas.length - 1] : null,
+      };
+    };
+
+    const segManana = getSegmentTimes(morningMarks);
+    const segTarde = getSegmentTimes(afternoonMarks);
+
     const horasManana = calcularHorasEntreMarcajes(
-      manana.entrada,
-      manana.salida
+      segManana.entrada,
+      segManana.salida
     );
     const horasTarde = calcularHorasEntreMarcajes(
-      tarde.entrada,
-      tarde.salida
+      segTarde.entrada,
+      segTarde.salida
     );
 
-    // 🔥 HORAS TOTALES DEL DÍA:
-    // sumamos TODOS los marcajes crudos de ese día
+    // 🔥 HORAS TOTALES DEL DÍA: sumamos TODOS los marcajes crudos
     let horasTotalesDia = marcajes.reduce((sum, m) => {
       return sum + calcularHorasEntreMarcajes(m.hora_entrada, m.hora_salida);
     }, 0);
 
     const sinMarcajesEnTodoElDia =
       marcajes.length === 0 ||
-      (!manana.entrada && !manana.salida && !tarde.entrada && !tarde.salida);
+      (!segManana.entrada &&
+        !segManana.salida &&
+        !segTarde.entrada &&
+        !segTarde.salida);
 
     let estado = "presente";
 
     if (sinMarcajesEnTodoElDia) {
       estado = "falta";
     } else if (horasTotalesDia === 0) {
-      // hubo al menos un marcaje pero no pudimos calcular horas (ej. solo entrada)
       estado = "presente";
     }
 
@@ -425,13 +433,13 @@ function procesarAsistenciasDetalle(marcajesPorFecha, justificaciones) {
       fecha_formateada: fechaInfo.formateada,
       dia_semana: fechaInfo.dia_semana,
       manana: {
-        entrada: manana.entrada || "X",
-        salida: manana.salida || "X",
+        entrada: segManana.entrada || "X",
+        salida: segManana.salida || "X",
         horas: Math.round(horasManana * 100) / 100,
       },
       tarde: {
-        entrada: tarde.entrada || "X",
-        salida: tarde.salida || "X",
+        entrada: segTarde.entrada || "X",
+        salida: segTarde.salida || "X",
         horas: Math.round(horasTarde * 100) / 100,
       },
       horas_totales: Math.round(horasTotalesDia * 100) / 100,
@@ -460,6 +468,20 @@ function procesarAsistenciasDetalle(marcajesPorFecha, justificaciones) {
         if (asistencia.estado === "falta") {
           asistencia.estado = "justificado";
         }
+
+        // 🔹 Media jornada justificada:
+        // si solo trabajó en la tarde → mañana JUST
+        // si solo trabajó en la mañana → tarde JUST
+        const tieneHorasManana = horasManana > 0;
+        const tieneHorasTarde = horasTarde > 0;
+
+        if (!tieneHorasManana && tieneHorasTarde && horasCompensadas > 0) {
+          asistencia.manana.entrada = "JUST";
+          asistencia.manana.salida = "JUST";
+        } else if (tieneHorasManana && !tieneHorasTarde && horasCompensadas > 0) {
+          asistencia.tarde.entrada = "JUST";
+          asistencia.tarde.salida = "JUST";
+        }
       }
     }
 
@@ -470,6 +492,7 @@ function procesarAsistenciasDetalle(marcajesPorFecha, justificaciones) {
   return asistencias.sort((a, b) => a.fecha.localeCompare(b.fecha));
 }
 
+
 // -----------------------
 // Calcular horas entre marcajes
 // -----------------------
@@ -479,7 +502,6 @@ function calcularHorasEntreMarcajes(entrada, salida) {
   }
 
   try {
-    // entrada/salida deberían ser "HH:MM:SS", pero por si acaso normalizamos
     const entradaStr =
       typeof entrada === "string"
         ? entrada
@@ -516,10 +538,6 @@ function calcularResumenAsistencias(asistencias) {
     0
   );
 
-  // Día trabajado:
-  // - tiene horas > 0
-  //   O tiene marcajes_raw
-  //   O tiene justificación justificada
   const diasTrabajados = asistencias.filter((a) => {
     const tieneHoras = (a.horas_totales || 0) > 0;
     const tieneMarcajes =
@@ -529,10 +547,6 @@ function calcularResumenAsistencias(asistencias) {
     return tieneHoras || tieneMarcajes || tieneJustificacionJustificada;
   }).length;
 
-  // Faltas NO justificadas:
-  // - horas_totales = 0
-  // - sin marcajes
-  // - sin justificación justificada
   const faltas = asistencias.filter((a) => {
     const noHoras = (a.horas_totales || 0) === 0;
     const sinMarcajes =
@@ -872,7 +886,6 @@ export async function getEstadisticasAsistenciaService(
     });
     if (!usuario) throw new Error("Usuario no encontrado");
 
-    // 44 horas semanales (objetivo de referencia)
     const horasObjetivoSemanal = 44;
     const horasObjetivoDiario = 8;
 
@@ -893,10 +906,8 @@ export async function getEstadisticasAsistenciaService(
       };
     }
 
-    // 🔹 Horas reales del mes (incluye el último día, por ejemplo HOY)
     const horasReales = dias.reduce((sum, d) => sum + d.horas, 0);
 
-    // 🔹 Calcular horas objetivo del mes (aprox.)
     const startDate = new Date(periodo.anio, periodo.mes - 1, 1);
     const endDate = new Date(periodo.anio, periodo.mes, 0);
     const diasDelMes = endDate.getDate();
@@ -906,23 +917,20 @@ export async function getEstadisticasAsistenciaService(
     const porcentajeCumplimiento =
       horasObjetivoMes > 0 ? (horasReales / horasObjetivoMes) * 100 : 0;
 
-    // 🔹 Tendencia semanal basada en las FECHAS de "dias"
     const diasOrdenados = [...dias].sort((a, b) =>
       a.fecha.localeCompare(b.fecha)
     );
 
-    // Último día con registros
-    const ultimaFechaStr = diasOrdenados[diasOrdenados.length - 1].fecha; // "YYYY-MM-DD"
+    const ultimaFechaStr = diasOrdenados[diasOrdenados.length - 1].fecha;
     const ultimaFecha = new Date(ultimaFechaStr + "T00:00:00");
     ultimaFecha.setHours(0, 0, 0, 0);
 
     const tendenciaSemanal = [];
 
-    // Construimos 4 bloques de 7 días hacia atrás desde la última fecha
     for (let i = 3; i >= 0; i--) {
       const finSemana = new Date(ultimaFecha);
       finSemana.setDate(ultimaFecha.getDate() - i * 7);
-      finSemana.setHours(23, 59, 59, 999); // 👈 INCLUYE COMPLETAMENTE EL DÍA
+      finSemana.setHours(23, 59, 59, 999);
 
       const inicioSemana = new Date(ultimaFecha);
       inicioSemana.setDate(ultimaFecha.getDate() - i * 7 - 6);
@@ -930,7 +938,7 @@ export async function getEstadisticasAsistenciaService(
 
       const diasSemana = dias.filter((d) => {
         const f = new Date(d.fecha + "T00:00:00");
-        return f >= inicioSemana && f <= finSemana; // 👈 INCLUSIVO
+        return f >= inicioSemana && f <= finSemana;
       });
 
       const horasSemana = diasSemana.reduce(
@@ -945,7 +953,6 @@ export async function getEstadisticasAsistenciaService(
       });
     }
 
-    // 🔹 Días más productivos
     const diasMasProductivos = [...dias]
       .sort((a, b) => b.horas - a.horas)
       .slice(0, 5)
@@ -955,7 +962,6 @@ export async function getEstadisticasAsistenciaService(
         horaIngreso: d.horaIngreso || "00:00",
       }));
 
-    // 🔹 Promedio hora de ingreso (solo días con marcaje real)
     const horasIngresoMin = dias
       .filter((d) => d.horaIngreso)
       .map((d) => {
@@ -998,7 +1004,7 @@ export async function getEstadisticasAsistenciaService(
 // -----------------------
 function calcularPorcentajeAsistencia(resumen) {
   if (!resumen || !resumen.diasTrabajados) return 0;
-  const diasLaborales = 22; // Aproximado mensual
+  const diasLaborales = 22;
   return Math.round((resumen.diasTrabajados / diasLaborales) * 100);
 }
 
@@ -1154,7 +1160,7 @@ function generarAreasdemejora(reportes) {
   return areas;
 }
 
-// Aliases para usar en otros módulos
+// Aliases
 export { getReporteComparativo as getReporteComparativoService };
 export { getEstadisticasAnuales as getEstadisticasAnualesService };
 

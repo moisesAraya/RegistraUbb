@@ -70,7 +70,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
         if (json.success && json.url) {
           setLogoUrl(json.url);
         } else {
-          // Fallback: intento directo a MinIO
           const directUrl = `${
             import.meta.env.VITE_MINIO_ENDPOINT || 'http://localhost:9000'
           }/${LOGO_BUCKET}/${LOGO_FILENAME}`;
@@ -151,8 +150,9 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
 
   return (
     <header className="bg-white border-b border-slate-200 shadow-sm relative z-30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+      {/* 🔽 AQUÍ: ancho completo, sin max-w ni mx-auto */}
+      <div className="w-full px-3 sm:px-4 lg:px-6">
+        <div className="flex justify-between items-center h-14 lg:h-16">
           {/* Left side - Mobile menu button y logo */}
           <div className="flex items-center space-x-4">
             <button
@@ -163,16 +163,16 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
             </button>
 
             {/* Logo desde MinIO */}
-            <div className="hidden lg:flex items-center">
+            <div className="flex items-center">
               {logoUrl ? (
                 <img
                   src={logoUrl}
                   alt="Logo RegistraUBB"
-                  className="h-12 w-auto object-contain"
+                  className="h-10 w-auto object-contain"
                 />
               ) : (
-                <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
                   </svg>
                 </div>
@@ -251,7 +251,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
                     nombres={user.nombres}
                     apellidos={user.apellidos}
                     rut_usuario={user.rut_usuario}
-                    // fotoUrl={fotoPerfilUrl} // si tu componente lo soporta
                     size="sm"
                     className="bg-gradient-to-br from-slate-500 to-slate-600 text-white shadow-md border border-slate-200"
                   />
@@ -269,7 +268,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
                         nombres={user.nombres}
                         apellidos={user.apellidos}
                         rut_usuario={user.rut_usuario}
-                        // fotoUrl={fotoPerfilUrl} // si tu componente lo soporta
                         size="md"
                         className="bg-gradient-to-br from-slate-500 to-slate-600 text-white shadow-md border border-slate-200"
                       />
@@ -295,8 +293,8 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
                           className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
                           onClick={() => setIsUserMenuOpen(false)}
                         >
-                            <HelpCircle className="w-4 h-4 text-slate-500" />
-                            <span>Ayuda</span>
+                          <HelpCircle className="w-4 h-4 text-slate-500" />
+                          <span>Ayuda</span>
                         </button>
                       </Link>
                     </div>
@@ -323,7 +321,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
                 nombres={user.nombres}
                 apellidos={user.apellidos}
                 rut_usuario={user.rut_usuario}
-                // fotoUrl={fotoPerfilUrl} // si tu componente lo soporta
                 size="sm"
                 className="bg-gradient-to-br from-slate-500 to-slate-600 text-white shadow-md"
               />
@@ -338,7 +335,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
         </div>
       </div>
 
-      {/* Click outside to close dropdown */}
       {(isUserMenuOpen || showNotificaciones) && (
         <div
           className="fixed inset-0 z-40"

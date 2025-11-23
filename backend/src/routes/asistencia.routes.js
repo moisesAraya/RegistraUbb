@@ -33,7 +33,7 @@ router.post('/marcar', authorizationMiddleware, marcar);
 router.post('/manual', authorizationMiddleware, createManualEntryController);
 
 // ✏️ RUTA PUT PARA EDITAR MARCAJE MANUAL
-router.put('/manual/:id_marcaje', authorizationMiddleware, updateManualEntryController);
+router.patch('/manual/:id_marcaje', authorizationMiddleware, updateManualEntryController);
 
 // 🗑️ RUTA DELETE PARA ELIMINAR MARCAJE MANUAL
 router.delete('/manual/:id_marcaje', authorizationMiddleware, deleteManualEntryController);

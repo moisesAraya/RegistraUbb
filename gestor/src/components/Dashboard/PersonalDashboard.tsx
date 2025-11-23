@@ -1,33 +1,50 @@
+// components/Dashboard/PersonalDashboard.tsx
 import React from 'react';
-import { RefreshCw, Target, AlertTriangle, Activity } from 'lucide-react';
-import { useAuth } from '../Context/AuthContext';
-import { useAsistenciaContext } from '../../context/AsistenciaContext';
+import {
+  RefreshCw,
+  AlertTriangle,
+  Activity,
+  CheckCircle,
+  Clock3,
+} from 'lucide-react';
+
+import { useAuth } from '../../hooks/useAuth';
+import { useAsistencia } from '../../hooks/useAsistencia';
 import WeeklyAttendanceWidget from '../Attendance/WeeklyAttendanceWidget';
 
 const PersonalDashboard: React.FC = () => {
   const { user } = useAuth();
 
   const {
-    asistenciaData,   // { asistencias, resumen, periodo }
-    estadisticas,     // { horasObjetivo, horasReales, porcentajeCumplimiento, tendenciaSemanal, ... }
+    asistenciaData,
+    estadisticas,
     isLoading,
     error,
-    refetch: fetchAsistencia, // si tenías otro nombre, ajústalo
-  } = useAsistenciaContext() as any;
+    fetchAsistencia,
+    fetchEstadisticas, // si tu hook no la tiene, puedes borrar esta línea y las llamadas con "?."
+  } = useAsistencia();
 
-  console.log('👤 [PERSONAL-DASHBOARD] Renderizando para:', user?.nombres);
+  const displayName =
+    (user as any)?.name ||
+    [user?.nombres, user?.apellidos].filter(Boolean).join(' ') ||
+    user?.rut_usuario ||
+    'Usuario';
+
+  console.log('👤 [PERSONAL-DASHBOARD] Renderizando para:', displayName);
 
   // ---------------- ESTADOS BÁSICOS ----------------
 
   if (isLoading && !asistenciaData && !estadisticas) {
     return (
       <div className="bg-transparent">
-        <div className="max-w-4xl mx-auto">
+        <div className="w-full mx-auto px-2 md:px-4">
           <div className="flex items-center justify-center h-64">
             <div className="flex flex-col items-center space-y-4">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-              <p className="text-slate-600 font-medium">Cargando mi registro de horas...</p>
-              <p className="text-slate-500 text-sm">Usuario: {user?.nombres}</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+              <p className="text-slate-600 font-medium">
+                Cargando mi registro de horas...
+              </p>
+              <p className="text-slate-500 text-sm">Usuario: {displayName}</p>
             </div>
           </div>
         </div>
@@ -38,7 +55,7 @@ const PersonalDashboard: React.FC = () => {
   if (error && !asistenciaData && !estadisticas) {
     return (
       <div className="bg-transparent">
-        <div className="max-w-4xl mx-auto">
+        <div className="w-full mx-auto px-2 md:px-4">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
@@ -67,7 +84,6 @@ const PersonalDashboard: React.FC = () => {
   // ---------------- CÁLCULO DE PROGRESO SEMANAL (FRONT) ----------------
 
   const today = new Date();
-
   const dayOfWeek = today.getDay(); // 0-6
   const diffToMonday = (dayOfWeek + 6) % 7; // lunes = 0
   const startOfWeek = new Date(today);
@@ -79,8 +95,12 @@ const PersonalDashboard: React.FC = () => {
     horasTrabajadas?: number;
     horas_diarias?: number;
     estado?: string;
+    justificacion?: {
+      es_justificada: boolean;
+    } | null;
   };
 
+  // Registros solo de esta semana (para sumar horas semanales)
   const registrosSemana: RegistroAsistencia[] = registros.filter((r: any) => {
     if (!r.fecha) return false;
     const fecha = new Date(`${r.fecha}T00:00:00`);
@@ -92,23 +112,50 @@ const PersonalDashboard: React.FC = () => {
     return sum + (isNaN(h) ? 0 : h);
   }, 0);
 
-  const targetHours = 44; // objetivo semanal (el backend usa 44h)
+  const targetHours = 44; // objetivo semanal
   const hoursRemaining = Math.max(targetHours - hoursThisWeek, 0);
   const progressPercentage =
     targetHours > 0 ? Math.round((hoursThisWeek / targetHours) * 100) : 0;
 
-  const daysWorkedThisWeek = registrosSemana.filter((r) => {
-    const h = Number(r.horasTrabajadas ?? r.horas_diarias ?? 0);
-    return h > 0;
-  }).length;
+  // ---------------- CONSTRUIR weekDays (LUNES–DOMINGO) ----------------
 
-  const avgDailyHours =
-    daysWorkedThisWeek > 0
-      ? Math.round((hoursThisWeek / daysWorkedThisWeek) * 100) / 100
-      : 0;
+  const registrosPorFecha: Record<
+    string,
+    {
+      horas: number;
+      justificacion?: { es_justificada: boolean } | null;
+      estados: string[];
+    }
+  > = {};
 
-  const estimatedDaysToComplete =
-    hoursRemaining > 0 ? Math.ceil(hoursRemaining / 8) : 0;
+  registros.forEach((r: any) => {
+    if (!r.fecha) return;
+
+    const fechaStr =
+      typeof r.fecha === 'string'
+        ? r.fecha.substring(0, 10)
+        : new Date(r.fecha).toISOString().substring(0, 10);
+
+    const h = Number(r.horasTrabajadas ?? r.horas_diarias ?? 0) || 0;
+
+    if (!registrosPorFecha[fechaStr]) {
+      registrosPorFecha[fechaStr] = {
+        horas: 0,
+        justificacion: null,
+        estados: [],
+      };
+    }
+
+    registrosPorFecha[fechaStr].horas += h;
+
+    if (r.justificacion && !registrosPorFecha[fechaStr].justificacion) {
+      registrosPorFecha[fechaStr].justificacion = r.justificacion;
+    }
+
+    if (r.estado) {
+      registrosPorFecha[fechaStr].estados.push(r.estado);
+    }
+  });
 
   const weekDays: {
     date: string;
@@ -127,33 +174,49 @@ const PersonalDashboard: React.FC = () => {
     d.setDate(startOfWeek.getDate() + i);
     const fechaStr = d.toISOString().split('T')[0];
 
-    const registroDia = registros.find((r: any) => r.fecha === fechaStr);
-    const horas = Number(registroDia?.horasTrabajadas ?? 0);
+    const infoDia = registrosPorFecha[fechaStr];
+    const horas = infoDia?.horas || 0;
 
     let status: any = 'none';
 
-    if (registroDia?.justificacion) {
-      status = registroDia.justificacion.es_justificada
-        ? 'justified'
-        : 'unjustified';
-    } else if (registroDia?.estado === 'falta') {
-      status = 'unjustified';
-    } else if (horas >= 7) {
-      status = 'success';
-    } else if (horas >= 4) {
-      status = 'warning';
-    } else if (horas > 0) {
-      status = 'error';
+    if (infoDia?.justificacion) {
+      status = infoDia.justificacion.es_justificada ? 'justified' : 'unjustified';
+    } else if (infoDia) {
+      const tieneFalta = infoDia.estados.some(
+        (e) => e === 'falta' || e === 'no_justificada' || e === 'ausente',
+      );
+
+      if (horas >= 7) status = 'success';
+      else if (horas >= 4) status = 'warning';
+      else if (horas > 0) status = 'error';
+      else if (tieneFalta) status = 'unjustified';
     }
 
     weekDays.push({
       date: fechaStr,
-      hours: horas || 0,
+      hours: horas,
       status,
     });
   }
 
-  const hasWeeklyProgress = weekDays.some((d) => d.hours > 0);
+  const hasWeeklyProgress = weekDays.some(
+    (d) => d.hours > 0 || d.status === 'justified',
+  );
+
+  const daysWorkedThisWeek = weekDays.filter((d) => {
+    if (d.status === 'justified') return true;
+    if (d.hours > 0 && d.status !== 'unjustified') return true;
+    return false;
+  }).length;
+
+  const hoursRemainingForAvg = hoursThisWeek;
+  const avgDailyHours =
+    daysWorkedThisWeek > 0
+      ? Math.round((hoursRemainingForAvg / daysWorkedThisWeek) * 100) / 100
+      : 0;
+
+  const estimatedDaysToComplete =
+    hoursRemaining > 0 ? Math.ceil(hoursRemaining / 8) : 0;
 
   const weeklyProgress = hasWeeklyProgress
     ? {
@@ -176,18 +239,69 @@ const PersonalDashboard: React.FC = () => {
       }
     : null;
 
-  const weeklyTrends = Array.isArray(estadisticas?.tendenciaSemanal)
-    ? estadisticas!.tendenciaSemanal
-    : [];
+  // ---------------- EVOLUCIÓN POR SEMANA (FRONT, 4 ÚLTIMAS SEMANAS) ----------------
 
+  type WeeklyTrend = {
+    semana: string;
+    horas: number;
+  };
+
+  const buildWeeklyTrends = (): WeeklyTrend[] => {
+    if (!registros || registros.length === 0) return [];
+
+    const trends: WeeklyTrend[] = [];
+
+    for (let i = 3; i >= 0; i--) {
+      const start = new Date(startOfWeek);
+      start.setDate(startOfWeek.getDate() - 7 * i);
+      start.setHours(0, 0, 0, 0);
+
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+
+      const horasSemana = registros.reduce((sum: number, r: any) => {
+        if (!r.fecha) return sum;
+        const f = new Date(`${r.fecha}T00:00:00`);
+        if (f >= start && f <= end) {
+          const h = Number(r.horasTrabajadas ?? r.horas_diarias ?? 0);
+          return sum + (isNaN(h) ? 0 : h);
+        }
+        return sum;
+      }, 0);
+
+      trends.push({
+        semana: `Semana ${4 - i}`,
+        horas: Math.round(horasSemana * 100) / 100,
+      });
+    }
+
+    return trends;
+  };
+
+  const weeklyTrends = buildWeeklyTrends();
   const maxHours =
     weeklyTrends.length > 0
-      ? Math.max(...weeklyTrends.map((w: any) => Number(w.horas) || 0))
+      ? Math.max(...weeklyTrends.map((w) => Number(w.horas) || 0))
       : 0;
+
+  // 🔄 Botón actualizar: recarga datos sin recargar la página
+  const handleRefresh = () => {
+    const mes = asistenciaData?.periodo?.mes;
+    const anio = asistenciaData?.periodo?.anio;
+
+    if (mes && anio) {
+      fetchAsistencia(mes, anio);
+      fetchEstadisticas?.(mes, anio);
+    } else {
+      fetchAsistencia();
+      fetchEstadisticas?.();
+    }
+  };
 
   return (
     <div className="bg-transparent">
-      <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+      <div className="w-full mx-auto px-2 md:px-6 pt-2 pb-6 space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -195,17 +309,17 @@ const PersonalDashboard: React.FC = () => {
               Mi Registro de Horas
             </h1>
             <p className="text-slate-600 text-sm md:text-base">
-              Resumen visual para {user?.nombres} {user?.apellidos}
+              Resumen visual para {displayName}
             </p>
             {resumen && (
               <p className="text-slate-500 text-xs md:text-sm mt-1">
                 Este mes: {resumen.horasTotales}h en {resumen.diasTrabajados} días
-                trabajados · Faltas: {resumen.faltas}
+                trabajados
               </p>
             )}
           </div>
           <button
-            onClick={() => fetchAsistencia()}
+            onClick={handleRefresh}
             className="flex items-center space-x-2 px-3 py-2 bg-white rounded-lg shadow-sm border border-slate-200 hover:bg-slate-50 transition-colors text-sm"
           >
             <RefreshCw className="h-4 w-4" />
@@ -214,31 +328,28 @@ const PersonalDashboard: React.FC = () => {
         </div>
 
         {/* 1. Progreso semanal */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-5">
           {!weeklyProgress ? (
-            <div className="flex flex-col items-center justify-center h-32">
-              <AlertTriangle className="h-8 w-8 text-yellow-500 mb-2" />
-              <p className="text-slate-700 text-center">
+            <div className="flex flex-col items-center justify-center h-24">
+              <AlertTriangle className="h-7 w-7 text-yellow-500 mb-2" />
+              <p className="text-slate-700 text-center text-sm">
                 No hay datos de progreso semanal disponibles.
               </p>
-              <p className="text-slate-500 text-xs">
+              <p className="text-slate-500 text-[11px]">
                 Aún no has registrado horas esta semana.
               </p>
             </div>
           ) : (
             <>
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
                 <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
-                    <Target className="h-6 w-6 text-white" />
-                  </div>
+                  <Clock3 className="w-6 h-6 text-blue-600" />
                   <div>
                     <h2 className="text-lg md:text-xl font-semibold text-slate-900">
                       Progreso semanal
                     </h2>
                     <p className="text-slate-600 text-sm">
-                      Objetivo: {weeklyProgress.target_weekly_hours} horas esta
-                      semana
+                      Objetivo: {weeklyProgress.target_weekly_hours} horas esta semana
                     </p>
                   </div>
                 </div>
@@ -263,7 +374,7 @@ const PersonalDashboard: React.FC = () => {
               </div>
 
               {/* Barra de progreso */}
-              <div className="mb-4">
+              <div className="mb-3">
                 <div className="flex items-baseline justify-between mb-2">
                   <span className="text-2xl font-bold text-slate-900">
                     {weeklyProgress.hours_this_week}h
@@ -287,24 +398,26 @@ const PersonalDashboard: React.FC = () => {
                       }
                     `}
                     style={{
-                      width: `${Math.min(
-                        weeklyProgress.progress_percentage,
-                        100
-                      )}%`,
+                      width: `${Math.min(weeklyProgress.progress_percentage, 100)}%`,
                     }}
                   />
                 </div>
                 <div className="flex items-center justify-between mt-2 text-xs md:text-sm text-slate-600">
                   <span>{weeklyProgress.progress_percentage}% completado</span>
                   <span>
-                    {weeklyProgress.hours_remaining > 0
-                      ? `${weeklyProgress.hours_remaining}h restantes para el objetivo`
-                      : 'Objetivo semanal cumplido 🎉'}
+                    {weeklyProgress.hours_remaining > 0 ? (
+                      `${weeklyProgress.hours_remaining}h restantes para el objetivo`
+                    ) : (
+                      <span className="inline-flex items-center gap-1">
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                        <span>Objetivo semanal cumplido</span>
+                      </span>
+                    )}
                   </span>
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2 mt-3 text-xs md:text-sm">
+              <div className="flex flex-wrap gap-2 mt-1 text-xs md:text-sm">
                 <div className="px-3 py-1 rounded-full bg-slate-100 text-slate-700">
                   Días trabajados:{' '}
                   <span className="font-semibold">
@@ -332,11 +445,11 @@ const PersonalDashboard: React.FC = () => {
           )}
         </div>
 
-        {/* 2. Calendario semanal con marcajes (ver / editar / eliminar) */}
+        {/* 2. Calendario semanal */}
         <WeeklyAttendanceWidget />
 
         {/* 3. Gráfico de evolución por semana */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Activity className="w-5 h-5 text-emerald-600" />
@@ -357,7 +470,7 @@ const PersonalDashboard: React.FC = () => {
             </div>
           ) : (
             <div className="h-48 flex items-end gap-4">
-              {weeklyTrends.map((week: any, index: number) => {
+              {weeklyTrends.map((week, index: number) => {
                 const hours = Number(week.horas) || 0;
 
                 let barHeight = '6px';
@@ -367,10 +480,7 @@ const PersonalDashboard: React.FC = () => {
                 }
 
                 return (
-                  <div
-                    key={index}
-                    className="flex-1 flex flex-col items-center"
-                  >
+                  <div key={index} className="flex-1 flex flex-col items-center">
                     <div className="w-full h-32 bg-slate-100 rounded-lg flex items-end overflow-hidden">
                       <div
                         className="w-full bg-gradient-to-t from-blue-500 to-indigo-500 rounded-lg transition-all"
