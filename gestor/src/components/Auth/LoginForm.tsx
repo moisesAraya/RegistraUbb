@@ -136,14 +136,21 @@ const LoginForm: React.FC = () => {
       });
 
       if (!response.ok) {
+        // Si el servidor responde 401, mostrar mensaje claro de contraseña inválida
+        if (response.status === 401) {
+          setError('Clave o Usuario inválidos');
+          setLoading(false);
+          return;
+        }
+
         const errorText = await response.text();
         try {
-          const errorData = JSON.parse(errorText);
-          throw new Error(errorData.message || `HTTP ${response.status}`);
-        } catch (parseError) {
-          throw new Error(`Error del servidor: ${response.status}`);
-        }
-      }
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.message || `HTTP ${response.status}`);
+        } catch (parseError) {
+          throw new Error(`Error del servidor: ${response.status}`);
+        }
+      }
 
       const responseData = await response.json();
 
