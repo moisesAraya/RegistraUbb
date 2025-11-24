@@ -156,6 +156,14 @@ const computeHorasDiaFromDetalle = (detalle: any): number => {
   return Math.round(total * 100) / 100;
 };
 
+// 🔹 formatea Date a "YYYY-MM-DD"
+const formatDateToISO = (dt: Date) => {
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, "0");
+  const d = String(dt.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
 // 🔹 Construye slots [M-E, M-S, T-E, T-S] a partir de JUST + marcajes_raw
 const buildSlotsFromDetalle = (detalle: any): string[] => {
   const slots = ["X", "X", "X", "X"]; // [M-E, M-S, T-E, T-S]
@@ -177,7 +185,9 @@ const buildSlotsFromDetalle = (detalle: any): string[] => {
   const placeEvent = (tipo: "entrada" | "salida", time: string) => {
     const mins = timeToMinutes(time);
     if (mins === null) return;
-    const isMorning = mins < 12 * 60;
+
+    // 🔸 Ajuste: ahora consideramos mañana hasta las 13:00 (inclusive 12:59)
+    const isMorning = mins < 13 * 60;
     const value = formatHora(time);
 
     if (isMorning) {
@@ -216,8 +226,8 @@ const buildEstadoFromDetalle = (detalle: any): string => {
   if (detalle.justificacion) {
     const motivoFmt = formatMotivo(detalle.justificacion.motivo);
     return detalle.justificacion.es_justificada
-      ? `Falta Justificada: ${motivoFmt}`
-      : `Falta No Justificada: ${motivoFmt}`;
+      ? `Ausencia Justificada: ${motivoFmt}`
+      : `Ausencia No Justificada: ${motivoFmt}`;
   }
 
   if (detalle.estado) {
@@ -233,6 +243,23 @@ const buildEstadoFromDetalle = (detalle: any): string => {
   return "Presente";
 };
 
+// 🔹 Helper: rango de semana (lunes–sábado) a partir de una fecha YYYY-MM-DD
+const getWeekRange = (dateStr: string) => {
+  const d = new Date(dateStr + "T00:00:00");
+  const day = d.getDay(); // 0 = dom, 1 = lun, ...
+  const diffToMonday = (day + 6) % 7; // cuántos días retroceder hasta lunes
+  const start = new Date(d);
+  start.setDate(d.getDate() - diffToMonday);
+  const end = new Date(start);
+  // 🔸 Semana laboral: lunes a sábado
+  end.setDate(start.getDate() + 5);
+
+  const inicio = formatDateToISO(start);
+  const fin = formatDateToISO(end);
+
+  return { inicio, fin };
+};
+
 // ===================================================================
 
 export default function ReportsSection() {
@@ -243,9 +270,8 @@ export default function ReportsSection() {
     console.log("reporteActual:", reporteActual);
   }, [reporteActual]);
 
-  const [tipoFiltro, setTipoFiltro] = useState<"mes" | "rango">("mes");
-  const [mes, setMes] = useState<number>(new Date().getMonth() + 1);
-  const [anio, setAnio] = useState<number>(new Date().getFullYear());
+  const [tipoFiltro, setTipoFiltro] = useState<"semana" | "rango">("semana");
+  const [tipoSemana, setTipoSemana] = useState<"actual" | "pasada">("actual");
   const [fechaInicio, setFechaInicio] = useState<string>("");
   const [fechaFin, setFechaFin] = useState<string>("");
 
@@ -325,17 +351,39 @@ export default function ReportsSection() {
     const esAdminActual = user.id_rol === 1;
 
     const generarReporteAutomatico = () => {
-      if (tipoFiltro === "mes") {
+      if (tipoFiltro === "semana") {
+        const hoy = new Date();
+        const base = new Date(hoy);
+        if (tipoSemana === "pasada") {
+          base.setDate(base.getDate() - 7);
+        }
+        const { inicio, fin } = getWeekRange(formatDateToISO(base));
+
         if (esAdminActual) {
           if (usuarioSeleccionado === "todos") {
-            obtenerReporteSemanal(mes, anio, undefined, true);
+            obtenerReporteSemanal(undefined, undefined, undefined, true, inicio, fin);
           } else {
-            obtenerReporteSemanal(mes, anio, usuarioSeleccionado, false);
+            obtenerReporteSemanal(
+              undefined,
+              undefined,
+              usuarioSeleccionado,
+              false,
+              inicio,
+              fin
+            );
           }
         } else {
-          obtenerReporteSemanal(mes, anio, undefined, false);
+          obtenerReporteSemanal(
+            undefined,
+            undefined,
+            undefined,
+            false,
+            inicio,
+            fin
+          );
         }
       } else {
+        // rango libre
         if (fechaInicio && fechaFin) {
           if (esAdminActual) {
             if (usuarioSeleccionado === "todos") {
@@ -375,13 +423,19 @@ export default function ReportsSection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     tipoFiltro,
-    mes,
-    anio,
+    tipoSemana,
     fechaInicio,
     fechaFin,
     usuarioSeleccionado,
     user?.rut_usuario,
   ]);
+
+  // 🔹 Rango visible para mostrar debajo de "Semana actual / pasada"
+  const hoy = new Date();
+  const rangoSemanaActual = getWeekRange(formatDateToISO(hoy));
+  const basePasada = new Date(hoy);
+  basePasada.setDate(basePasada.getDate() - 7);
+  const rangoSemanaPasada = getWeekRange(formatDateToISO(basePasada));
 
   const handleExportExcel = async () => {
     if (!user) return alert("No hay usuario autenticado.");
@@ -525,42 +579,33 @@ export default function ReportsSection() {
       });
 
       const esAdministrador = p.usuario?.id_rol === 1;
-      const nombreCargo =
-        p.usuario?.cargo?.nombre_cargo || "Administrador";
-
       const dataRow: any[] = [nombreCompleto.trim()];
+
       let totalHorasUsuario = 0;
 
       if (esAdministrador) {
+        // 🔸 Admin / usuario sin marcaje: mostrar NO REGISTRA en todas las celdas de la semana
+        const msg = "NO REGISTRA";
         fechasOrdenadas.forEach(() => {
-          dataRow.push(
-            `NO REGISTRA ASISTENCIA: ${nombreCargo}`,
-            "",
-            "",
-            ""
-          );
+          dataRow.push(msg, msg, msg, msg);
         });
-        dataRow.push(`NO REGISTRA ASISTENCIA: ${nombreCargo}`);
+        dataRow.push(msg);
       } else {
-        fechasOrdenadas.forEach((fecha) => {
-          const marcajesDia = asistenciasPorFecha.get(fecha) || [];
-          if (marcajesDia.length === 1 && marcajesDia[0].justificacion) {
-            const motivo = formatMotivo(
-              marcajesDia[0].justificacion.motivo
-            );
-            dataRow.push(`Falta: ${motivo}`, "", "", "");
-            totalHorasUsuario += computeHorasDiaFromDetalle(
-              marcajesDia[0]
-            );
-          } else if (marcajesDia.length > 0) {
-            const detalle = marcajesDia[0];
-            const slots = buildSlotsFromDetalle(detalle);
-            dataRow.push(...slots);
-            totalHorasUsuario += computeHorasDiaFromDetalle(detalle);
-          } else {
-            dataRow.push("X", "X", "X", "X");
-          }
-        });
+fechasOrdenadas.forEach((fecha) => {
+  const marcajesDia = asistenciasPorFecha.get(fecha) || [];
+
+  if (marcajesDia.length > 0) {
+    // Usamos siempre los slots para que respete JUST solo en la mañana
+    const detalle = marcajesDia[0];
+    const slots = buildSlotsFromDetalle(detalle);
+    dataRow.push(...slots);
+    totalHorasUsuario += computeHorasDiaFromDetalle(detalle);
+  } else {
+    // Día sin marcajes ni justificación
+    dataRow.push("X", "X", "X", "X");
+  }
+});
+
 
         dataRow.push(Math.round(totalHorasUsuario * 100) / 100);
         totalHorasGeneral += totalHorasUsuario;
@@ -569,7 +614,11 @@ export default function ReportsSection() {
       const row = sheet.addRow(dataRow);
 
       row.eachCell((cell, colNumber) => {
-        cell.alignment = { horizontal: "center", vertical: "middle" };
+        cell.alignment = {
+          horizontal: "center",
+          vertical: "middle",
+          wrapText: true,
+        };
         cell.border = {
           top: { style: "thin" },
           left: { style: "thin" },
@@ -579,11 +628,9 @@ export default function ReportsSection() {
 
         if (typeof cell.value === "string") {
           if (cell.value.startsWith("Falta:")) {
-            const asist =
-              p.reporte?.asistencias_detalle || [];
-            const justificacion = asist.find(
-              (a: any) => a.justificacion
-            )?.justificacion;
+            const asist = p.reporte?.asistencias_detalle || [];
+            const justificacion = asist.find((a: any) => a.justificacion)
+              ?.justificacion;
 
             if (justificacion?.es_justificada) {
               cell.font = {
@@ -608,18 +655,11 @@ export default function ReportsSection() {
             }
           } else if (cell.value === "X") {
             cell.font = { color: { argb: "FFFF0000" }, bold: true };
-          } else if (
-            cell.value.includes("NO REGISTRA ASISTENCIA:")
-          ) {
+          } else if (cell.value === "NO REGISTRA") {
             cell.font = {
               color: { argb: "FF0066CC" },
               bold: true,
               size: 10,
-            };
-            cell.alignment = {
-              horizontal: "center",
-              vertical: "middle",
-              wrapText: true,
             };
           }
         }
@@ -644,8 +684,7 @@ export default function ReportsSection() {
     const totalValueCell = sheet.getCell(totalRowIndex, totalCols);
 
     totalLabelCell.value = "TOTAL GENERAL";
-    totalValueCell.value =
-      Math.round(totalHorasGeneral * 100) / 100;
+    totalValueCell.value = Math.round(totalHorasGeneral * 100) / 100;
 
     [totalLabelCell, totalValueCell].forEach((cell) => {
       cell.font = {
@@ -671,33 +710,24 @@ export default function ReportsSection() {
     });
 
     sheet.getColumn(1).width = 25;
+    // 🔸 Celdas un poco más anchas para evitar que se vea tan apretado
     for (let i = 2; i <= fechasOrdenadas.length * 4 + 1; i++) {
-      sheet.getColumn(i).width = 8;
+      sheet.getColumn(i).width = 11;
     }
-    sheet.getColumn(fechasOrdenadas.length * 4 + 2).width = 12;
+    sheet.getColumn(fechasOrdenadas.length * 4 + 2).width = 18;
 
     sheet.addRow([]);
     const footerRow1 = sheet.addRow([
       `Generado por: ${adminInfo.nombre} (${adminInfo.rut}) - ${adminInfo.cargo}`,
     ]);
-    sheet.mergeCells(
-      footerRow1.number,
-      1,
-      footerRow1.number,
-      totalCols
-    );
+    sheet.mergeCells(footerRow1.number, 1, footerRow1.number, totalCols);
     footerRow1.getCell(1).alignment = { horizontal: "center" };
     footerRow1.getCell(1).font = { size: 10, italic: true };
 
     const footerRow2 = sheet.addRow([
       "Departamento de Sistemas de Información",
     ]);
-    sheet.mergeCells(
-      footerRow2.number,
-      1,
-      footerRow2.number,
-      totalCols
-    );
+    sheet.mergeCells(footerRow2.number, 1, footerRow2.number, totalCols);
     footerRow2.getCell(1).alignment = { horizontal: "center" };
     footerRow2.getCell(1).font = {
       size: 10,
@@ -718,8 +748,7 @@ export default function ReportsSection() {
 
     let nombreUsuario = "";
     if (!isAdmin) {
-      nombreUsuario =
-        user?.nombres || user?.rut_usuario || "Usuario";
+      nombreUsuario = user?.nombres || user?.rut_usuario || "Usuario";
     } else {
       const usuarioEncontrado = usuarios.find(
         (u) => u.rut_usuario === usuarioSeleccionado
@@ -820,8 +849,7 @@ export default function ReportsSection() {
 
         if (cell.value === "JUST") {
           const just = detalle.justificacion;
-          const esJustificada =
-            just && just.es_justificada ? true : false;
+          const esJustificada = just && just.es_justificada ? true : false;
           cell.font = {
             color: { argb: esJustificada ? "FF00AA00" : "FFFF0000" },
             bold: true,
@@ -851,13 +879,11 @@ export default function ReportsSection() {
       });
     });
 
-    const totalHorasExcelRounded =
-      Math.round(totalHorasExcel * 100) / 100;
+    const totalHorasExcelRounded = Math.round(totalHorasExcel * 100) / 100;
     const promedioExcel =
       diasTrabajadosExcel > 0
-        ? Math.round(
-            (totalHorasExcelRounded / diasTrabajadosExcel) * 100
-          ) / 100
+        ? Math.round((totalHorasExcelRounded / diasTrabajadosExcel) * 100) /
+          100
         : 0;
 
     sheet.addRow([]);
@@ -884,7 +910,7 @@ export default function ReportsSection() {
       { width: 15 },
       { width: 15 },
       { width: 15 },
-      { width: 40 },
+      { width: 45 },
     ];
 
     sheet.addRow([]);
@@ -939,22 +965,20 @@ export default function ReportsSection() {
         : "Sin nombre";
 
       const esAdministrador = p.usuario?.id_rol === 1;
-      const nombreCargo =
-        p.usuario?.cargo?.nombre_cargo || "Administrador";
 
       if (esAdministrador) {
+        const msg = "NO REGISTRA";
         return [
           p.rut_usuario || "N/A",
           nombreCompleto.trim(),
-          `NO REGISTRA: ${nombreCargo}`,
-          `NO REGISTRA: ${nombreCargo}`,
-          `NO REGISTRA: ${nombreCargo}`,
+          msg,
+          msg,
+          msg,
         ];
       } else {
         const asistencias = p.reporte?.asistencias_detalle || [];
         const totalHorasUsuario = asistencias.reduce(
-          (sum: number, det: any) =>
-            sum + computeHorasDiaFromDetalle(det),
+          (sum: number, det: any) => sum + computeHorasDiaFromDetalle(det),
           0
         );
         totalHorasGeneral += totalHorasUsuario;
@@ -967,9 +991,8 @@ export default function ReportsSection() {
           ).length;
         const promedio =
           diasTrabajados > 0
-            ? Math.round(
-                (totalHorasUsuario / diasTrabajados) * 100
-              ) / 100
+            ? Math.round((totalHorasUsuario / diasTrabajados) * 100) /
+              100
             : 0;
 
         return [
@@ -996,6 +1019,14 @@ export default function ReportsSection() {
       startY: 32,
       theme: "grid",
       headStyles: { fillColor: [66, 139, 202] },
+      styles: { fontSize: 8, cellPadding: 2 },
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 55, overflow: "linebreak" },
+        2: { cellWidth: 35, overflow: "linebreak" },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 30, overflow: "linebreak" },
+      },
       didParseCell: (data) => {
         if (data.row.index === tableData.length - 1) {
           data.cell.styles.fillColor = [46, 125, 50];
@@ -1022,9 +1053,7 @@ export default function ReportsSection() {
     );
     doc.setTextColor(0, 0, 0);
 
-    doc.save(
-      `ReporteGeneral_${periodo.replace(/\s+/g, "_")}.pdf`
-    );
+    doc.save(`ReporteGeneral_${periodo.replace(/\s+/g, "_")}.pdf`);
   };
 
   // ================= EXPORTACIÓN PDF PERSONAL =================
@@ -1033,8 +1062,7 @@ export default function ReportsSection() {
 
     let nombreUsuario = "";
     if (!isAdmin) {
-      nombreUsuario =
-        user?.nombres || user?.rut_usuario || "Usuario";
+      nombreUsuario = user?.nombres || user?.rut_usuario || "Usuario";
     } else {
       const usuarioEncontrado = usuarios.find(
         (u) => u.rut_usuario === usuarioSeleccionado
@@ -1095,18 +1123,7 @@ export default function ReportsSection() {
     });
 
     autoTable(doc, {
-      head: [
-        [
-          "Fecha",
-          "Día",
-          "M-E",
-          "M-S",
-          "T-E",
-          "T-S",
-          "Hrs",
-          "Estado",
-        ],
-      ],
+      head: [["Fecha", "Día", "M-E", "M-S", "T-E", "T-S", "Hrs", "Estado"]],
       body: tableData,
       startY: 32,
       theme: "grid",
@@ -1123,12 +1140,8 @@ export default function ReportsSection() {
         3: { cellWidth: 15 },
         4: { cellWidth: 15 },
         5: { cellWidth: 15 },
-        6: { cellWidth: 15 },
-        7: {
-          cellWidth: 40,
-          cellPadding: 3,
-          overflow: "linebreak",
-        },
+        6: { cellWidth: 14 },
+        7: { cellWidth: 60, cellPadding: 3, overflow: "linebreak" },
       },
       didParseCell: (data) => {
         const cellText = data.cell.text[0];
@@ -1136,8 +1149,7 @@ export default function ReportsSection() {
 
         if (cellText === "JUST") {
           const detalle = registros[data.row.index];
-          const esJustificada =
-            detalle?.justificacion?.es_justificada;
+          const esJustificada = detalle?.justificacion?.es_justificada;
           data.cell.styles.textColor = esJustificada
             ? [0, 170, 0]
             : [255, 0, 0];
@@ -1159,13 +1171,10 @@ export default function ReportsSection() {
       },
     });
 
-    const totalHorasRounded =
-      Math.round(totalHorasPDF * 100) / 100;
+    const totalHorasRounded = Math.round(totalHorasPDF * 100) / 100;
     const promedioPDF =
       diasTrabajadosPDF > 0
-        ? Math.round(
-            (totalHorasRounded / diasTrabajadosPDF) * 100
-          ) / 100
+        ? Math.round((totalHorasRounded / diasTrabajadosPDF) * 100) / 100
         : 0;
 
     let finalY = (doc as any).lastAutoTable.finalY || 40;
@@ -1174,21 +1183,9 @@ export default function ReportsSection() {
     doc.text("Resumen:", 14, finalY + 10);
 
     doc.setFontSize(10);
-    doc.text(
-      `Horas Totales: ${totalHorasRounded}`,
-      14,
-      finalY + 18
-    );
-    doc.text(
-      `Días Trabajados: ${diasTrabajadosPDF}`,
-      14,
-      finalY + 26
-    );
-    doc.text(
-      `Promedio Hrs/Día: ${promedioPDF}`,
-      14,
-      finalY + 34
-    );
+    doc.text(`Horas Totales: ${totalHorasRounded}`, 14, finalY + 18);
+    doc.text(`Días Trabajados: ${diasTrabajadosPDF}`, 14, finalY + 26);
+    doc.text(`Promedio Hrs/Día: ${promedioPDF}`, 14, finalY + 34);
     finalY = finalY + 34;
 
     doc.setFontSize(9);
@@ -1250,13 +1247,13 @@ export default function ReportsSection() {
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
-                  value="mes"
-                  checked={tipoFiltro === "mes"}
-                  onChange={() => setTipoFiltro("mes")}
+                  value="semana"
+                  checked={tipoFiltro === "semana"}
+                  onChange={() => setTipoFiltro("semana")}
                   className="w-4 h-4 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="text-sm text-slate-700 font-medium">
-                  Por Mes
+                  Semana (actual / pasada)
                 </span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
@@ -1273,48 +1270,62 @@ export default function ReportsSection() {
               </label>
             </div>
 
-            {/* Filtros por mes */}
-            {tipoFiltro === "mes" && (
+            {/* Filtro por semana (actual/pasada) */}
+            {tipoFiltro === "semana" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Mes
+                    Selecciona la semana
                   </label>
-                  <select
-                    value={mes}
-                    onChange={(e) => setMes(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  >
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map(
-                      (m) => (
-                        <option key={m} value={m}>
-                          {new Date(2024, m - 1).toLocaleDateString(
-                            "es-CL",
-                            { month: "long" }
-                          )}
-                        </option>
-                      )
+                  <div className="flex gap-3 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setTipoSemana("actual")}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                        tipoSemana === "actual"
+                          ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                          : "bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100"
+                      }`}
+                    >
+                      Semana actual
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTipoSemana("pasada")}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                        tipoSemana === "pasada"
+                          ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                          : "bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100"
+                      }`}
+                    >
+                      Semana pasada
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-2">
+                    {tipoSemana === "actual" ? (
+                      <>
+                        Semana actual:{" "}
+                        {new Date(
+                          rangoSemanaActual.inicio + "T00:00:00"
+                        ).toLocaleDateString("es-CL")}{" "}
+                        al{" "}
+                        {new Date(
+                          rangoSemanaActual.fin + "T00:00:00"
+                        ).toLocaleDateString("es-CL")}
+                      </>
+                    ) : (
+                      <>
+                        Semana pasada:{" "}
+                        {new Date(
+                          rangoSemanaPasada.inicio + "T00:00:00"
+                        ).toLocaleDateString("es-CL")}{" "}
+                        al{" "}
+                        {new Date(
+                          rangoSemanaPasada.fin + "T00:00:00"
+                        ).toLocaleDateString("es-CL")}
+                      </>
                     )}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Año
-                  </label>
-                  <select
-                    value={anio}
-                    onChange={(e) => setAnio(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  >
-                    {Array.from(
-                      { length: 5 },
-                      (_, i) => new Date().getFullYear() - i
-                    ).map((y) => (
-                      <option key={y} value={y}>
-                        {y}
-                      </option>
-                    ))}
-                  </select>
+                  </p>
                 </div>
               </div>
             )}
@@ -1356,9 +1367,7 @@ export default function ReportsSection() {
                 </label>
                 <select
                   value={usuarioSeleccionado}
-                  onChange={(e) =>
-                    setUsuarioSeleccionado(e.target.value)
-                  }
+                  onChange={(e) => setUsuarioSeleccionado(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 >
                   <option value="todos">
@@ -1368,10 +1377,7 @@ export default function ReportsSection() {
                     {usuarios
                       .filter((u) => u.id_rol !== 1)
                       .map((u) => (
-                        <option
-                          key={u.rut_usuario}
-                          value={u.rut_usuario}
-                        >
+                        <option key={u.rut_usuario} value={u.rut_usuario}>
                           {u.nombres} {u.apellidos} ({u.rut_usuario})
                         </option>
                       ))}
@@ -1476,12 +1482,11 @@ export default function ReportsSection() {
                           .reduce((sum: number, r: any) => {
                             const asistencias =
                               r.reporte?.asistencias_detalle || [];
-                            const horasUsuario =
-                              asistencias.reduce(
-                                (s: number, det: any) =>
-                                  s + computeHorasDiaFromDetalle(det),
-                                0
-                              );
+                            const horasUsuario = asistencias.reduce(
+                              (s: number, det: any) =>
+                                s + computeHorasDiaFromDetalle(det),
+                              0
+                            );
                             return sum + horasUsuario;
                           }, 0)
                           .toFixed(2)}{" "}
@@ -1510,12 +1515,11 @@ export default function ReportsSection() {
                       .map((r: any) => {
                         const asistencias =
                           r.reporte?.asistencias_detalle || [];
-                        const horasUsuario =
-                          asistencias.reduce(
-                            (s: number, det: any) =>
-                              s + computeHorasDiaFromDetalle(det),
-                            0
-                          );
+                        const horasUsuario = asistencias.reduce(
+                          (s: number, det: any) =>
+                            s + computeHorasDiaFromDetalle(det),
+                          0
+                        );
                         return {
                           ...r,
                           _horasUsuario: horasUsuario,
@@ -1523,8 +1527,7 @@ export default function ReportsSection() {
                       })
                       .sort(
                         (a: any, b: any) =>
-                          (b._horasUsuario || 0) -
-                          (a._horasUsuario || 0)
+                          (b._horasUsuario || 0) - (a._horasUsuario || 0)
                       )
                       .slice(0, 3)
                       .map((r: any, idx: number) => {
@@ -1562,8 +1565,7 @@ export default function ReportsSection() {
                               </span>
                             </div>
                             <p className="text-sm font-semibold text-slate-800 truncate">
-                              {r.usuario?.nombres}{" "}
-                              {r.usuario?.apellidos}
+                              {r.usuario?.nombres} {r.usuario?.apellidos}
                             </p>
                             <p className="text-xs text-slate-600">
                               {r.usuario?.rut_usuario}
@@ -1578,24 +1580,18 @@ export default function ReportsSection() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-4 text-white">
                   <Clock className="h-8 w-8 mb-2 opacity-80" />
-                  <p className="text-sm opacity-90 mb-1">
-                    Total Horas
-                  </p>
+                  <p className="text-sm opacity-90 mb-1">Total Horas</p>
                   <p className="text-2xl font-bold">
-                    {(reporteActual as any).resumen_basico
-                      ?.horasTotales || 0}
-                    h
+                    {(reporteActual as any).resumen_basico?.horasTotales || 0}h
                   </p>
                 </div>
 
                 <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-4 text-white">
                   <Calendar className="h-8 w-8 mb-2 opacity-80" />
-                  <p className="text-sm opacity-90 mb-1">
-                    Días Trabajados
-                  </p>
+                  <p className="text-sm opacity-90 mb-1">Días Trabajados</p>
                   <p className="text-2xl font-bold">
-                    {(reporteActual as any).resumen_basico
-                      ?.diasTrabajados || 0}
+                    {(reporteActual as any).resumen_basico?.diasTrabajados ||
+                      0}
                   </p>
                 </div>
 
@@ -1605,8 +1601,8 @@ export default function ReportsSection() {
                     Promedio Horas/Día
                   </p>
                   <p className="text-2xl font-bold">
-                    {(reporteActual as any).resumen_basico
-                      ?.promedioHorasDia || 0}
+                    {(reporteActual as any).resumen_basico?.promedioHorasDia ||
+                      0}
                     h
                   </p>
                 </div>
@@ -1615,8 +1611,7 @@ export default function ReportsSection() {
                   <Users className="h-8 w-8 mb-2 opacity-80" />
                   <p className="text-sm opacity-90 mb-1">Registros</p>
                   <p className="text-2xl font-bold">
-                    {(reporteActual as any).asistencias_detalle
-                      ?.length || 0}
+                    {(reporteActual as any).asistencias_detalle?.length || 0}
                   </p>
                 </div>
               </div>

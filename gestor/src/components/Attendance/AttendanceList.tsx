@@ -470,7 +470,7 @@ const AttendanceList: React.FC = () => {
                           <p className={`text-xs mt-1 ${
                             asistencia.justificacion.es_justificada ? 'text-green-700' : 'text-red-700'
                           }`}>
-                            Falta {asistencia.justificacion.es_justificada ? 'Justificada' : 'No Justificada'}: {asistencia.justificacion.motivo}
+                            Ausencia {asistencia.justificacion.es_justificada ? 'Justificada' : 'No Justificada'}: {asistencia.justificacion.motivo}
                           </p>
                         )}
 
