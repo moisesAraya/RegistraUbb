@@ -152,65 +152,82 @@ const LoginForm: React.FC = () => {
         }
       }
 
-      const responseData = await response.json();
+    const responseData = await response.json();
 
-      if (responseData.success && responseData.data) {
-        const { user, token } = responseData.data;
-        
-        if (!user || !token) {
-          throw new Error('Datos de autenticación incompletos');
-        }
+    console.log("RESPUESTA LOGIN FRONT:", responseData);
 
-        localStorage.setItem('token', token);        // ✅ VERIFICAR QUE SE GUARDÓ
-        const savedToken = localStorage.getItem('token');
-        if (!savedToken) {
-          throw new Error('Error guardando el token');
-        }
-        console.log('✅ Token verificado en localStorage');
-        
-        // ✅ GUARDAR DATOS DEL USUARIO
-        const userData = {
-          rut_usuario: user.rut_usuario,
-          nombres: user.nombres,
-          apellidos: user.apellidos,
-          email: user.email,
-          id_rol: user.id_rol,
-          id_cargo: user.id_cargo
-        };
-        
-        localStorage.setItem('user', JSON.stringify(userData));
+    if (!responseData.success) {
+      setError(responseData.message || "Error en el login");
+      setLoading(false);
+      return;
+    }
 
-        setSuccess('Login exitoso. Redirigiendo...');
-        
-        if (login && typeof login === 'function') {
-          login(userData, token);
-        }
-        
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 1500);
-        
-      } else {
-        setError(responseData.message || 'Error en el login');
+    // Aquí `responseData.data` es el usuario (según los logs del backend)
+    if (!responseData.data) {
+      setError("Respuesta del servidor incompleta (sin datos de usuario)");
+      setLoading(false);
+      return;
+    }
+
+    // Data que viene del backend
+    const userFromApi = responseData.data;
+
+    // Si en algún momento agregas token, podrías leerlo así:
+    const tokenFromApi =
+      responseData.token || userFromApi.token || null;
+
+    // Guardar token sólo si realmente existe
+    if (tokenFromApi) {
+      localStorage.setItem("token", tokenFromApi);
+      const savedToken = localStorage.getItem("token");
+      if (!savedToken) {
+        setError("Error guardando el token");
+        setLoading(false);
+        return;
       }
+      console.log("✅ Token verificado en localStorage");
+    }
 
-    } catch (err: any) {
-      if (err.message.includes('Failed to fetch') || err.message.includes('fetch')) {
-        setError('Error de conexión. Verifica que el servidor esté ejecutándose.');
-      } else {
-        setError(err.message || 'Error inesperado');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Construir el objeto de usuario que vas a usar en el front
+    const userData = {
+      rut_usuario: userFromApi.rut_usuario,
+      nombres: userFromApi.nombres,
+      apellidos: userFromApi.apellidos,
+      email: userFromApi.email,
+      id_rol: userFromApi.id_rol,
+      id_cargo: userFromApi.id_cargo,
+    };
 
-  const fillExampleUser = (userRut: string, userPassword: string) => {
-    setRut(userRut);
-    setPassword(userPassword);
-    setError(null);
-    setSuccess(null);
-  };
+    // Guardar usuario en localStorage
+    localStorage.setItem("user", JSON.stringify(userData));
+
+    setSuccess("Login exitoso. Redirigiendo...");
+
+    // Si tu AuthContext.login espera (user, token), pásale lo que tengas
+    if (login && typeof login === "function") {
+      login(userData, tokenFromApi || null);
+    }
+
+    setTimeout(() => {
+      navigate("/dashboard");
+    }, 1500); } catch (err: any) {
+    if (err.message?.includes('Failed to fetch') || err.message?.includes('fetch')) {
+      setError('Error de conexión. Verifica que el servidor esté ejecutándose.');
+    } else {
+      setError(err.message || 'Error inesperado');
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+  const fillExampleUser = (userRut: string, userPassword: string) => {
+    setRut(userRut);
+    setPassword(userPassword);
+    setError(null);
+    setSuccess(null);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
