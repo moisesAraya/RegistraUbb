@@ -38,15 +38,26 @@ export async function login(req, res) {
     console.log('Password recibido:', password ? '***' : 'vacío');
 
     // Buscar usuario con el RUT normalizado
-    const [user, loginError] = await loginService({ rut_usuario, password });
+    const [loginResult, loginError] = await loginService({ rut_usuario, password });
 
     if (loginError) {
       console.log('Error del servicio de login:', loginError);
       return handleErrorClient(res, 401, loginError);
     }
 
-    console.log('Usuario encontrado:', user.rut_usuario, user.nombres);
-    handleSuccess(res, 200, "Login exitoso", user);
+    console.log('Usuario encontrado:', loginResult.user.rut_usuario, loginResult.user.nombres);
+    
+    // ✅ AGREGAR COOKIE SEGURA CON TOKEN
+    if (loginResult.token) {
+      res.cookie("token", loginResult.token, {
+        httpOnly: true,
+        secure: true,      // HTTPS habilitado en producción
+        sameSite: "lax",   // Protección CSRF
+        maxAge: 24 * 60 * 60 * 1000 // 24 horas
+      });
+    }
+    
+    handleSuccess(res, 200, "Login exitoso", loginResult.user);
     
   } catch (error) {
     console.error('Error en login controller:', error);

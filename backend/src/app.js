@@ -15,11 +15,14 @@ const app = express();
 
 console.log("🚀 [APP] Iniciando aplicación...");
 
+// ✅ TRUST PROXY (para obtener IP correcta detrás de nginx/reverse proxy)
+app.set("trust proxy", 1);
+
 // ✅ CONFIGURACIÓN BÁSICA
 app.use(
   cors({
     origin: ["http://localhost:5173", "http://localhost:3000", "https://146.83.194.142:1785", "https://146.83.194.142:17", "https://146.83.194.142:1782", 
-      "http://146.83.194.142:1784", "http://146.83.194.142:1778", "http://146.83.194.142:1785"
+      "http://146.83.194.142:1784", "http://146.83.194.142:1778", "http://146.83.194.142:1785", "https://asis.face.ubiobio.cl"
      ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
