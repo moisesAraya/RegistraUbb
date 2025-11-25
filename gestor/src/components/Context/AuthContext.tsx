@@ -17,7 +17,7 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   isAuthenticated: boolean;
-  login: (userData: User, authToken: string) => void;
+  login: (userData: User, authToken: string | null) => void;
   logout: () => void;
   checkAuth: () => boolean;
 }
@@ -42,23 +42,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const isAuthenticated = !!(user && token);
 
   // ✅ Función para hacer login
-  const login = (userData: User, authToken: string) => {
+  const login = (userData: User, authToken: string | null) => {
     console.log('🔐 AuthContext.login() llamado');
     console.log('👤 Usuario:', userData.rut_usuario);
-    console.log('🔑 Token recibido (primeros 30 chars):', authToken.substring(0, 30) + '...');
-    
+
+    if (authToken && typeof authToken === 'string') {
+      console.log('🔑 Token recibido (primeros 30 chars):', authToken.substring(0, 30) + '...');
+    } else {
+      console.log('🔑 No se recibió token (se usará cookie o flujo del servidor)');
+    }
+
     try {
-      // Guardar en localStorage
-      localStorage.setItem('token', authToken);
+      // Guardar en localStorage solo si tenemos token explícito
+      if (authToken && typeof authToken === 'string') {
+        localStorage.setItem('token', authToken);
+      }
       localStorage.setItem('user', JSON.stringify(userData));
-      
+
       // Actualizar estado
       setUser(userData);
       setToken(authToken);
-      
+
       console.log('✅ Login exitoso - Estado actualizado');
-      console.log('💾 Datos guardados en localStorage');
-      
+      console.log('💾 Datos guardados en localStorage (si había token)');
+
     } catch (error) {
       console.error('❌ Error en login:', error);
     }
