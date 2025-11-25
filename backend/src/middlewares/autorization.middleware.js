@@ -13,7 +13,6 @@ export async function authorizationMiddleware(req, res, next) {
   try {
     console.log('🔐 [AUTH] === INICIANDO VERIFICACIÓN ===');
     
-    // ✅ AGREGAR ESTE LOG PARA VER QUE SECRETS TENEMOS
     console.log('🔐 [AUTH] Variables de entorno JWT:');
     console.log('🔐 [AUTH] process.env.JWT_SECRET:', process.env.JWT_SECRET ? process.env.JWT_SECRET.substring(0, 10) + '...' : 'NO DEFINIDO');
     console.log('🔐 [AUTH] process.env.ACCESS_JWT_SECRET:', process.env.ACCESS_JWT_SECRET ? process.env.ACCESS_JWT_SECRET.substring(0, 10) + '...' : 'NO DEFINIDO');
@@ -24,7 +23,6 @@ export async function authorizationMiddleware(req, res, next) {
     const authHeader = req.headers.authorization;
     
     if (!authHeader) {
-      console.log('❌ [AUTH] No se encontró header Authorization');
       return handleErrorClient(res, 401, "Token de acceso requerido");
     }
 
@@ -39,10 +37,8 @@ export async function authorizationMiddleware(req, res, next) {
       token = authHeader; // Usar directamente
     }
     
-    console.log('🔐 [AUTH] Token extraído:', token ? `${token.substring(0, 20)}...` : 'null');
     
     if (!token || token.trim() === '') {
-      console.log('❌ [AUTH] Token vacío o inválido');
       return handleErrorClient(res, 401, "Token inválido");
     }
 
@@ -59,18 +55,13 @@ export async function authorizationMiddleware(req, res, next) {
       "jwt-secret" // ✅ AGREGAR ESTE
     ].filter(secret => secret && secret.trim() !== '');
 
-    console.log('🔐 [AUTH] Intentando verificar con', possibleSecrets.length, 'secrets posibles');
 
     for (let i = 0; i < possibleSecrets.length; i++) {
       const secret = possibleSecrets[i];
       try {
-        console.log(`🔐 [AUTH] Probando secret ${i + 1}:`, secret.substring(0, 10) + '...');
         decoded = jwt.verify(token, secret);
-        console.log('✅ [AUTH] Token verificado exitosamente con secret:', secret.substring(0, 10) + '...');
-        console.log('✅ [AUTH] Payload decodificado:', decoded);
         break;
       } catch (verifyError) {
-        console.log(`❌ [AUTH] Secret ${i + 1} falló:`, verifyError.name, '-', verifyError.message);
         continue;
       }
     }
@@ -81,31 +72,22 @@ export async function authorizationMiddleware(req, res, next) {
       return handleErrorClient(res, 401, "Token inválido - verificación fallida");
     }
     
-    console.log('🔐 [AUTH] Token decodificado exitosamente:', {
-      rut_usuario: decoded.rut_usuario,
-      id_rol: decoded.id_rol,
-      exp: decoded.exp ? new Date(decoded.exp * 1000).toISOString() : 'Sin expiración'
-    });
     
     // ✅ VERIFICAR EXPIRACIÓN
     if (decoded.exp && Date.now() >= decoded.exp * 1000) {
-      console.log('❌ [AUTH] Token expirado');
       return handleErrorClient(res, 401, "Token expirado");
     }
     
     // ✅ BUSCAR USUARIO
-    console.log('🔍 [AUTH] Buscando usuario:', decoded.rut_usuario);
     
     const userFound = await Usuario.findOne({ 
       where: { rut_usuario: decoded.rut_usuario }
     });
 
     if (!userFound) {
-      console.log('❌ [AUTH] Usuario no encontrado en BD:', decoded.rut_usuario);
       return handleErrorClient(res, 404, "Usuario no encontrado en la base de datos");
     }
 
-    console.log('✅ [AUTH] Usuario encontrado:', userFound.rut_usuario, '|', userFound.nombres, userFound.apellidos);
 
     // ✅ BUSCAR ROL (opcional)
     let userRole = null;
@@ -115,9 +97,7 @@ export async function authorizationMiddleware(req, res, next) {
           where: { id_rol: userFound.id_rol }
         });
         userRole = roleFound?.nombre_rol || 'sin_rol';
-        console.log('✅ [AUTH] Rol encontrado:', userRole);
       } catch (roleError) {
-        console.warn('⚠️ [AUTH] Error buscando rol (no crítico):', roleError.message);
         userRole = 'sin_rol';
       }
     }
@@ -138,11 +118,6 @@ export async function authorizationMiddleware(req, res, next) {
       horas_atrabajar: userFound.horas_atrabajar
     };
 
-    console.log('✅ [AUTH] Usuario autenticado exitosamente:', {
-      rut: userFound.rut_usuario,
-      rol_id: userFound.id_rol,
-      rol_nombre: userRole
-    });
     
     next();
 
@@ -178,18 +153,11 @@ export function generateDevelopmentToken(rut_usuario, id_rol = 2) {
   
   const token = jwt.sign(payload, jwtSecret);
   
-  console.log('🔑 [DEV-TOKEN] === GENERACIÓN ===');
-  console.log('🔑 [DEV-TOKEN] Usuario:', rut_usuario, '| Rol:', id_rol);
-  console.log('🔑 [DEV-TOKEN] Secret usado:', jwtSecret.substring(0, 10) + '...');
-  console.log('🔑 [DEV-TOKEN] Payload:', payload);
-  console.log('🔑 [DEV-TOKEN] Token generado:', token.substring(0, 50) + '...');
   
   // ✅ VERIFICAR QUE EL TOKEN FUNCIONA
   try {
     const verification = jwt.verify(token, jwtSecret);
-    console.log('✅ [DEV-TOKEN] Token verificado correctamente:', verification);
   } catch (verifyError) {
-    console.error('❌ [DEV-TOKEN] Error verificando token generado:', verifyError);
   }
   
   return token;
@@ -209,10 +177,8 @@ export async function isAdmin(req, res, next) {
     if (!req.user || !req.rut_usuario) {
       return authorizationMiddleware(req, res, () => {
         if (req.id_rol === 1) {
-          console.log('✅ [AUTH] Usuario es administrador:', req.rut_usuario);
           next();
         } else {
-          console.log('❌ [AUTH] Usuario no es administrador:', req.rut_usuario, '| Rol ID:', req.id_rol);
           return handleErrorClient(
             res,
             403,
@@ -224,10 +190,8 @@ export async function isAdmin(req, res, next) {
     }
 
     if (req.id_rol === 1) {
-      console.log('✅ [AUTH] Usuario es administrador:', req.rut_usuario);
       next();
     } else {
-      console.log('❌ [AUTH] Usuario no es administrador:', req.rut_usuario, '| Rol ID:', req.id_rol);
       return handleErrorClient(
         res,
         403,
@@ -252,7 +216,6 @@ export function authorizeRoles(allowedRoleIds) {
           const hasPermission = allowedRoleIds.includes(req.id_rol);
           
           if (!hasPermission) {
-            console.log('❌ [AUTH] Rol no autorizado:', req.rut_usuario, '| Rol ID:', req.id_rol, '| Permitidos:', allowedRoleIds);
             return handleErrorClient(
               res,
               403,
@@ -261,7 +224,6 @@ export function authorizeRoles(allowedRoleIds) {
             );
           }
           
-          console.log('✅ [AUTH] Rol autorizado:', req.rut_usuario, '| Rol ID:', req.id_rol);
           next();
         });
       }
@@ -269,7 +231,6 @@ export function authorizeRoles(allowedRoleIds) {
       const hasPermission = allowedRoleIds.includes(req.id_rol);
       
       if (!hasPermission) {
-        console.log('❌ [AUTH] Rol no autorizado:', req.rut_usuario, '| Rol ID:', req.id_rol, '| Permitidos:', allowedRoleIds);
         return handleErrorClient(
           res,
           403,
@@ -278,7 +239,6 @@ export function authorizeRoles(allowedRoleIds) {
         );
       }
       
-      console.log('✅ [AUTH] Rol autorizado:', req.rut_usuario, '| Rol ID:', req.id_rol);
       next();
     } catch (error) {
       handleErrorServer(res, 500, error.message);

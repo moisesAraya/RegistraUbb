@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useAuth } from "../Context/AuthContext";
-import { Camera, Lock, Eye, EyeOff, X } from "lucide-react";
+import { Camera, Lock, Eye, EyeOff, X, Key } from "lucide-react";
 import { UserAvatar } from "../Common/UserAvatar";
 
 // ✅ Mappings de roles y cargos
@@ -27,41 +27,31 @@ const ProfilePage: React.FC = () => {
   const [imageLoading, setImageLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Estados para cambio de contraseña
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
-
-  // Cargar imagen del servidor al montar el componente
+  // ---------------- FOTO PERFIL ----------------
   React.useEffect(() => {
     const loadProfileImage = async () => {
       if (!user?.rut_usuario) return;
-      
+
       setImageLoading(true);
       try {
-        const response = await fetch(`${API_BASE_URL}/profile/foto-perfil-url/${user.rut_usuario}`);
+        const response = await fetch(
+          `${API_BASE_URL}/profile/foto-perfil-url/${user.rut_usuario}`
+        );
         const data = await response.json();
-        
+
         if (data.success && data.foto_url) {
           setPreviewUrl(data.foto_url);
         } else {
           setPreviewUrl(null);
         }
       } catch (error) {
-        console.error('Error cargando imagen de perfil:', error);
+        console.error("Error cargando imagen de perfil:", error);
         setPreviewUrl(null);
       } finally {
         setImageLoading(false);
       }
     };
-    
+
     loadProfileImage();
   }, [user?.rut_usuario]);
 
@@ -90,16 +80,21 @@ const ProfilePage: React.FC = () => {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/profile/upload/${user.rut_usuario}`, {
-        method: "POST",
-        body: formData,
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/profile/upload/${user.rut_usuario}`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
       const data = await response.json();
       if (data.success) {
         // Recargar la imagen desde el servidor para asegurar que se muestre
-        const imageResponse = await fetch(`${API_BASE_URL}/profile/foto-perfil-url/${user.rut_usuario}`);
+        const imageResponse = await fetch(
+          `${API_BASE_URL}/profile/foto-perfil-url/${user.rut_usuario}`
+        );
         const imageData = await imageResponse.json();
-        
+
         if (imageData.success && imageData.foto_url) {
           setPreviewUrl(imageData.foto_url);
           alert("✅ Foto actualizada correctamente");
@@ -119,6 +114,18 @@ const ProfilePage: React.FC = () => {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
+
+  // ---------------- CAMBIO DE CONTRASEÑA ----------------
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
   const handlePasswordChange = async () => {
     setPasswordError(null);
@@ -141,22 +148,22 @@ const ProfilePage: React.FC = () => {
 
     setPasswordLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       const response = await fetch(`${API_BASE_URL}/profile/change-password`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           rut_usuario: user.rut_usuario,
           currentPassword,
-          newPassword
-        })
+          newPassword,
+        }),
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         setPasswordSuccess("✅ Contraseña actualizada correctamente");
         setCurrentPassword("");
@@ -176,6 +183,98 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  // ---------------- CAMBIO DE PIN ----------------
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [showCurrentPin, setShowCurrentPin] = useState(false);
+  const [showNewPin, setShowNewPin] = useState(false);
+  const [showConfirmPin, setShowConfirmPin] = useState(false);
+  const [pinLoading, setPinLoading] = useState(false);
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [pinSuccess, setPinSuccess] = useState<string | null>(null);
+
+  const handlePinChange = async () => {
+    setPinError(null);
+    setPinSuccess(null);
+
+    if (!currentPin || !newPin || !confirmPin) {
+      setPinError("Por favor, completa todos los campos");
+      return;
+    }
+
+    if (!/^\d{4}$/.test(newPin)) {
+      setPinError("El nuevo PIN debe ser un número de 4 dígitos");
+      return;
+    }
+
+    if (newPin !== confirmPin) {
+      setPinError("Los PIN nuevos no coinciden");
+      return;
+    }
+
+    if (currentPin === newPin) {
+      setPinError("El nuevo PIN no puede ser igual al actual");
+      return;
+    }
+
+    setPinLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_BASE_URL}/profile/change-pin`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          rut_usuario: user.rut_usuario,
+          currentPin,
+          newPin,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setPinSuccess("✅ PIN actualizado correctamente");
+        setCurrentPin("");
+        setNewPin("");
+        setConfirmPin("");
+        setTimeout(() => {
+          setShowPinModal(false);
+          setPinSuccess(null);
+        }, 2000);
+      } else {
+        setPinError(data.message || "Error al cambiar el PIN");
+      }
+    } catch (error) {
+      console.error("Error cambiando PIN:", error);
+      setPinError("Error de conexión. Intenta nuevamente.");
+    } finally {
+      setPinLoading(false);
+    }
+  };
+
+  const resetPasswordModal = () => {
+    setShowPasswordModal(false);
+    setPasswordError(null);
+    setPasswordSuccess(null);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+  };
+
+  const resetPinModal = () => {
+    setShowPinModal(false);
+    setPinError(null);
+    setPinSuccess(null);
+    setCurrentPin("");
+    setNewPin("");
+    setConfirmPin("");
+  };
+
   return (
     <div className="max-w-3xl mx-auto mt-10 p-8 bg-white rounded-xl shadow-lg border border-gray-200 space-y-8">
       {/* FOTO DE PERFIL */}
@@ -191,7 +290,7 @@ const ProfilePage: React.FC = () => {
               alt="Foto de perfil"
               className="w-32 h-32 rounded-full border-4 border-blue-300 shadow-lg object-cover"
               onError={() => {
-                console.log('Error cargando imagen, mostrando inicial');
+                console.log("Error cargando imagen, mostrando inicial");
                 setPreviewUrl(null);
               }}
             />
@@ -211,7 +310,7 @@ const ProfilePage: React.FC = () => {
             className="absolute bottom-2 right-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2 shadow transition"
             title="Cambiar foto"
           >
-            <Camera className="w-5 h-5" /> {/* Ícono de cámara */}
+            <Camera className="w-5 h-5" />
           </button>
           <input
             ref={fileInputRef}
@@ -233,37 +332,61 @@ const ProfilePage: React.FC = () => {
 
       {/* DATOS DEL USUARIO */}
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-900">{user.nombres} {user.apellidos}</h2>
-        <p className="text-sm text-gray-500 mt-1">{rol} | {cargo}</p>
+        <h2 className="text-2xl font-bold text-gray-900">
+          {user.nombres} {user.apellidos}
+        </h2>
+        <p className="text-sm text-gray-500 mt-1">
+          {rol} | {cargo}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-4 text-sm">
         <div>
-          <span className="block text-gray-400 uppercase tracking-wide">Correo</span>
-          <span className="font-medium text-gray-800">{user.email || "No registrado"}</span>
+          <span className="block text-gray-400 uppercase tracking-wide">
+            Correo
+          </span>
+          <span className="font-medium text-gray-800">
+            {user.email || "No registrado"}
+          </span>
         </div>
         <div>
-          <span className="block text-gray-400 uppercase tracking-wide">RUT</span>
-          <span className="font-medium text-gray-800">{user.rut_usuario}</span>
+          <span className="block text-gray-400 uppercase tracking-wide">
+            RUT
+          </span>
+          <span className="font-medium text-gray-800">
+            {user.rut_usuario}
+          </span>
         </div>
         <div>
-          <span className="block text-gray-400 uppercase tracking-wide">Cargo</span>
+          <span className="block text-gray-400 uppercase tracking-wide">
+            Cargo
+          </span>
           <span className="font-medium text-gray-800">{cargo}</span>
         </div>
         <div>
-          <span className="block text-gray-400 uppercase tracking-wide">Rol</span>
+          <span className="block text-gray-400 uppercase tracking-wide">
+            Rol
+          </span>
           <span className="font-medium text-gray-800">{rol}</span>
         </div>
       </div>
 
-      {/* BOTÓN CAMBIAR CONTRASEÑA */}
-      <div className="mt-6">
+      {/* BOTONES CAMBIO DE CONTRASEÑA / PIN */}
+      <div className="mt-6 space-y-3">
         <button
           onClick={() => setShowPasswordModal(true)}
           className="w-full flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-800 text-white px-4 py-3 rounded-lg font-semibold shadow transition"
         >
           <Lock className="w-5 h-5" />
           Cambiar contraseña
+        </button>
+
+        <button
+          onClick={() => setShowPinModal(true)}
+          className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-900 px-4 py-3 rounded-lg font-semibold shadow-inner border border-gray-300 transition"
+        >
+          <Key className="w-5 h-5" />
+          Cambiar PIN
         </button>
       </div>
 
@@ -272,20 +395,15 @@ const ProfilePage: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 relative">
             <button
-              onClick={() => {
-                setShowPasswordModal(false);
-                setPasswordError(null);
-                setPasswordSuccess(null);
-                setCurrentPassword("");
-                setNewPassword("");
-                setConfirmPassword("");
-              }}
+              onClick={resetPasswordModal}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
             >
               <X className="w-6 h-6" />
             </button>
 
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">Cambiar contraseña</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-6">
+              Cambiar contraseña
+            </h3>
 
             {passwordError && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
@@ -315,10 +433,16 @@ const ProfilePage: React.FC = () => {
                   />
                   <button
                     type="button"
-                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    onClick={() =>
+                      setShowCurrentPassword(!showCurrentPassword)
+                    }
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
-                    {showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    {showCurrentPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -336,12 +460,16 @@ const ProfilePage: React.FC = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-12"
                     placeholder="Ingresa tu nueva contraseña"
                   />
-                  <button
+                <button
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
-                    {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    {showNewPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -361,10 +489,16 @@ const ProfilePage: React.FC = () => {
                   />
                   <button
                     type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    onClick={() =>
+                      setShowConfirmPassword(!showConfirmPassword)
+                    }
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
-                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    {showConfirmPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -372,14 +506,7 @@ const ProfilePage: React.FC = () => {
 
             <div className="mt-6 flex gap-3">
               <button
-                onClick={() => {
-                  setShowPasswordModal(false);
-                  setPasswordError(null);
-                  setPasswordSuccess(null);
-                  setCurrentPassword("");
-                  setNewPassword("");
-                  setConfirmPassword("");
-                }}
+                onClick={resetPasswordModal}
                 className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-3 rounded-lg font-semibold transition"
               >
                 Cancelar
@@ -390,6 +517,149 @@ const ProfilePage: React.FC = () => {
                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {passwordLoading ? "Cambiando..." : "Cambiar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CAMBIAR PIN */}
+      {showPinModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 relative">
+            <button
+              onClick={resetPinModal}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            <h3 className="text-2xl font-bold text-gray-900 mb-6">
+              Cambiar PIN
+            </h3>
+
+            {pinError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                {pinError}
+              </div>
+            )}
+
+            {pinSuccess && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+                {pinSuccess}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {/* PIN actual */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  PIN actual
+                </label>
+                <div className="relative">
+                  <input
+                    type={showCurrentPin ? "text" : "password"}
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={currentPin}
+                    onChange={(e) =>
+                      setCurrentPin(e.target.value.replace(/\D/g, "").slice(0, 4))
+                    }
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-12"
+                    placeholder="Ingresa tu PIN actual"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPin(!showCurrentPin)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showCurrentPin ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Nuevo PIN */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nuevo PIN
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNewPin ? "text" : "password"}
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={newPin}
+                    onChange={(e) =>
+                      setNewPin(e.target.value.replace(/\D/g, "").slice(0, 4))
+                    }
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-12"
+                    placeholder="Ingresa tu nuevo PIN (4 dígitos)"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPin(!showNewPin)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showNewPin ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirmar PIN */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirmar nuevo PIN
+                </label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPin ? "text" : "password"}
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={confirmPin}
+                    onChange={(e) =>
+                      setConfirmPin(
+                        e.target.value.replace(/\D/g, "").slice(0, 4)
+                      )
+                    }
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-12"
+                    placeholder="Confirma tu nuevo PIN"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPin(!showConfirmPin)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showConfirmPin ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={resetPinModal}
+                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-3 rounded-lg font-semibold transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handlePinChange}
+                disabled={pinLoading}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {pinLoading ? "Cambiando..." : "Cambiar"}
               </button>
             </div>
           </div>

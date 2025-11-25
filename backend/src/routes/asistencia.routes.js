@@ -14,7 +14,8 @@ import {
     agregarSalidaController,
     // 👇 NUEVOS CONTROLLERS
     updateManualEntryController,
-    deleteManualEntryController
+    deleteManualEntryController,
+    getEstadoSemanaController   // 👈 AGREGA ESTO
 } from '../controllers/asistencia.controller.js';
 
 const router = express.Router();
@@ -26,13 +27,16 @@ router.get('/estadisticas', authorizationMiddleware, getEstadisticasAsistenciaCo
 router.get('/justificaciones', authorizationMiddleware, getJustificacionesController);
 router.get('/marcaje-abierto/:rut_usuario', authorizationMiddleware, getMarcajeAbiertoController);
 
+// 👉 NUEVA RUTA: estado de semana
+router.get('/estado-semana', authorizationMiddleware, getEstadoSemanaController);
+
 // 📝 Rutas POST
 router.post('/justificacion', authorizationMiddleware, solicitarJustificacionController);
 router.post('/marcar', authorizationMiddleware, marcar);
 // Ingreso manual sin aprobación
 router.post('/manual', authorizationMiddleware, createManualEntryController);
 
-// ✏️ RUTA PUT PARA EDITAR MARCAJE MANUAL
+// ✏️ RUTA PATCH PARA EDITAR MARCAJE MANUAL
 router.patch('/manual/:id_marcaje', authorizationMiddleware, updateManualEntryController);
 
 // 🗑️ RUTA DELETE PARA ELIMINAR MARCAJE MANUAL
@@ -48,9 +52,10 @@ console.log('✅ [ASISTENCIA-ROUTES] Rutas configuradas:');
 console.log('   📊 GET /asistencia/estadisticas');
 console.log('   📋 GET /asistencia/justificaciones');
 console.log('   🔓 GET /asistencia/marcaje-abierto/:rut_usuario');
+console.log('   🛡️ GET /asistencia/estado-semana'); // 👈 NUEVA
 console.log('   📝 POST /asistencia/justificacion');
 console.log('   🏷️ POST /asistencia/marcar');
-console.log('   ✏️ PUT /asistencia/manual/:id_marcaje');
+console.log('   ✏️ PATCH /asistencia/manual/:id_marcaje');
 console.log('   🗑️ DELETE /asistencia/manual/:id_marcaje');
 console.log('   🔄 PATCH /asistencia/agregar-salida');
 console.log('   📅 GET /asistencia/');

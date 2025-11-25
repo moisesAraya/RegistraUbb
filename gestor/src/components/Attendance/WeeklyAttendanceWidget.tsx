@@ -415,9 +415,11 @@ function WeeklyAttendanceWidget() {
     editarMarcaje,
     eliminarMarcaje,
     registrarMarcajeManual,
+    isSemanaCerrada, // 👈 NUEVO: desde el contexto
   } = useAsistenciaContext() as any;
 
   const [referenceDate, setReferenceDate] = useState(new Date());
+  const [isWeekLocked, setIsWeekLocked] = useState(false); // 👈 NUEVO
 
   const [editing, setEditing] = useState<null | {
     id_marcaje: number;
@@ -449,6 +451,27 @@ function WeeklyAttendanceWidget() {
   };
 
   const { start: weekStart, end: weekEnd } = getWeekRange(referenceDate);
+
+  // 🔹 Consultar si la semana está cerrada (reporte generado)
+  useEffect(() => {
+    const checkLock = async () => {
+      try {
+        if (!isSemanaCerrada) {
+          setIsWeekLocked(false);
+          return;
+        }
+        const inicio = weekStart.toISOString().substring(0, 10);
+        const fin = weekEnd.toISOString().substring(0, 10);
+        const cerrada = await isSemanaCerrada(inicio, fin);
+        setIsWeekLocked(!!cerrada);
+      } catch (err) {
+        console.error("Error al consultar estado de semana:", err);
+        setIsWeekLocked(false);
+      }
+    };
+
+    checkLock();
+  }, [weekStart, weekEnd, isSemanaCerrada]);
 
   // Cargar asistencia del mes correspondiente a la semana de referencia
   useEffect(() => {
@@ -548,6 +571,14 @@ function WeeklyAttendanceWidget() {
     marcaje: AsistenciaItem,
     tipoEvento: TipoEvento
   ) => {
+    // 🔒 Bloqueo por semana cerrada
+    if (isWeekLocked) {
+      alert(
+        "Esta semana ya tiene un reporte generado por el administrador.\nNo se pueden editar marcajes."
+      );
+      return;
+    }
+
     if (!marcaje.id_marcaje) return;
 
     const fechaNorm = normalizeFecha(marcaje.fecha) || marcaje.fecha;
@@ -576,6 +607,14 @@ function WeeklyAttendanceWidget() {
   };
 
   const handleDeleteMarcaje = async (marcaje: AsistenciaItem) => {
+    // 🔒 Bloqueo por semana cerrada
+    if (isWeekLocked) {
+      alert(
+        "Esta semana ya tiene un reporte generado por el administrador.\nNo se pueden eliminar marcajes."
+      );
+      return;
+    }
+
     if (!marcaje.id_marcaje) return;
     const ok = window.confirm(
       "¿Seguro que quieres eliminar este marcaje completo (entrada y salida)?"
@@ -587,6 +626,15 @@ function WeeklyAttendanceWidget() {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editing) return;
+
+    // 🔒 Bloqueo por semana cerrada (por si cambió mientras el modal estaba abierto)
+    if (isWeekLocked) {
+      alert(
+        "Esta semana ya tiene un reporte generado por el administrador.\nNo se pueden editar marcajes."
+      );
+      return;
+    }
+
     if (!editing.time) {
       alert("Debes ingresar la hora");
       return;
@@ -606,6 +654,14 @@ function WeeklyAttendanceWidget() {
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualModal) return;
+
+    // 🔒 Bloqueo por semana cerrada
+    if (isWeekLocked) {
+      alert(
+        "Esta semana ya tiene un reporte generado por el administrador.\nNo se pueden agregar nuevos marcajes."
+      );
+      return;
+    }
 
     const form = e.target as HTMLFormElement;
     const formData = new FormData(form);
@@ -677,6 +733,13 @@ function WeeklyAttendanceWidget() {
             <p className="text-xs text-slate-500 mt-0.5">
               Vista semanal de tus marcajes (máx. 4 por día)
             </p>
+
+            {isWeekLocked && (
+              <p className="mt-1 inline-flex items-center px-2 py-0.5 rounded-full bg-red-50 text-red-700 text-[11px] border border-red-200">
+                <Shield className="w-3 h-3 mr-1" />
+                Semana bloqueada: reporte generado por administración
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -710,12 +773,23 @@ function WeeklyAttendanceWidget() {
 
             {/* Botón Ingreso manual */}
             <button
-              onClick={() =>
+              onClick={() => {
+                if (isWeekLocked) {
+                  alert(
+                    "Esta semana ya tiene un reporte generado por el administrador.\nNo se pueden agregar nuevos marcajes."
+                  );
+                  return;
+                }
                 setManualModal({
                   date: new Date().toISOString().substring(0, 10),
-                })
-              }
-              className="ml-2 hidden sm:inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100"
+                });
+              }}
+              disabled={isWeekLocked}
+              className={`ml-2 hidden sm:inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg border ${
+                isWeekLocked
+                  ? "border-slate-300 bg-slate-100 text-slate-400 cursor-not-allowed"
+                  : "border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100"
+              }`}
             >
               <PlusCircle className="w-4 h-4 mr-1" />
               Ingreso manual
@@ -799,7 +873,7 @@ function WeeklyAttendanceWidget() {
                           <span className="font-medium truncate">{label}</span>
                         </div>
 
-                        {isEditable && (
+                        {isEditable && !isWeekLocked && (
                           <button
                             type="button"
                             className="ml-1"

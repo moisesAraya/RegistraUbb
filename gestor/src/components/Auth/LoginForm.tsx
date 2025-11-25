@@ -3,7 +3,7 @@ import { Eye, EyeOff, User, Lock, AlertCircle, CheckCircle } from 'lucide-react'
 import { useAuth } from '../Context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 const LOGO_FILENAME = 'logo_registraubb.png';
 const LOGO_BUCKET = 'registraubb';
 

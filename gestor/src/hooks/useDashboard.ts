@@ -97,16 +97,13 @@ export function useDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  console.log("🎯 [useDashboard] Hook iniciado para usuario:", user?.nombres);
 
   const fetchDashboardData = async () => {
     if (!user?.rut_usuario) {
-      console.log("❌ [useDashboard] No hay usuario logueado");
       setIsLoading(false);
       return;
     }
 
-    console.log("📡 [useDashboard] Iniciando fetch para:", user.rut_usuario);
     setIsLoading(true);
     setError(null);
 
@@ -124,7 +121,6 @@ export function useDashboard() {
         },
       });
 
-      console.log("📥 Response status:", response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -133,14 +129,12 @@ export function useDashboard() {
       }
 
       const responseData = await response.json();
-      console.log("📊 Respuesta completa del servidor:", responseData);
 
       if (!responseData || !responseData.success) {
         throw new Error("Respuesta del servidor inválida");
       }
 
       const data = responseData.data;
-      console.log("📊 Datos extraídos:", data);
 
       const mappedData: DashboardData = {
         personal_basic_stats: {
@@ -186,7 +180,6 @@ export function useDashboard() {
         },
       };
 
-      console.log("✅ Datos mapeados:", mappedData);
 
       setDashboardData(mappedData);
     } catch (err) {
@@ -200,22 +193,14 @@ export function useDashboard() {
   };
 
   const refetch = () => {
-    console.log("🔄 [useDashboard] Refetch solicitado");
     fetchDashboardData();
   };
 
   useEffect(() => {
-    console.log("🔄 [useDashboard] useEffect ejecutado");
     fetchDashboardData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.rut_usuario]);
 
-  console.log("[useDashboard] Estado actual:", {
-    isLoading,
-    hasData: !!dashboardData,
-    hasError: !!error,
-    todayHours: dashboardData?.personal_basic_stats?.today_hours,
-  });
 
   return {
     dashboardData,

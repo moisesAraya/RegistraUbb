@@ -2,7 +2,6 @@
 
 const bcrypt = require("bcrypt");
 
-/** @type {import('sequelize-cli').Migration} */
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     const usuarios = [
@@ -189,12 +188,8 @@ module.exports = {
         await queryInterface.bulkInsert("Usuarios", [usuario], {
           ignoreDuplicates: true,
         });
-        console.log(`✅ Usuario insertado/actualizado: ${usuario.rut_usuario}`);
       } catch (error) {
-        console.log(
-          `⚠️ Error con usuario ${usuario.rut_usuario}:`,
-          error.message
-        );
+        // Error al insertar usuario, puedes agregar manejo aquí si es necesario
       }
     }
   },

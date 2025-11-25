@@ -41,7 +41,6 @@ const QRCodeManager: React.FC = () => {
   const getAuthToken = () => {
     const localToken = localStorage.getItem('token');
     if (localToken) {
-      console.log('💾 Usando token del localStorage');
       return localToken;
     }
     
@@ -64,11 +63,9 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
     },
   };
 
-  console.log(`🌐 API Request: ${config.method || 'GET'} ${fullURL}`);
 
   try {
     const response = await fetch(fullURL, config);
-    console.log(`📥 API Response: ${response.status} ${fullURL}`);
     return response;
   } catch (error) {
     console.error(`❌ API Error: ${fullURL}`, error);
@@ -80,7 +77,6 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
   // ✅ Generar imagen QR desde hash
   const generateQRImage = async (hash: string) => {
     try {
-      console.log('🎨 Generando imagen QR...');
       
       const qrDataURL = await QRCode.toDataURL(hash, {
         width: 280,
@@ -93,7 +89,6 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
       });
       
       setQrImage(qrDataURL);
-      console.log('✅ Imagen QR generada');
       
     } catch (error) {
       console.error('Error generando imagen QR:', error);
@@ -104,7 +99,6 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
   // ✅ Función de prueba
   const testApiConnection = async () => {
     try {
-      console.log('🧪 Probando conectividad API...');
       
       const response = await makeApiRequest('/qr/test', {
         method: 'GET',
@@ -113,10 +107,8 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
       
       if (response.ok) {
         const testData = await response.json();
-        console.log('✅ API conectada correctamente:', testData);
         return true;
       } else {
-        console.log('❌ API no responde correctamente');
         return false;
       }
     } catch (error) {
@@ -128,7 +120,6 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
   // ✅ Cargar historial de QR codes y mostrar el activo
   const loadQRHistory = async () => {
     try {
-      console.log('📜 Cargando historial de QR codes...');
       
       const authToken = getAuthToken();
       if (!authToken) {
@@ -144,7 +135,6 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ Historial cargado:', result);
         
         const qrCodes = result.data?.qr_codes || [];
         setQrHistory(qrCodes);
@@ -152,12 +142,10 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
         // ✅ Buscar QR activo y mostrarlo automáticamente
         const activeQR = qrCodes.find((qr: QRData) => qr.activo);
         if (activeQR) {
-          console.log('🔍 QR activo encontrado:', activeQR.codigo_unico);
           setQrData(activeQR.hash_encriptado);
           await generateQRImage(activeQR.hash_encriptado);
           setIsQRRevealed(false);
         } else {
-          console.log('ℹ️ No se encontró QR activo');
           setQrData(null);
           setQrImage(null);
           setIsQRRevealed(false);

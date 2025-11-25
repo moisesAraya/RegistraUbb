@@ -68,6 +68,7 @@ interface AsistenciaContextType {
   registrarMarcajeManual: (data: any) => Promise<{ success: boolean; message?: string }>;
   editarMarcaje: (data: any) => Promise<{ success: boolean; message?: string }>;
   eliminarMarcaje: (id: number) => Promise<{ success: boolean; message?: string }>;
+  isSemanaCerrada: (fechaInicio: string, fechaFin: string) => Promise<boolean>;
 }
 
 const AsistenciaContext = createContext<AsistenciaContextType | undefined>(undefined);
@@ -115,15 +116,15 @@ export const AsistenciaProvider: React.FC<{ children: ReactNode }> = ({ children
   const fetchAsistencia = async (mes?: number, anio?: number) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const params = new URLSearchParams();
       if (mes) params.append('mes', mes.toString());
       if (anio) params.append('anio', anio.toString());
-      
+
       const endpoint = `asistencia${params.toString() ? `?${params.toString()}` : ''}`;
       const result = await makeApiCall(endpoint);
-      
+
       if (result.success) {
         setAsistenciaData(result.data);
       } else {
@@ -209,16 +210,15 @@ export const AsistenciaProvider: React.FC<{ children: ReactNode }> = ({ children
     setError(null);
 
     try {
-      // 👇 PATCH parcial: solo campo + hora (+ opcionalmente fecha y notas)
       const body = {
-        date: data.date,                 // fecha del marcaje
-        campo: data.campo,               // 'entrada' | 'salida'
-        time: data.time,                 // 'HH:MM'
-        notes: data.notes || null,       // observaciones
+        date: data.date,
+        campo: data.campo,       // 'entrada' | 'salida'
+        time: data.time,         // 'HH:MM'
+        notes: data.notes || null,
       };
 
       const result = await makeApiCall(`asistencia/manual/${data.id_marcaje}`, {
-        method: 'PATCH',                 // 🔥 ahora PATCH
+        method: 'PATCH',
         body: JSON.stringify(body),
       });
 
@@ -266,6 +266,33 @@ export const AsistenciaProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   };
 
+  // 🔹 NUEVO: consulta al backend si una semana está cerrada (reporte generado)
+  const isSemanaCerrada = async (fechaInicio: string, fechaFin: string): Promise<boolean> => {
+    try {
+      const params = new URLSearchParams();
+      params.append('fecha_inicio', fechaInicio);
+      params.append('fecha_fin', fechaFin);
+
+      const endpoint = `asistencia/estado-semana?${params.toString()}`;
+      const result = await makeApiCall(endpoint);
+
+      // Esperamos algo como { success: true, data: { cerrada: true/false } }
+      if (result?.data && typeof result.data.cerrada !== 'undefined') {
+        return !!result.data.cerrada;
+      }
+
+      if (typeof result.cerrada !== 'undefined') {
+        return !!result.cerrada;
+      }
+
+      return false;
+    } catch (err) {
+      console.error('❌ Error consultando estado de semana:', err);
+      // Ante error NO bloqueamos, pero lo dejamos registrado
+      return false;
+    }
+  };
+
   return (
     <AsistenciaContext.Provider
       value={{
@@ -278,6 +305,7 @@ export const AsistenciaProvider: React.FC<{ children: ReactNode }> = ({ children
         registrarMarcajeManual,
         editarMarcaje,
         eliminarMarcaje,
+        isSemanaCerrada,
       }}
     >
       {children}
