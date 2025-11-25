@@ -56,8 +56,14 @@ export async function login(req, res) {
         maxAge: 24 * 60 * 60 * 1000 // 24 horas
       });
     }
-    
-    handleSuccess(res, 200, "Login exitoso", loginResult.user);
+
+    // Devolver también el token en el cuerpo JSON para clientes que lo requieran
+    const responsePayload = {
+      user: loginResult.user,
+      token: loginResult.token || null
+    };
+
+    handleSuccess(res, 200, "Login exitoso", responsePayload);
     
   } catch (error) {
     console.error('Error en login controller:', error);

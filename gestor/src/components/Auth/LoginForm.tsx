@@ -168,13 +168,14 @@ const LoginForm: React.FC = () => {
         return;
       }
 
-      if (!responseData.data) {
+      if (!responseData.data || !responseData.data.user) {
         setError("Respuesta del servidor incompleta");
         setLoading(false);
         return;
       }
 
-      const userFromApi = responseData.data;
+      const userFromApi = responseData.data.user;
+      const tokenFromApi = responseData.data.token || null;
 
       const userData = {
         rut_usuario: userFromApi.rut_usuario,
@@ -185,12 +186,16 @@ const LoginForm: React.FC = () => {
         id_cargo: userFromApi.id_cargo,
       };
 
+      // Guardar token y usuario en localStorage (si viene token)
+      if (tokenFromApi) {
+        localStorage.setItem("token", tokenFromApi);
+      }
       localStorage.setItem("user", JSON.stringify(userData));
 
       setSuccess("Login exitoso. Redirigiendo...");
 
       if (login && typeof login === "function") {
-        login(userData, null);
+        login(userData, tokenFromApi);
       }
 
       setTimeout(() => {
