@@ -12,7 +12,7 @@ import {
   Eye,
   EyeOff 
 } from 'lucide-react';
-import axios from 'axios';
+import apiClient from '../../services/api';
 
 // Interfaces para los tipos de datos
 interface User {
@@ -91,22 +91,7 @@ const UserManagement: React.FC = () => {
     pin: 0
   });
 
-  // Configurar cliente API
-  const apiClient = axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-
-  // Interceptor para agregar token
-  apiClient.interceptors.request.use((config) => {
-    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  });
+  // Use centralized apiClient (withCredentials enabled)
 
   // Limpiar mensajes después de 5 segundos
   useEffect(() => {
