@@ -89,7 +89,7 @@ export const useUserManagement = () => {
     if (filters.status && filters.status !== 'all') queryParams.append('status', filters.status);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/admin/all?${queryParams}`, {
+      const response = await fetch(`${API_BASE_URL}/users/admin/all?${queryParams}`, {
         method: 'GET',
         headers: getHeaders()
       });
@@ -125,7 +125,7 @@ export const useUserManagement = () => {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/admin/stats`, {
+      const response = await fetch(`${API_BASE_URL}/users/admin/stats`, {
         method: 'GET',
         headers: getHeaders()
       });
@@ -174,7 +174,7 @@ export const useUserManagement = () => {
       if (userData.department) requestBody.departamento = userData.department;
       if (userData.role) requestBody.id_rol = getRoleId(userData.role);
 
-      const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
         method: 'PUT',
         headers: getHeaders(),
         body: JSON.stringify(requestBody)
@@ -208,7 +208,7 @@ export const useUserManagement = () => {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/admin/${userId}/status`, {
+      const response = await fetch(`${API_BASE_URL}/users/admin/${userId}/status`, {
         method: 'PATCH',
         headers: getHeaders(),
         body: JSON.stringify({ isActive })
@@ -247,7 +247,7 @@ export const useUserManagement = () => {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
         method: 'DELETE',
         headers: getHeaders()
       });

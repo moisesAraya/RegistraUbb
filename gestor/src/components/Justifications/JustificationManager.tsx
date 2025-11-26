@@ -36,7 +36,7 @@ const JustificationManager: React.FC = () => {
       motivo: '',
       descripcion: '',
       tipoPermiso: 'jornada_completa',      // para permiso administrativo JUSTIFICADO
-      tipoNoJustificada: 'jornada_completa' // para faltas NO justificadas
+      tipoNoJustificada: 'jornada_completa' // para ausencias INJUSTIFICADAS
     });
 
     const motivoSeleccionado = motivos.find(m => m.id === formData.motivo);
@@ -65,7 +65,7 @@ const JustificationManager: React.FC = () => {
           // permiso administrativo justificado (8h / 4h mañana / 4h tarde)
           tipoToSend = formData.tipoPermiso;
         } else if (esAusenciaNoJustificada) {
-          // ausencia NO justificada: igual queremos saber si es día completo o media jornada
+          // ausencia INJUSTIFICADA: igual queremos saber si es día completo o media jornada
           tipoToSend = formData.tipoNoJustificada;
         }
 
@@ -183,7 +183,7 @@ const JustificationManager: React.FC = () => {
                       >
                         {motivoSeleccionado.es_justificada
                           ? 'Ausencia Justificada'
-                          : 'Ausencia No Justificada'}
+                          : 'Ausencia Injustificada'}
                       </p>
                       <p
                         className={`text-xs mt-1 ${
@@ -278,11 +278,11 @@ const JustificationManager: React.FC = () => {
                 </div>
               )}
 
-              {/* Opciones para AUSENCIA NO JUSTIFICADA (media jornada) */}
+              {/* Opciones para AUSENCIA INJUSTIFICADA (media jornada) */}
               {esAusenciaNoJustificada && !esPermisoAdministrativo && (
                 <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
                   <p className="text-sm font-semibold text-orange-800 mb-2">
-                    Tipo de ausencia no justificada
+                    Tipo de ausencia injustificada
                   </p>
 
                   <div className="space-y-2 text-sm text-orange-900">
@@ -416,7 +416,7 @@ const JustificationManager: React.FC = () => {
   const justificacionesFiltradas = justificaciones.filter(j => {
     if (!filtroTipo) return true;
     if (filtroTipo === 'justificadas') return j.es_justificada;
-    if (filtroTipo === 'no_justificadas') return !j.es_justificada;
+    if (filtroTipo === 'injustificadas') return !j.es_justificada;
     return true;
   });
 
@@ -425,7 +425,7 @@ const JustificationManager: React.FC = () => {
       <div className="flex items-center justify-center h-64">
         <div className="flex items-center space-x-3">
           <RefreshCw className="w-6 h-6 animate-spin text-blue-500" />
-          <span className="text-gray-600">Cargando faltas...</span>
+          <span className="text-gray-600">Cargando ausencias...</span>
         </div>
       </div>
     );
@@ -436,8 +436,8 @@ const JustificationManager: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Mis faltas</h1>
-          <p className="text-gray-600">Gestiona el registro de tus faltas laborales</p>
+          <h1 className="text-2xl font-bold text-gray-900">Mis ausencias</h1>
+          <p className="text-gray-600">Gestiona el registro de tus ausencias laborales</p>
         </div>
         <button
           onClick={() => setMostrarFormulario(true)}
@@ -494,7 +494,7 @@ const JustificationManager: React.FC = () => {
           <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-lg border-2 border-orange-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-orange-700 text-sm font-medium mb-1">No Justificadas</p>
+                <p className="text-orange-700 text-sm font-medium mb-1">Injustificadas</p>
                 <p className="text-3xl font-bold text-orange-800">{estadisticas.no_justificadas}</p>
               </div>
               <XCircle className="w-12 h-12 text-orange-600 opacity-30" />
@@ -511,9 +511,9 @@ const JustificationManager: React.FC = () => {
           onChange={(e) => setFiltroTipo(e.target.value)}
           className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
-          <option value="">Todas las faltas</option>
+          <option value="">Todas las ausencias</option>
           <option value="justificadas">Solo justificadas</option>
-          <option value="no_justificadas">Solo no justificadas</option>
+          <option value="injustificadas">Solo injustificadas</option>
         </select>
         <button
           onClick={() => obtenerJustificaciones()}
@@ -562,7 +562,7 @@ const JustificationManager: React.FC = () => {
                         <div className="flex items-center space-x-2 px-3 py-1 bg-orange-100 border border-orange-300 rounded-full">
                           <XCircle className="h-4 w-4 text-orange-600" />
                           <span className="text-xs font-semibold text-orange-700">
-                            NO JUSTIFICADA
+                            INJUSTIFICADA
                           </span>
                         </div>
                       )}

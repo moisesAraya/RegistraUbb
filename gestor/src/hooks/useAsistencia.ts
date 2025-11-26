@@ -27,7 +27,7 @@ interface ResumenAsistencia {
   diasTrabajados: number;
   horasTotales: number;
   horasPromedio: number;
-  faltas: number;
+  ausencias: number;
 }
 
 interface EstadisticasAsistencia {
@@ -56,7 +56,7 @@ interface AsistenciaData {
     fechaInicio: string;
     fechaFin: string;
   };
-  // opcionalmente: justificaciones / faltas
+  // opcionalmente: justificaciones / ausencias
   [key: string]: any;
 }
 
@@ -196,6 +196,27 @@ export const useAsistencia = () => {
     setError(null);
 
     try {
+      // Validación cliente: no permitir fechas futuras
+      const today = new Date();
+      const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+      const localToday = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+
+      if (data.date > localToday) {
+        const msg = 'No se permiten marcajes en días futuros';
+        setError(msg);
+        return { success: false, message: msg };
+      }
+
+      if (data.date === localToday && data.checkInTime) {
+        const [h, m] = data.checkInTime.split(':').map(Number);
+        const checkDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), h || 0, m || 0);
+        if (checkDate.getTime() > Date.now()) {
+          const msg = 'No se permiten marcajes con hora futura del día de hoy';
+          setError(msg);
+          return { success: false, message: msg };
+        }
+      }
+
       const body = {
         date: data.date,
         checkInTime: data.checkInTime,
@@ -286,6 +307,27 @@ export const useAsistencia = () => {
     setError(null);
 
     try {
+      // Validación cliente: no permitir fechas/hora futuras al actualizar
+      const today = new Date();
+      const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+      const localToday = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+
+      if (data.date > localToday) {
+        const msg = 'No se permiten marcajes en días futuros';
+        setError(msg);
+        return { success: false, message: msg };
+      }
+
+      if (data.date === localToday && data.checkInTime) {
+        const [h, m] = data.checkInTime.split(':').map(Number);
+        const checkDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), h || 0, m || 0);
+        if (checkDate.getTime() > Date.now()) {
+          const msg = 'No se permiten marcajes con hora futura del día de hoy';
+          setError(msg);
+          return { success: false, message: msg };
+        }
+      }
+
       const body = {
         date: data.date,
         checkInTime: data.checkInTime,

@@ -221,24 +221,24 @@ const buildSlotsFromDetalle = (detalle: any): string[] => {
   return slots;
 };
 
-// 🔹 Construye estado de la fila (Presente / Falta Justificada / Falta No Justificada / Falta)
+// 🔹 Construye estado de la fila (Presente / Ausencia Justificada / Ausencia Injustificada / Ausencia)
 const buildEstadoFromDetalle = (detalle: any): string => {
   if (detalle.justificacion) {
     const motivoFmt = formatMotivo(detalle.justificacion.motivo);
     return detalle.justificacion.es_justificada
       ? `Ausencia Justificada: ${motivoFmt}`
-      : `Ausencia No Justificada: ${motivoFmt}`;
+      : `Ausencia Injustificada: ${motivoFmt}`;
   }
 
   if (detalle.estado) {
     const est = detalle.estado.toString().toLowerCase();
     if (est === "presente") return "Presente";
-    if (est === "falta") return "Falta";
+    if (est === "falta") return "Ausencia";
     return formatMotivo(detalle.estado);
   }
 
   const h = computeHorasDiaFromDetalle(detalle);
-  if (h <= 0) return "Falta";
+  if (h <= 0) return "Ausencia";
 
   return "Presente";
 };
@@ -279,6 +279,10 @@ export default function ReportsSection() {
     useState<string>("todos");
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
 
+  // Disponibilidad de meses/años según estadísticas anuales
+  const [yearsAvailability, setYearsAvailability] = useState<Record<number, boolean>>({});
+  const [monthsAvailability, setMonthsAvailability] = useState<Record<number, { mes:number; horas:number }[]>>({});
+
   const [adminInfo, setAdminInfo] = useState<AdminInfo>(() => {
     if (user) {
       const cargoName =
@@ -301,6 +305,73 @@ export default function ReportsSection() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Obtener disponibilidad por año (solo para el usuario actual o cuando admin ve "todos")
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    // Años candidatos (últimos 5 años incluido actual)
+    const currentYear = new Date().getFullYear();
+    const candidateYears = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
+    const canQueryForSelected = !isAdmin || usuarioSeleccionado === "todos" || usuarioSeleccionado === user?.rut_usuario;
+
+    candidateYears.forEach(async (y) => {
+      try {
+        // Si es admin y está consultando otro usuario distinto al suyo, no intentamos bloquear opciones
+        if (!canQueryForSelected && isAdmin) {
+          setYearsAvailability((prev) => ({ ...prev, [y]: true }));
+          return;
+        }
+
+        const url = `${import.meta.env.VITE_API_URL}/reportes/anual?anio=${y}`;
+        const resp = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!resp.ok) throw new Error(`Status ${resp.status}`);
+        const json = await resp.json();
+        if (json.success && json.data) {
+          const totalHoras = Number(json.data.totalHoras || 0);
+          setYearsAvailability((prev) => ({ ...prev, [y]: totalHoras > 0 }));
+          // Guardar meses con sus horas para usar en el select
+          const meses = Array.isArray(json.data.meses) ? json.data.meses.map((m: any) => ({ mes: m.mes, horas: Number(m.horas || 0) })) : [];
+          setMonthsAvailability((prev) => ({ ...prev, [y]: meses }));
+        } else {
+          setYearsAvailability((prev) => ({ ...prev, [y]: false }));
+          setMonthsAvailability((prev) => ({ ...prev, [y]: [] }));
+        }
+      } catch (err) {
+        // En errores, asumimos disponible para evitar bloquear al admin por fallos temporales
+        setYearsAvailability((prev) => ({ ...prev, [y]: true }));
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usuarioSeleccionado, isAdmin, user?.rut_usuario]);
+
+  // Si el año seleccionado no tiene meses con horas, auto-seleccionar el primer año disponible
+  useEffect(() => {
+    const available = yearsAvailability[anio];
+    if (available === false) {
+      const firstAvailableYear = Object.keys(yearsAvailability)
+        .map((k) => Number(k))
+        .find((y) => yearsAvailability[y]);
+      if (firstAvailableYear) setAnio(firstAvailableYear);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [yearsAvailability]);
+
+  // Si el mes seleccionado está deshabilitado para el año actual, auto-seleccionar el primer mes con horas
+  useEffect(() => {
+    const mesesForYear = monthsAvailability[anio] || [];
+    if (mesesForYear.length === 0) return;
+    const currentMesInfo = mesesForYear.find((mm) => mm.mes === mes);
+    if (currentMesInfo && currentMesInfo.horas <= 0) {
+      const primerDisponible = mesesForYear.find((mm) => mm.horas > 0);
+      if (primerDisponible) setMes(primerDisponible.mes);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthsAvailability, anio]);
 
   const fetchUsuarios = async () => {
     try {
@@ -462,6 +533,29 @@ export default function ReportsSection() {
       await exportarPDFGeneral();
     } else {
       await exportarPDFPersonal();
+    }
+  };
+
+  // Determina si el reporte actual tiene datos exportables
+  const canExport = () => {
+    if (!reporteActual) return false;
+    if (Array.isArray(reporteActual)) {
+      const total = reporteActual
+        .filter((r: any) => r.usuario?.id_rol !== 1)
+        .reduce((sum: number, r: any) => {
+          const asistencias = r.reporte?.asistencias_detalle || [];
+          const horasUsuario = asistencias.reduce(
+            (s: number, det: any) => s + computeHorasDiaFromDetalle(det),
+            0
+          );
+          return sum + horasUsuario;
+        }, 0);
+      return total > 0;
+    } else {
+      const resumen = (reporteActual as any).resumen_basico || (reporteActual as any).resumen || null;
+      const horas = resumen?.horasTotales ?? resumen?.horas_totales ?? 0;
+      const registros = (reporteActual as any).asistencias_detalle || [];
+      return Number(horas) > 0 || registros.length > 0;
     }
   };
 
@@ -627,10 +721,12 @@ fechasOrdenadas.forEach((fecha) => {
         };
 
         if (typeof cell.value === "string") {
-          if (cell.value.startsWith("Falta:")) {
-            const asist = p.reporte?.asistencias_detalle || [];
-            const justificacion = asist.find((a: any) => a.justificacion)
-              ?.justificacion;
+          if (cell.value.startsWith("Ausencia:")) {
+            const asist =
+              p.reporte?.asistencias_detalle || [];
+            const justificacion = asist.find(
+              (a: any) => a.justificacion
+            )?.justificacion;
 
             if (justificacion?.es_justificada) {
               cell.font = {
@@ -865,8 +961,8 @@ fechasOrdenadas.forEach((fecha) => {
               fgColor: { argb: "FFE8F5E9" },
             };
           } else if (
-            cell.value.includes("No Justificada:") ||
-            cell.value === "Falta"
+            cell.value.includes("Injustificada:") ||
+            cell.value === "Ausencia"
           ) {
             cell.font = { color: { argb: "FFFF0000" }, bold: true };
             cell.fill = {
@@ -1161,8 +1257,8 @@ fechasOrdenadas.forEach((fecha) => {
             data.cell.styles.textColor = [0, 170, 0];
             data.cell.styles.fontStyle = "bold";
           } else if (
-            cellText.includes("No Justificada:") ||
-            cellText === "Falta"
+            cellText.includes("Injustificada:") ||
+            cellText === "Ausencia"
           ) {
             data.cell.styles.textColor = [255, 0, 0];
             data.cell.styles.fontStyle = "bold";
@@ -1441,7 +1537,7 @@ fechasOrdenadas.forEach((fecha) => {
             <div className="flex gap-3 flex-wrap">
               <button
                 onClick={handleExportExcel}
-                disabled={!reporteActual || loading}
+                disabled={!reporteActual || loading || !canExport()}
                 className="flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors shadow-sm font-medium"
               >
                 <FileSpreadsheet className="h-4 w-4" />
@@ -1450,7 +1546,7 @@ fechasOrdenadas.forEach((fecha) => {
 
               <button
                 onClick={handleExportPDF}
-                disabled={!reporteActual || loading}
+                disabled={!reporteActual || loading || !canExport()}
                 className="flex items-center gap-2 px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors shadow-sm font-medium"
               >
                 <FileDown className="h-4 w-4" />

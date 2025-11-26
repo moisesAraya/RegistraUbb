@@ -10,7 +10,7 @@ interface ReportePersonal {
   resumen_basico: {
     horasTotales: number;
     diasTrabajados: number;
-    faltas: number;
+    ausencias: number;
     promedioHorasDia: number;
   };
   asistencias_detalle: any[];
@@ -54,7 +54,7 @@ interface ReporteComparativo {
     nombre_semana: string;
     horas_totales: number;
     dias_trabajados: number;
-    faltas: number;
+    ausencias: number;
     justificaciones: number;
     porcentaje_asistencia: number;
   }>;
@@ -132,6 +132,34 @@ export const useReportes = () => {
         setReporteActual(data.data);
         return data.data;
       } else {
+        // Si el backend indica que no hay horas/marcajes para el periodo,
+        // tratamos eso como un reporte vacío en vez de propagar un error
+        const msg = (data.error || '').toString().toLowerCase();
+        if (msg.includes('no presenta') || msg.includes('no hay marcajes') || msg.includes('no hay datos') || msg.includes('sin registros')) {
+          const emptyReport: any = {
+            periodo: {
+              mes: mes || null,
+              anio: anio || null,
+              nombre_mes: mes ? new Date((anio || new Date().getFullYear()), (mes - 1) || 0).toLocaleDateString('es-CL', { month: 'long' }) : 'Sin período'
+            },
+            resumen_basico: {
+              horasTotales: 0,
+              diasTrabajados: 0,
+              ausencias: 0,
+              promedioHorasDia: 0,
+            },
+            asistencias_detalle: [],
+            justificaciones: [],
+            metricas_avanzadas: {},
+            graficos_data: { horas_por_fecha: [], horas_por_dia_semana: [] },
+            tendencias: { tendencia: 'insuficientes_datos', promedio_inicial: 0, promedio_final: 0, cambio_porcentual: 0 },
+            generated_at: new Date().toISOString(),
+          };
+
+          setReporteActual(emptyReport);
+          return emptyReport;
+        }
+
         throw new Error(data.error || 'Error obteniendo reporte semanal');
       }
     } catch (err) {

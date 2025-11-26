@@ -40,7 +40,7 @@ const AttendanceList: React.FC = () => {
         return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'falta':
       case 'ausente':
-      case 'no_justificada':
+      case 'injustificada':
         return <XCircle className="h-5 w-5 text-red-500" />;
       case 'justificada':
         return <Shield className="h-5 w-5 text-green-500" />;

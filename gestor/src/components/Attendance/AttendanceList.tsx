@@ -128,7 +128,7 @@ const AttendanceList: React.FC = () => {
 
   const rawJustificaciones: any[] =
     (asistenciaData as any)?.justificaciones ||
-    (asistenciaData as any)?.faltas ||
+    (asistenciaData as any)?.ausencias ||
     [];
 
   const registrosJustificados = rawJustificaciones.map((j: any) => {
