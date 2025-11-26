@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, LogOut, Bell, Menu, X, ChevronDown, HelpCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { UserAvatar } from '../Common/UserAvatar';
+import useNotifications from '../../hooks/useNotifications';
 
 // ✅ Interfaz correcta del Usuario
 interface UserType {
@@ -33,31 +34,13 @@ const LOGO_BUCKET = 'registraubb';
 
 const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggleSidebar }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
+  // usamos hook centralizado de notificaciones
+  const { notifications: notificaciones, unreadCount, markAsRead, refresh } = useNotifications();
   const [showNotificaciones, setShowNotificaciones] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [fotoPerfilUrl, setFotoPerfilUrl] = useState<string | null>(null);
 
-  // Obtener notificaciones reales del backend
-  useEffect(() => {
-    const fetchNotificaciones = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/notificaciones`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          setNotificaciones(json.data);
-        } else {
-          setNotificaciones([]);
-        }
-      } catch {
-        setNotificaciones([]);
-      }
-    };
-    fetchNotificaciones();
-  }, []);
+  // Si quieres refrescar manualmente: refresh()
 
   // Obtener logo desde MinIO (presigned URL)
   useEffect(() => {
@@ -146,7 +129,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
   };
 
   const nombreCompleto = `${user.nombres || ''} ${user.apellidos || ''}`.trim();
-  const unreadCount = notificaciones.filter(n => !n.leida).length;
 
   return (
     <header className="bg-white border-b border-slate-200 shadow-sm relative z-30">
@@ -186,7 +168,17 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
             <div className="relative">
               <button
                 className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-200 relative"
-                onClick={() => setShowNotificaciones(!showNotificaciones)}
+                onClick={() => {
+                  // al hacer click en la campana marcamos una notificación como leída (si existe)
+                  if (unreadCount > 0) {
+                    const firstUnread = notificaciones.find((n: any) => !(n.read ?? n.leida));
+                    if (firstUnread) {
+                      // usar id tal cual venga
+                      markAsRead(firstUnread.id ?? firstUnread.id_notificacion ?? firstUnread.idNotificacion);
+                    }
+                  }
+                  setShowNotificaciones(!showNotificaciones);
+                }}
               >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
@@ -201,21 +193,21 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
                   <div className="px-4 py-2 border-b border-slate-100 font-semibold text-slate-900">
                     Notificaciones
                   </div>
-                  {notificaciones.length === 0 && (
+                  {(!notificaciones || notificaciones.length === 0) && (
                     <div className="px-4 py-4 text-slate-500 text-sm">
                       No tienes notificaciones.
                     </div>
                   )}
-                  {notificaciones.map((n) => (
+                  {notificaciones && notificaciones.map((n: any) => (
                     <div
                       key={n.id}
                       className={`px-4 py-2 text-sm border-b last:border-b-0 ${
-                        n.leida ? 'bg-white' : 'bg-blue-50'
+                        (n.read ?? n.leida) ? 'bg-white' : 'bg-blue-50'
                       }`}
                     >
-                      <div className="font-medium">{n.mensaje}</div>
+                      <div className="font-medium">{n.message || n.mensaje || n.title}</div>
                       <div className="text-xs text-slate-400">
-                        {new Date(n.fecha).toLocaleString()}
+                        {new Date(n.createdAt || n.fecha).toLocaleString()}
                       </div>
                     </div>
                   ))}

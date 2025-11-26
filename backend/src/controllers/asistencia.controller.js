@@ -296,6 +296,16 @@ export async function createManualEntryController(req, res) {
       });
     }
 
+    // ❌ Validación: no se permiten marcajes en el futuro
+    const nowMs = Date.now();
+    if (timestamp.getTime() > nowMs) {
+      console.log("❌ [MANUAL-ENTRY] Intento de marcaje en el futuro detected", { fecha: date, hora: checkInTime });
+      return res.status(400).json({
+        success: false,
+        error: "No se permite registrar marcajes en fechas/hora futuras"
+      });
+    }
+
     const observacion = notes || null;
 
     // 🏷️ Tótem virtual para registros manuales

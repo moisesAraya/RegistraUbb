@@ -428,10 +428,27 @@ function WeeklyAttendanceWidget() {
     notes: string;
     campo: "entrada" | "salida";
   }>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // Auto-dismiss del mensaje de error de edición después de unos segundos
+  useEffect(() => {
+    if (!editError) return;
+    const timer = setTimeout(() => setEditError(null), 3000); // 5 segundos
+    return () => clearTimeout(timer);
+  }, [editError]);
+
 
   const [manualModal, setManualModal] = useState<{ date: string } | null>(
     null
   );
+  const [manualError, setManualError] = useState<string | null>(null);
+
+  // Auto-dismiss del mensaje de error de ingreso manual
+  useEffect(() => {
+    if (!manualError) return;
+    const timer = setTimeout(() => setManualError(null), 5000);
+    return () => clearTimeout(timer);
+  }, [manualError]);
 
   // ---------- Cálculo semana ----------
   const getWeekRange = (date: Date) => {
@@ -640,7 +657,8 @@ function WeeklyAttendanceWidget() {
       return;
     }
 
-    await editarMarcaje({
+    setEditError(null);
+    const result = await editarMarcaje({
       id_marcaje: editing.id_marcaje,
       date: editing.date,
       time: editing.time,
@@ -648,6 +666,14 @@ function WeeklyAttendanceWidget() {
       campo: editing.campo,
     });
 
+    if (!result || !result.success) {
+      // Mostrar mensaje de error devuelto por el backend
+      setEditError(result?.message || 'Error editando marcaje');
+      return; // mantener modal abierto para que el usuario corrija
+    }
+
+    // Éxito
+    setEditError(null);
     setEditing(null);
   };
 
@@ -673,7 +699,8 @@ function WeeklyAttendanceWidget() {
       return;
     }
 
-    await registrarMarcajeManual({
+    setManualError(null);
+    const result = await registrarMarcajeManual({
       date,
       checkInTime,
       notes: (formData.get("notes") as string) || "",
@@ -682,6 +709,12 @@ function WeeklyAttendanceWidget() {
       id_totem: null,
     });
 
+    if (!result || !result.success) {
+      setManualError(result?.message || 'Error registrando marcaje');
+      return; // mantener modal abierto para corrección
+    }
+
+    setManualError(null);
     setManualModal(null);
   };
 
@@ -846,7 +879,7 @@ function WeeklyAttendanceWidget() {
                   if (evento.tipo === "justificacion") {
                     label = marcaje.justificacion?.es_justificada
                       ? "Justificada"
-                      : "No justificada";
+                      : "Injustificada";
                   } else {
                     label = formatTimeLabel(evento.displayTime);
                   }
@@ -919,6 +952,11 @@ function WeeklyAttendanceWidget() {
                 : "hora de salida"}
             </h3>
             <form onSubmit={handleEditSubmit} className="space-y-4">
+              {editError && (
+                <div className="mb-2 bg-red-50 border border-red-200 rounded-lg p-3">
+                  <div className="text-sm text-red-800">{editError}</div>
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Fecha
@@ -993,6 +1031,11 @@ function WeeklyAttendanceWidget() {
               Ingreso manual
             </h3>
             <form onSubmit={handleManualSubmit} className="space-y-4">
+              {manualError && (
+                <div className="mb-2 bg-red-50 border border-red-200 rounded-lg p-3">
+                  <div className="text-sm text-red-800">{manualError}</div>
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Fecha
