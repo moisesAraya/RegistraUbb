@@ -38,7 +38,15 @@ export async function getFotoPerfilUrl(req, res) {
         }
 
         // Generar URL presigned (válida por 24 horas)
-        const url = await minioClient.presignedGetObject(bucketName, objectName, 24 * 60 * 60);
+        let url = await minioClient.presignedGetObject(bucketName, objectName, 24 * 60 * 60);
+
+        // Reemplazar IP interna por dominio público si es necesario
+        const publicMinioUrl = process.env.MINIO_PUBLIC_URL || process.env.MINIO_ENDPOINT;
+        if (publicMinioUrl && url.includes('146.83.194.142')) {
+            // Reemplazar la IP interna por el dominio/URL público
+            url = url.replace(/https?:\/\/146\.83\.194\.142:?\d*/, publicMinioUrl);
+            console.log('🔄 [MINIO-CTRL] URL reemplazada con dominio público');
+        }
 
         console.log('✅ [MINIO-CTRL] URL generada para:', objectName);
 
@@ -86,7 +94,15 @@ export async function getLogoUrl(req, res) {
         }
 
         // Generar URL presigned (válida por 24 horas)
-        const url = await minioClient.presignedGetObject(bucket, filename, 24 * 60 * 60);
+        let url = await minioClient.presignedGetObject(bucket, filename, 24 * 60 * 60);
+
+        // Reemplazar IP interna por dominio público si es necesario
+        const publicMinioUrl = process.env.MINIO_PUBLIC_URL || process.env.MINIO_ENDPOINT;
+        if (publicMinioUrl && url.includes('146.83.194.142')) {
+            // Reemplazar la IP interna por el dominio/URL público
+            url = url.replace(/https?:\/\/146\.83\.194\.142:?\d*/, publicMinioUrl);
+            console.log('🔄 [MINIO-CTRL] URL del logo reemplazada con dominio público');
+        }
 
         console.log('✅ [MINIO-CTRL] URL del logo generada');
 
