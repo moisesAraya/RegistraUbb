@@ -2,10 +2,10 @@ import React, { useState } from "react";
 import { useAuth } from "../Context/AuthContext";
 
 const SUPPORT_EMAIL = import.meta.env.VITE_SUPPORT_EMAIL || "soporte@ubiobio.cl";
-const REPO_URL = import.meta.env.VITE_REPO_URL || "https://github.com/tu-org/tu-repo";
+const REPO_URL = import.meta.env.VITE_REPO_URL || "https://github.com/moisesAraya/RegistraUbb";
 
 const faqs = [
-  { q: "¿Qué es RegistraUBB?", a: "RegistraUBB centraliza marcajes, justificaciones y la gestión de usuarios para la comunidad UBB." },
+  { q: "¿Qué es RegistraUBB?", a: "RegistraUBB centraliza marcajes, justificaciones y la gestión de usuarios para los académicos del departamento de Sistemas de información de la universidad del Bío-Bío." },
   { q: "¿Cómo reporto un error?", a: "Pulsa 'Reportar incidencia' para abrir tu cliente de correo con asunto prellenado." },
   { q: "¿Cómo cambio mi foto de perfil?", a: "En tu perfil pulsa el icono de cámara y sube la foto. Si falla, contacta soporte." },
   { q: "¿Dónde veo las notificaciones?", a: "La campana en el header muestra notificaciones reales. Pulsa una notificación para ir al recurso relacionado." }
@@ -108,7 +108,6 @@ const HelpPage: React.FC = () => {
         <h2 className="text-lg font-medium text-slate-800 mb-2">Ayuda rápida</h2>
         <ul className="list-disc ml-5 text-sm text-slate-600 space-y-1">
           <li>Problemas con la foto: revisa permisos del navegador y vuelve a subir.</li>
-          <li>Notificaciones: si una notificación no abre, copia el id y contacta soporte.</li>
           <li>Permisos y accesos: solicita al administrador del sistema.</li>
         </ul>
       </section>

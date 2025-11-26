@@ -3,14 +3,27 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar as CalendarIcon,
-  Clock,
   CheckCircle,
   AlertTriangle,
   XCircle,
-  BarChart3,
   Shield
 } from 'lucide-react';
 import { useAsistenciaContext } from '../../context/AsistenciaContext';
+
+interface PermisoAdministrativo {
+  horas: number;
+  tipo: 'media' | 'completo';
+  descripcion?: string;
+}
+
+interface Justificacion {
+  motivo: string;
+  descripcion: string;
+  es_justificada: boolean;
+  horas_compensadas: number;
+  jornada?: string;
+  tipo?: string;
+}
 
 interface DayData {
   date: Date;
@@ -25,12 +38,8 @@ interface DayData {
     horasTrabajadas: number;
     estado: string;
     observacion?: string;
-    justificacion?: {
-      motivo: string;
-      descripcion: string;
-      es_justificada: boolean;
-      horas_compensadas: number;
-    };
+    justificacion?: Justificacion;
+    permisoAdministrativo?: PermisoAdministrativo;
   };
 }
 
@@ -62,11 +71,36 @@ const AttendanceCalendar: React.FC = () => {
     return null;
   };
 
+  // Detectar permiso administrativo desde la justificación
+  const buildPermisoAdministrativo = (
+    justificacion?: Justificacion
+  ): PermisoAdministrativo | undefined => {
+    if (!justificacion) return undefined;
+
+    const motivo = (justificacion.motivo || '').toLowerCase();
+    const horas = justificacion.horas_compensadas ?? 0;
+
+    if (!justificacion.es_justificada) return undefined;
+
+    const esPermiso =
+      motivo.includes('permiso') || motivo.includes('administrativo');
+
+    if (!esPermiso || horas <= 0) return undefined;
+
+    const tipo: 'media' | 'completo' = horas >= 7 ? 'completo' : 'media';
+
+    return {
+      horas,
+      tipo,
+      descripcion: justificacion.descripcion || ''
+    };
+  };
+
   const getStatusFromHours = (
     hours: number,
-    justificacion?: any
+    justificacion?: Justificacion
   ): 'success' | 'warning' | 'error' | 'justified' | 'unjustified' | 'none' => {
-    // ✅ Prioridad absoluta a justificaciones
+    // Prioridad a justificaciones
     if (justificacion) {
       return justificacion.es_justificada ? 'justified' : 'unjustified';
     }
@@ -106,7 +140,7 @@ const AttendanceCalendar: React.FC = () => {
   const getStatusShape = (
     status: 'success' | 'warning' | 'error' | 'justified' | 'unjustified' | 'none'
   ) => {
-    // ✅ Triángulos para justificaciones, círculos para asistencias normales
+    // Triángulos para justificaciones, círculos para asistencias normales
     if (status === 'justified' || status === 'unjustified') {
       return 'triangle';
     }
@@ -124,7 +158,7 @@ const AttendanceCalendar: React.FC = () => {
   // Mapa por fecha YYYY-MM-DD
   const registrosPorFecha: Record<string, any> = {};
 
-  // 1) Asistencias normales - AGREGAR horas para el mismo día
+  // 1) Asistencias normales - agregar horas para el mismo día
   rawAsistencias.forEach(a => {
     const fecha = normalizeFecha(a.fecha);
     if (!fecha) return;
@@ -132,36 +166,43 @@ const AttendanceCalendar: React.FC = () => {
     const existente = registrosPorFecha[fecha];
     const horasActuales = a.horasTrabajadas ?? a.horas_diarias ?? 0;
 
+    const permisoDesdeAsistencia = buildPermisoAdministrativo(a.justificacion);
+
     if (existente) {
-      // Ya existe un registro para esta fecha, sumar las horas
       registrosPorFecha[fecha] = {
         ...existente,
         horasTrabajadas: (existente.horasTrabajadas || 0) + horasActuales,
-        // Mantener la hora de ingreso más temprana
-        horaIngreso: (!existente.horaIngreso || (a.horaIngreso && a.horaIngreso < existente.horaIngreso)) 
-          ? a.horaIngreso 
-          : existente.horaIngreso,
-        // Mantener la hora de salida más tardía
-        horaSalida: (!existente.horaSalida || (a.horaSalida && a.horaSalida > existente.horaSalida)) 
-          ? a.horaSalida 
-          : existente.horaSalida,
-        // Combinar observaciones si existen
-        observacion: [existente.observacion, a.observacion].filter(Boolean).join(' | ') || null,
+        horaIngreso:
+          !existente.horaIngreso ||
+          (a.horaIngreso && a.horaIngreso < existente.horaIngreso)
+            ? a.horaIngreso
+            : existente.horaIngreso,
+        horaSalida:
+          !existente.horaSalida ||
+          (a.horaSalida && a.horaSalida > existente.horaSalida)
+            ? a.horaSalida
+            : existente.horaSalida,
+        observacion: [existente.observacion, a.observacion]
+          .filter(Boolean)
+          .join(' | ') || null,
         estado: existente.estado || a.estado || 'presente',
+        justificacion: existente.justificacion || a.justificacion,
+        permisoAdministrativo:
+          existente.permisoAdministrativo || permisoDesdeAsistencia
       };
     } else {
-      // Primer registro para esta fecha
       registrosPorFecha[fecha] = {
         ...a,
         fecha,
         horasTrabajadas: horasActuales,
         estado: a.estado || 'presente',
-        justificacion: a.justificacion
+        justificacion: a.justificacion,
+        permisoAdministrativo: permisoDesdeAsistencia
       };
     }
   });
 
-  // 2) Justificaciones puras (sin asistencia)
+  // 2) Justificaciones puras (sin asistencia o complementarias)
   rawJustificaciones.forEach(j => {
     const fecha =
       normalizeFecha(j.fecha) ||
@@ -170,19 +211,25 @@ const AttendanceCalendar: React.FC = () => {
 
     const base = registrosPorFecha[fecha] || {};
 
+    const permisoDesdeJustificacion = buildPermisoAdministrativo(j);
+
     registrosPorFecha[fecha] = {
       ...base,
       fecha,
-      // si ya había horasTrabajadas, las mantenemos;
-      // si no, usamos horas_compensadas o 0
-      horasTrabajadas: base.horasTrabajadas ?? j.horas_compensadas ?? 0,
-      estado: j.es_justificada ? 'justificada' : 'injustificada',
-      justificacion: {
+      horasTrabajadas:
+        (base.horasTrabajadas ?? base.horas_diarias ?? 0) +
+        (j.horas_compensadas ?? 0),
+      estado: base.estado || (j.es_justificada ? 'justificada' : 'injustificada'),
+      justificacion: base.justificacion || {
         motivo: j.motivo,
         descripcion: j.descripcion,
         es_justificada: !!j.es_justificada,
-        horas_compensadas: j.horas_compensadas || 0
-      }
+        horas_compensadas: j.horas_compensadas || 0,
+        jornada: j.jornada,
+        tipo: j.tipo
+      },
+      permisoAdministrativo:
+        base.permisoAdministrativo || permisoDesdeJustificacion
     };
   });
 
@@ -223,8 +270,10 @@ const AttendanceCalendar: React.FC = () => {
 
       const attendance = registrosPorFecha[dateString];
 
-      const horas = attendance?.horasTrabajadas ?? attendance?.horas_diarias ?? 0;
-      const justificacion = attendance?.justificacion;
+      const horas =
+        attendance?.horasTrabajadas ?? attendance?.horas_diarias ?? 0;
+      const justificacion: Justificacion | undefined =
+        attendance?.justificacion;
 
       const status = isWeekend
         ? 'none'
@@ -244,7 +293,8 @@ const AttendanceCalendar: React.FC = () => {
               horasTrabajadas: horas,
               estado: attendance.estado || status,
               observacion: attendance.observacion,
-              justificacion
+              justificacion,
+              permisoAdministrativo: attendance.permisoAdministrativo
             }
           : undefined
       });
@@ -285,9 +335,27 @@ const AttendanceCalendar: React.FC = () => {
   };
 
   // ---------- FUNCIÓN PARA OBTENER MARCAJES INDIVIDUALES DEL DÍA ----------
+
   const getMarcajesDelDia = (fecha: string) => {
     return rawAsistencias.filter(a => normalizeFecha(a.fecha) === fecha);
   };
+
+  // Marcajes del día seleccionado (ya ordenados)
+  let marcajesDelDiaSeleccionado: any[] = [];
+  if (selectedDay) {
+    const fechaString = selectedDay.date.toISOString().split('T')[0];
+    marcajesDelDiaSeleccionado = getMarcajesDelDia(fechaString);
+
+    if (marcajesDelDiaSeleccionado.length === 2) {
+      const h1 = marcajesDelDiaSeleccionado[0].horaIngreso;
+      if (h1 && parseInt(h1.substring(0, 2)) >= 12) {
+        marcajesDelDiaSeleccionado = [
+          marcajesDelDiaSeleccionado[1],
+          marcajesDelDiaSeleccionado[0],
+        ];
+      }
+    }
+  }
 
   // ---------- RENDER ----------
 
@@ -379,6 +447,23 @@ const AttendanceCalendar: React.FC = () => {
         <div className="grid grid-cols-7 gap-1">
           {calendarDays.map((dayData, index) => {
             const isSelected = selectedDay?.date.getTime() === dayData.date.getTime();
+
+            // Permiso administrativo
+            let showTriangle = false;
+            let showCircle = false;
+            let triangleColor = '#22c55e';
+            let circleColor = '#22c55e';
+
+            if (dayData.attendance?.permisoAdministrativo) {
+              if (dayData.attendance.permisoAdministrativo.tipo === 'media') {
+                showTriangle = true;
+                showCircle = true;
+              } else if (dayData.attendance.permisoAdministrativo.tipo === 'completo') {
+                showTriangle = true;
+                showCircle = false;
+              }
+            }
+
             const shape = getStatusShape(dayData.status);
 
             return (
@@ -387,7 +472,7 @@ const AttendanceCalendar: React.FC = () => {
                 onClick={() => dayData.isCurrentMonth ? setSelectedDay(dayData) : null}
                 disabled={!dayData.isCurrentMonth}
                 className={`
-                  relative aspect-square p-1 rounded-lg text-xs font-medium transition-all
+                  relative aspect-square p-1 rounded-lg text-xs font-medium transition-all border border-slate-200
                   ${!dayData.isCurrentMonth ? 'text-slate-300 cursor-not-allowed' : ''}
                   ${dayData.isToday ? 'ring-2 ring-blue-500' : ''}
                   ${isSelected ? 'bg-blue-50 shadow-md scale-105' : 'hover:bg-slate-50'}
@@ -404,28 +489,49 @@ const AttendanceCalendar: React.FC = () => {
                     {dayData.date.getDate()}
                   </span>
 
-                  {dayData.isCurrentMonth && dayData.status !== 'none' && (
+                  {/* Permiso administrativo media jornada: triángulo y círculo verde */}
+                  {dayData.isCurrentMonth && showTriangle && showCircle ? (
+                    <>
+                      <div
+                        className="w-0 h-0 mt-1"
+                        style={{
+                          borderLeft: '8px solid transparent',
+                          borderRight: '8px solid transparent',
+                          borderBottom: `12px solid ${triangleColor}`
+                        }}
+                      ></div>
+                      <div
+                        className="w-4 h-4 rounded-full mt-1"
+                        style={{ background: circleColor }}
+                      ></div>
+                    </>
+                  ) : dayData.isCurrentMonth && showTriangle ? (
+                    <div
+                      className="w-0 h-0 mt-1"
+                      style={{
+                        borderLeft: '8px solid transparent',
+                        borderRight: '8px solid transparent',
+                        borderBottom: `12px solid ${triangleColor}`
+                      }}
+                    ></div>
+                  ) : dayData.isCurrentMonth && dayData.status !== 'none' ? (
                     shape === 'triangle' ? (
                       <div
-                        className={`
-                          w-0 h-0 mt-0.5
-                          border-l-[4px] border-l-transparent
-                          border-r-[4px] border-r-transparent
-                          border-b-[6px]
-                          ${dayData.status === 'justified'
-                            ? 'border-b-green-500'
-                            : 'border-b-red-500'}
-                        `}
+                        className="w-0 h-0 mt-1"
+                        style={{
+                          borderLeft: '8px solid transparent',
+                          borderRight: '8px solid transparent',
+                          borderBottom: dayData.status === 'justified'
+                            ? '12px solid #22c55e'
+                            : '12px solid #ef4444'
+                        }}
                       ></div>
                     ) : (
                       <div
-                        className={`
-                          w-1.5 h-1.5 rounded-full mt-0.5
-                          ${getStatusColor(dayData.status)}
-                        `}
+                        className={`w-4 h-4 rounded-full mt-1 ${getStatusColor(dayData.status)}`}
                       ></div>
                     )
-                  )}
+                  ) : null}
                 </div>
               </button>
             );
@@ -436,7 +542,7 @@ const AttendanceCalendar: React.FC = () => {
       {/* Panel lateral */}
       <div className="space-y-4">
         {/* Detalles del día seleccionado */}
-        {selectedDay && selectedDay.attendance ? (
+        {selectedDay && selectedDay.attendance && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center space-x-2">
@@ -448,7 +554,7 @@ const AttendanceCalendar: React.FC = () => {
                       month: 'short'
                     })}
                   </h3>
-                  <p className="text-xs text-slate-600">Detalles</p>
+                  <p className="text-xs text-slate-600">Detalles del día</p>
                 </div>
               </div>
               <button
@@ -459,8 +565,56 @@ const AttendanceCalendar: React.FC = () => {
               </button>
             </div>
 
-            {/* Justificación si existe */}
-            {selectedDay.attendance.justificacion ? (
+            {/* Permiso administrativo media jornada + trabajo */}
+            {selectedDay.attendance.permisoAdministrativo &&
+              selectedDay.attendance.permisoAdministrativo.tipo === 'media' && (
+                <div className="mb-3 p-3 rounded-lg border-2 bg-green-50 border-green-300">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Shield className="w-4 h-4 text-green-600" />
+                    <span className="text-xs font-bold uppercase text-green-800">
+                      Permiso administrativo (media jornada)
+                    </span>
+                  </div>
+                  <p className="text-xs font-semibold text-green-700">
+                    Media jornada ({selectedDay.attendance.permisoAdministrativo.horas}h)
+                  </p>
+                  {selectedDay.attendance.permisoAdministrativo.descripcion && (
+                    <p className="text-xs mt-1 text-green-600">
+                      {selectedDay.attendance.permisoAdministrativo.descripcion}
+                    </p>
+                  )}
+                  {marcajesDelDiaSeleccionado.length > 0 && (
+                    <p className="text-xs mt-2 text-green-700 font-medium">
+                      El resto del día fue trabajado normalmente.
+                    </p>
+                  )}
+                </div>
+              )}
+
+            {/* Permiso administrativo jornada completa */}
+            {selectedDay.attendance.permisoAdministrativo &&
+              selectedDay.attendance.permisoAdministrativo.tipo === 'completo' && (
+                <div className="mb-3 p-3 rounded-lg border-2 bg-green-50 border-green-300">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Shield className="w-4 h-4 text-green-600" />
+                    <span className="text-xs font-bold uppercase text-green-800">
+                      Permiso administrativo
+                    </span>
+                  </div>
+                  <p className="text-xs font-semibold text-green-700">
+                    Jornada completa ({selectedDay.attendance.permisoAdministrativo.horas}h)
+                  </p>
+                  {selectedDay.attendance.permisoAdministrativo.descripcion && (
+                    <p className="text-xs mt-1 text-green-600">
+                      {selectedDay.attendance.permisoAdministrativo.descripcion}
+                    </p>
+                  )}
+                </div>
+              )}
+
+            {/* Justificación normal (solo cuando NO hay permiso administrativo) */}
+            {selectedDay.attendance.justificacion &&
+             !selectedDay.attendance.permisoAdministrativo && (
               <div
                 className={`mb-3 p-3 rounded-lg border-2 ${
                   selectedDay.attendance.justificacion.es_justificada
@@ -476,7 +630,7 @@ const AttendanceCalendar: React.FC = () => {
                         : 'text-red-600'
                     }`}
                   />
-                <span
+                  <span
                     className={`text-xs font-bold uppercase ${
                       selectedDay.attendance.justificacion.es_justificada
                         ? 'text-green-800'
@@ -509,183 +663,120 @@ const AttendanceCalendar: React.FC = () => {
                     {selectedDay.attendance.justificacion.descripcion}
                   </p>
                 )}
-                {selectedDay.attendance.justificacion.es_justificada && (
-                  <p className="text-xs text-green-600 mt-2 font-medium">
-                    ✓ Compensadas: {selectedDay.attendance.justificacion.horas_compensadas}h
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="bg-slate-50 rounded-lg p-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-slate-600">Ingreso</span>
-                    <span className="text-sm font-bold text-slate-900">
-                      {selectedDay.attendance.horaIngreso?.substring(0, 5) || '-'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 rounded-lg p-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-slate-600">Salida</span>
-                    <span className="text-sm font-bold text-slate-900">
-                      {selectedDay.attendance.horaSalida?.substring(0, 5) || '-'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 rounded-lg p-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-slate-600">Total</span>
-                    <span
-                      className={`text-sm font-bold ${
-                        selectedDay.hours >= 7
-                          ? 'text-green-600'
-                          : selectedDay.hours >= 4
-                          ? 'text-yellow-600'
-                          : 'text-red-600'
-                      }`}
-                    >
-                      {selectedDay.hours}h
-                    </span>
-                  </div>
-                </div>
-
-                {/* Marcajes individuales del día */}
-                {(() => {
-                  const fechaString = selectedDay.date.toISOString().split('T')[0];
-                  const marcajesDelDia = getMarcajesDelDia(fechaString);
-                  
-                  if (marcajesDelDia.length > 1) {
-                    return (
-                      <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p className="text-xs font-medium text-blue-900 mb-2">
-                          Marcajes Individuales ({marcajesDelDia.length}):
-                        </p>
-                        <div className="space-y-2">
-                          {marcajesDelDia.map((marcaje, index) => (
-                            <div key={index} className="bg-white rounded-md p-2 border border-blue-100">
-                              <div className="flex justify-between items-center text-xs">
-                                <span className="text-blue-700 font-medium">Marcaje {index + 1}</span>
-                                <span className="text-blue-600 font-bold">
-                                  {marcaje.horasTrabajadas?.toFixed(2) || '0.00'}h
-                                </span>
-                              </div>
-                              <div className="flex justify-between text-xs text-blue-600 mt-1">
-                                <span>{marcaje.horaIngreso?.substring(0, 5) || '-'}</span>
-                                <span>→</span>
-                                <span>{marcaje.horaSalida?.substring(0, 5) || '-'}</span>
-                              </div>
-                              {marcaje.observacion && (
-                                <p className="text-xs text-blue-500 mt-1 italic">
-                                  {marcaje.observacion}
-                                </p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
               </div>
             )}
 
+            {/* Info básica y resumen de horas */}
+            <div className="space-y-2">
+              <div className="bg-slate-50 rounded-lg p-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-600">Ingreso</span>
+                  <span className="text-sm font-bold text-slate-900">
+                    {selectedDay.attendance.horaIngreso?.substring(0, 5) || '-'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 rounded-lg p-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-600">Salida</span>
+                  <span className="text-sm font-bold text-slate-900">
+                    {selectedDay.attendance.horaSalida?.substring(0, 5) || '-'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 rounded-lg p-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-600">Total</span>
+                  <span
+                    className={`text-sm font-bold ${
+                      selectedDay.hours >= 7
+                        ? 'text-green-600'
+                        : selectedDay.hours >= 4
+                        ? 'text-yellow-600'
+                        : 'text-red-600'
+                    }`}
+                  >
+                    {selectedDay.hours}h
+                  </span>
+                </div>
+              </div>
+
+              {/* Marcajes individuales del día */}
+              {marcajesDelDiaSeleccionado.length > 0 && (
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs font-medium text-blue-900 mb-2">
+                    Marcajes Individuales ({marcajesDelDiaSeleccionado.length}):
+                  </p>
+                  <div className="space-y-2">
+                    {marcajesDelDiaSeleccionado.map((marcaje, index) => (
+                      <div
+                        key={index}
+                        className="bg-white rounded-md p-2 border border-blue-100"
+                      >
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-blue-700 font-medium">
+                            Marcaje {index + 1}
+                          </span>
+                          <span className="text-blue-600 font-bold">
+                            {marcaje.horasTrabajadas
+                              ? marcaje.horasTrabajadas.toFixed(2)
+                              : '0.00'}
+                            h
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs text-blue-600 mt-1">
+                          <span>{marcaje.horaIngreso?.substring(0, 5) || '-'}</span>
+                          <span>→</span>
+                          <span>{marcaje.horaSalida?.substring(0, 5) || '-'}</span>
+                        </div>
+
+                        {/* Observación normal */}
+                        {marcaje.observacion && (
+                          <p className="text-xs text-blue-500 mt-1 italic">
+                            {marcaje.observacion}
+                          </p>
+                        )}
+
+                        {/* Detalle de justificación ligada a este marcaje */}
+                        {marcaje.justificacion && (
+                          <p
+                            className={`text-xs mt-1 ${
+                              marcaje.justificacion.es_justificada
+                                ? 'text-green-600'
+                                : 'text-red-600'
+                            }`}
+                          >
+                            {marcaje.justificacion.es_justificada
+                              ? 'Ausencia justificada'
+                              : 'Ausencia injustificada'}
+                            {' · '}
+                            {marcaje.justificacion.motivo}
+                            {marcaje.justificacion.horas_compensadas
+                              ? ` (${marcaje.justificacion.horas_compensadas}h)`
+                              : ''}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Observación general del día */}
             {selectedDay.attendance.observacion && (
               <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-xs font-medium text-blue-900 mb-1">Observación:</p>
-                <p className="text-xs text-blue-800">{selectedDay.attendance.observacion}</p>
+                <p className="text-xs text-blue-800">
+                  {selectedDay.attendance.observacion}
+                </p>
               </div>
             )}
           </div>
-        ) : (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <div className="text-center text-slate-400 py-6">
-              <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-xs">Selecciona un día para ver detalles</p>
-            </div>
-          </div>
         )}
 
-        {/* Resumen del mes */}
-        {asistenciaData?.resumen && (
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-sm border border-blue-200 p-4">
-            <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center">
-              <BarChart3 className="w-4 h-4 mr-2 text-blue-600" />
-              Resumen del Mes
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-white rounded-lg p-2 text-center">
-                <p className="text-xl font-bold text-blue-600">
-                  {asistenciaData.resumen.diasTrabajados}
-                </p>
-                <p className="text-xs text-slate-600">Días</p>
-              </div>
-              <div className="bg-white rounded-lg p-2 text-center">
-                <p className="text-xl font-bold text-green-600">
-                  {asistenciaData.resumen.horasTotales}h
-                </p>
-                <p className="text-xs text-slate-600">Horas</p>
-              </div>
-              <div className="bg-white rounded-lg p-2 text-center">
-                <p className="text-xl font-bold text-purple-600">
-                  {asistenciaData.resumen.horasPromedio}h
-                </p>
-                <p className="text-xs text-slate-600">Promedio</p>
-              </div>
-              <div className="bg-white rounded-lg p-2 text-center">
-                <p className="text-xl font-bold text-red-600">
-                  {asistenciaData.resumen.ausencias}
-                </p>
-                <p className="text-xs text-slate-600">ausencias</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Estadísticas adicionales */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-          <h3 className="text-sm font-bold text-slate-900 mb-3">Estado Actual</h3>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-600">Cumplimiento</span>
-              <span className="font-bold text-slate-900">
-                {asistenciaData?.resumen
-                  ? Math.round(
-                      (asistenciaData.resumen.diasTrabajados /
-                        new Date(
-                          currentDate.getFullYear(),
-                          currentDate.getMonth() + 1,
-                          0
-                        ).getDate()) * 100
-                    )
-                  : 0}
-                %
-              </span>
-            </div>
-            <div className="w-full bg-slate-200 rounded-full h-2">
-              <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{
-                  width: `${
-                    asistenciaData?.resumen
-                      ? Math.round(
-                          (asistenciaData.resumen.diasTrabajados /
-                            new Date(
-                              currentDate.getFullYear(),
-                              currentDate.getMonth() + 1,
-                              0
-                            ).getDate()) * 100
-                        )
-                      : 0
-                  }%`
-                }}
-              ></div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
