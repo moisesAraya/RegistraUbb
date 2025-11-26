@@ -1,18 +1,5 @@
 """
 URL configuration for mysite project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
 from django.urls import path
@@ -29,7 +16,6 @@ from modlector import views
 @require_http_methods(["GET", "HEAD"])
 def favicon_view(request):
     """Vista para manejar favicon.ico sin autenticación"""
-    # Retornar un favicon transparente simple
     return HttpResponse(
         b'\x00\x00\x01\x00\x01\x00\x10\x10\x00\x00\x01\x00\x08\x00h\x05\x00\x00\x16\x00\x00\x00(\x00\x00\x00\x10\x00\x00\x00 \x00\x00\x00\x01\x00\x08\x00\x00\x00\x00\x00@\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00',
         content_type='image/vnd.microsoft.icon'
@@ -39,12 +25,17 @@ urlpatterns = [
     path('favicon.ico', favicon_view),
     path('admin/', admin.site.urls),
 
-    # 👇 Ajustamos estas tres
+    # VISTAS DE CONFIGURACIÓN
     path('configuracion/', views.configuracion_totem_view, name='configuracion_totem'),
+    # Nota: guardar_totem suele llamarse desde la pagina de configuracion, así que el prefijo está bien
     path('configuracion/guardar_totem/', views.guardar_totem, name='guardar_totem'),
-    path('configuracion/reconfigurar_totem/', views.reconfigurar_totem, name='reconfigurar_totem'),
+    
+    # CORRECCIÓN AQUÍ: 
+    # Quitamos 'configuracion/' del inicio para que coincida con el fetch('reconfigurar_totem/') 
+    # que haces desde la página principal.
+    path('reconfigurar_totem/', views.reconfigurar_totem, name='reconfigurar_totem'),
 
-    # Lo demás se queda igual que antes
+    # VISTAS PRINCIPALES (LECTOR)
     path('', views.lector_qr_view, name='lector_qr'),
     path('procesar_qr/', views.procesar_qr, name='procesar_qr'),
     path('verificar_pin/', views.verificar_pin, name='verificar_pin'),
