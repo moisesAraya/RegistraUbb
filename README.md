@@ -2,7 +2,6 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>RegistraUBB – Sistema de Registro y Gestión de Asistencia</title>
 </head>
 <body>
 
