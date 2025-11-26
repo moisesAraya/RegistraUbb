@@ -136,11 +136,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         id: 'reports',
         label: 'Reportes',
         icon: <BarChart3 className="h-5 w-5" />
-      },
-      {
-        id: 'settings',
-        label: 'Configuración',
-        icon: <Settings className="h-5 w-5" />
       }
     ],
     academic: [
@@ -285,6 +280,14 @@ const Sidebar: React.FC<SidebarProps> = ({
     const h = Number(r.horasTrabajadas ?? r.horas_diarias ?? 0);
     return sum + (isNaN(h) ? 0 : h);
   }, 0);
+
+  // Helper para mostrar horas en formato HH:MM
+  function formatHorasMinutos(horas) {
+    const totalMinutos = Math.round((Number(horas) || 0) * 60);
+    const h = Math.floor(totalMinutos / 60);
+    const m = totalMinutos % 60;
+    return `${h}:${m.toString().padStart(2, '0')}`;
+  }
 
   const weeklyAttendanceRate =
     weekHours > 0 ? Math.round((weekHours / 44) * 100) : 0;
@@ -431,25 +434,25 @@ const Sidebar: React.FC<SidebarProps> = ({
         {/* ✅ FOOTER CON DATOS REALES DEL MISMO ORIGEN QUE EL DASHBOARD */}
         <div className="px-4 py-4 border-t border-slate-200 bg-slate-50 flex-shrink-0">
           <div className="grid grid-cols-2 gap-3 text-center">
-            <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-200">
-              <div className="text-lg font-bold text-blue-600">
-                {Math.round(weeklyAttendanceRate)}%
+            {user.id_rol !== 1 && (
+              <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-200">
+                <div className="text-lg font-bold text-blue-600">
+                  {Math.round(weeklyAttendanceRate)}%
+                </div>
+                <div className="text-xs text-slate-500">Asistencia semanal</div>
               </div>
-              <div className="text-xs text-slate-500">Asistencia semanal</div>
-            </div>
-            <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-200">
-              <div className="text-lg font-bold text-green-600">
-                {Math.round(weekHours * 10) / 10}h
+            )}
+            {user.id_rol !== 1 && (
+              <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-200">
+                <div className="text-lg font-bold text-green-600">
+                  {formatHorasMinutos(weekHours)}h
+                </div>
+                <div className="text-xs text-slate-500">Esta semana</div>
               </div>
-              <div className="text-xs text-slate-500">Esta semana</div>
-            </div>
+            )}
           </div>
 
-          {/* Status indicator */}
-          <div className="flex items-center justify-center mt-3 space-x-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-xs text-slate-500">Sistema activo</span>
-          </div>
+          {/* Status indicator removido para todos */}
         </div>
       </aside>
     </>

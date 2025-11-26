@@ -65,14 +65,14 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user }) => {
       background: '#EFF6FF'
     },
     modern: {
-      name: 'Moderno',
+      name: 'Escala de grises',
       primary: '#0F172A',
       secondary: '#334155',
       accent: '#64748B',
       background: '#F1F5F9'
     },
     green: {
-      name: 'Verde Institucional',
+      name: 'Verde',
       primary: '#059669',
       secondary: '#10B981',
       accent: '#047857',
@@ -86,14 +86,14 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user }) => {
       background: '#F3E8FF'
     },
     red: {
-      name: 'Rojo Académico',
+      name: 'Rojo',
       primary: '#DC2626',
       secondary: '#EF4444',
       accent: '#B91C1C',
       background: '#FEF2F2'
     },
     orange: {
-      name: 'Naranja Energético',
+      name: 'Naranja',
       primary: '#EA580C',
       secondary: '#F97316',
       accent: '#C2410C',
@@ -682,21 +682,6 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
               >
                 Intentar nuevamente
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ✅ Información del QR activo */}
-      {realQRData && (
-        <div className="mb-6 bg-green-50 border border-green-200 rounded-xl p-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <div>
-              <p className="text-sm font-medium text-green-900">QR activo detectado</p>
-              <p className="text-xs text-green-700">
-                Usando código QR real desde la base de datos (Hash: {realQRData.substring(0, 16)}...)
-              </p>
             </div>
           </div>
         </div>

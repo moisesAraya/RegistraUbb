@@ -218,14 +218,22 @@ const PersonalDashboard: React.FC = () => {
   const estimatedDaysToComplete =
     hoursRemaining > 0 ? Math.ceil(hoursRemaining / 8) : 0;
 
+  // Helper para mostrar horas en formato HH:MM
+  function formatHorasMinutos(horas) {
+    const totalMinutos = Math.round((Number(horas) || 0) * 60);
+    const h = Math.floor(totalMinutos / 60);
+    const m = totalMinutos % 60;
+    return `${h}:${m.toString().padStart(2, '0')}`;
+  }
+
   const weeklyProgress = hasWeeklyProgress
     ? {
-        hours_this_week: Math.round(hoursThisWeek * 100) / 100,
-        target_weekly_hours: targetHours,
-        hours_remaining: Math.round(hoursRemaining * 100) / 100,
+        hours_this_week: formatHorasMinutos(hoursThisWeek),
+        target_weekly_hours: formatHorasMinutos(targetHours),
+        hours_remaining: formatHorasMinutos(hoursRemaining),
         progress_percentage: progressPercentage,
         days_worked_this_week: daysWorkedThisWeek,
-        avg_daily_hours: avgDailyHours,
+        avg_daily_hours: formatHorasMinutos(avgDailyHours),
         days_to_complete: estimatedDaysToComplete,
         status:
           progressPercentage >= 100
@@ -235,7 +243,7 @@ const PersonalDashboard: React.FC = () => {
             : progressPercentage >= 50
             ? 'behind'
             : 'behind',
-        week_days: weekDays,
+        week_days: weekDays.map(d => ({ ...d, hours: formatHorasMinutos(d.hours) })),
       }
     : null;
 
@@ -272,7 +280,7 @@ const PersonalDashboard: React.FC = () => {
 
       trends.push({
         semana: `Semana ${4 - i}`,
-        horas: Math.round(horasSemana * 100) / 100,
+        horas: formatHorasMinutos(horasSemana),
       });
     }
 
@@ -493,7 +501,7 @@ const PersonalDashboard: React.FC = () => {
                     </span>
 
                     <span className="text-[12px] text-slate-700 font-semibold">
-                      {hours}h
+                      {formatHorasMinutos(hours)}h
                     </span>
                   </div>
                 );

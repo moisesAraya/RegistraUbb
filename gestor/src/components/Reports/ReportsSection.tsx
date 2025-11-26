@@ -35,6 +35,12 @@ interface AdminInfo {
 }
 
 // ==================== HELPERS GENERALES ====================
+// Convierte horas decimales a formato HH:MM
+function formatHorasMinutos(horas: number): string {
+  const h = Math.floor(horas);
+  const m = Math.round((horas - h) * 60);
+  return `${h}:${m.toString().padStart(2, "0")}`;
+}
 
 // 🔹 Helper: diferencia en minutos entre dos horas ("HH:MM[:SS]" o ISO)
 const diffMinutes = (start: string | null, end: string | null) => {
@@ -96,20 +102,6 @@ const formatMotivo = (motivo?: string) => {
   return limpio.charAt(0).toUpperCase() + limpio.slice(1);
 };
 
-// 🔹 Aplica la regla de descuento de 30 minutos si corresponde (para GENERAL - solo si se necesitara en otro punto)
-const applyMarcajeDescuentoGeneral = (marcajes: any[]): number => {
-  if (marcajes.length === 2) {
-    const [m1, m2] = marcajes;
-    const hora1 = m1.horaIngreso || m1.horaSalida;
-    const hora2 = m2.horaIngreso || m2.horaSalida;
-    const diff = Math.abs(diffMinutes(hora1, hora2));
-    if (diff >= 360) {
-      const total = (m1.horasTrabajadas || 0) + (m2.horasTrabajadas || 0);
-      return Math.max(total - 0.5, 0);
-    }
-  }
-  return marcajes.reduce((sum, m) => sum + (m.horasTrabajadas || 0), 0);
-};
 
 // ================== HELPERS TIPO Weekly PARA PERSONAL ==================
 
@@ -359,7 +351,7 @@ const buildEventosFromMarcajes = (
 
 // 🔹 Calcula horas de trabajo reales (sin justificación) para un día
 const computeHorasTrabajo = (detalle: any): number => {
-  let horas = 0;
+  let minutos = 0;
   const marcajesRaw = Array.isArray(detalle.marcajes_raw)
     ? detalle.marcajes_raw
     : [];
@@ -367,50 +359,51 @@ const computeHorasTrabajo = (detalle: any): number => {
   if (marcajesRaw.length > 0) {
     marcajesRaw.forEach((m: any) => {
       const mins = diffMinutes(m.hora_entrada, m.hora_salida);
-      if (mins > 0) horas += mins / 60;
+      if (mins > 0) minutos += mins;
     });
 
-    // Si hay SOLO un marcaje continuo y son ≥ 6h → restar 0.5h de colación SOLO si no hay justificación
+    // Si hay SOLO un marcaje continuo y son ≥ 6h → restar 30 min de colación SOLO si no hay justificación
     if (
       marcajesRaw.length === 1 &&
-      horas >= 6 &&
+      minutos >= 360 &&
       !(detalle.justificacion && detalle.justificacion.es_justificada)
     ) {
-      horas = Math.max(horas - 0.5, 0);
+      minutos = Math.max(minutos - 30, 0);
     }
   } else {
-    // Fallback: usar horas de mañana/tarde del detalle
-    const hManana = Number(detalle.manana?.horas || 0);
-    const hTarde = Number(detalle.tarde?.horas || 0);
-    horas = hManana + hTarde;
+    // Fallback: usar horas de mañana/tarde del detalle (ya vienen en horas)
+    let horas =
+      Number(detalle.manana?.horas || 0) +
+      Number(detalle.tarde?.horas || 0);
 
-    // Si sólo tiene mañana y jornada larga → restar 0.5h SOLO si no hay justificación
     if (!detalle.tarde || Number(detalle.tarde?.horas || 0) === 0) {
       if (
         horas >= 6 &&
         !(detalle.justificacion && detalle.justificacion.es_justificada)
-      )
+      ) {
         horas = Math.max(horas - 0.5, 0);
+      }
     }
+
+    minutos = horas * 60;
   }
 
-  return Math.round(horas * 100) / 100;
+  // devolvemos horas en decimal, pero SIN redondear todavía
+  return minutos / 60;
 };
 
-// 🔹 Calcula horas totales del día (trabajo + justificación)
+// 🔹 Calcula horas totales del día (trabajo + justificación) SIN redondear
 const computeHorasDiaFromDetalle = (detalle: any): number => {
   const horasTrabajo = computeHorasTrabajo(detalle);
   let horasJust = 0;
 
   if (detalle.justificacion && detalle.justificacion.es_justificada) {
-    horasJust =
-      Number(detalle.justificacion.horas_compensadas || 0) > 0
-        ? Number(detalle.justificacion.horas_compensadas || 0)
-        : 0;
+    const hJust = Number(detalle.justificacion.horas_compensadas || 0) || 0;
+    horasJust = hJust;
   }
 
   const total = horasTrabajo + horasJust;
-  return Math.round(total * 100) / 100;
+  return total;
 };
 
 // 🔹 formatea Date a "YYYY-MM-DD"
@@ -529,23 +522,18 @@ export default function ReportsSection() {
     useState<string>("todos");
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
 
-  // Disponibilidad de meses/años según estadísticas anuales
-  const [yearsAvailability, setYearsAvailability] = useState<
-    Record<number, boolean>
-  >({});
-  const [monthsAvailability, setMonthsAvailability] = useState<
-    Record<number, { mes: number; horas: number }[]>
-  >({});
-
-  // 🔹 Año y mes seleccionados (para usar con la disponibilidad)
-  const [anio, setAnio] = useState<number>(new Date().getFullYear());
-  const [mes, setMes] = useState<number>(new Date().getMonth() + 1);
+  // Eliminado: lógica de disponibilidad de años/meses por reportes anuales
 
   const [adminInfo, setAdminInfo] = useState<AdminInfo>(() => {
     if (user) {
       const cargoName =
-        user.cargo?.nombre_cargo ||
-        (user.id_rol === 1 ? "Administrador" : "Académico");
+        user.id_rol === 1
+          ? "Administrador"
+          : user.id_rol === 2
+          ? "Académico"
+          : user.id_rol === 3
+          ? "Jefe de Departamento"
+          : "Usuario";
       return {
         nombre: `${user.nombres} ${user.apellidos}`,
         rut: user.rut_usuario,
@@ -565,79 +553,9 @@ export default function ReportsSection() {
   }, [user]);
 
   // Obtener disponibilidad por año (solo para el usuario actual o cuando admin ve "todos")
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
+  // Eliminado: useEffect para consultar reportes anuales y disponibilidad de años/meses
 
-    // Años candidatos (últimos 5 años incluido actual)
-    const currentYear = new Date().getFullYear();
-    const candidateYears = Array.from({ length: 5 }, (_, i) => currentYear - i);
-
-    const canQueryForSelected =
-      !isAdmin ||
-      usuarioSeleccionado === "todos" ||
-      usuarioSeleccionado === user?.rut_usuario;
-
-    candidateYears.forEach(async (y) => {
-      try {
-        // Si es admin y está consultando otro usuario distinto al suyo, no intentamos bloquear opciones
-        if (!canQueryForSelected && isAdmin) {
-          setYearsAvailability((prev) => ({ ...prev, [y]: true }));
-          return;
-        }
-
-        const url = `${import.meta.env.VITE_API_URL}/reportes/anual?anio=${y}`;
-        const resp = await fetch(url, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!resp.ok) throw new Error(`Status ${resp.status}`);
-        const json = await resp.json();
-        if (json.success && json.data) {
-          const totalHoras = Number(json.data.totalHoras || 0);
-          setYearsAvailability((prev) => ({ ...prev, [y]: totalHoras > 0 }));
-          // Guardar meses con sus horas para usar en el select
-          const meses = Array.isArray(json.data.meses)
-            ? json.data.meses.map((m: any) => ({
-                mes: m.mes,
-                horas: Number(m.horas || 0),
-              }))
-            : [];
-          setMonthsAvailability((prev) => ({ ...prev, [y]: meses }));
-        } else {
-          setYearsAvailability((prev) => ({ ...prev, [y]: false }));
-          setMonthsAvailability((prev) => ({ ...prev, [y]: [] }));
-        }
-      } catch (err) {
-        // En errores, asumimos disponible para evitar bloquear al admin por fallos temporales
-        setYearsAvailability((prev) => ({ ...prev, [y]: true }));
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [usuarioSeleccionado, isAdmin, user?.rut_usuario]);
-
-  // Si el año seleccionado no tiene meses con horas, auto-seleccionar el primer año disponible
-  useEffect(() => {
-    if (!anio) return;
-    const available = yearsAvailability[anio];
-    if (available === false) {
-      const firstAvailableYear = Object.keys(yearsAvailability)
-        .map((k) => Number(k))
-        .find((y) => yearsAvailability[y]);
-      if (firstAvailableYear) setAnio(firstAvailableYear);
-    }
-  }, [yearsAvailability, anio]);
-
-  // Si el mes seleccionado está deshabilitado para el año actual, auto-seleccionar el primer mes con horas
-  useEffect(() => {
-    if (!anio) return;
-    const mesesForYear = monthsAvailability[anio] || [];
-    if (mesesForYear.length === 0) return;
-    const currentMesInfo = mesesForYear.find((mm) => mm.mes === mes);
-    if (currentMesInfo && currentMesInfo.horas <= 0) {
-      const primerDisponible = mesesForYear.find((mm) => mm.horas > 0);
-      if (primerDisponible) setMes(primerDisponible.mes);
-    }
-  }, [monthsAvailability, anio, mes]);
+  // Eliminado: lógica de auto-selección de año/mes por disponibilidad anual
 
   const fetchUsuarios = async () => {
     try {
@@ -651,9 +569,7 @@ export default function ReportsSection() {
         setUsuarios(lista);
 
         const director = lista.find(
-          (u) =>
-            u.cargo?.nombre_cargo &&
-            u.cargo.nombre_cargo.toLowerCase().includes("director")
+          (u) => u.id_rol === 3 || u.id_rol === 1
         );
 
         if (director) {
@@ -661,12 +577,21 @@ export default function ReportsSection() {
             nombre: `${director.nombres} ${director.apellidos}`,
             rut: director.rut_usuario,
             cargo:
-              director.cargo?.nombre_cargo || "Director de Departamento",
+              director.id_rol === 3
+                ? "Jefe de Departamento"
+                : director.id_rol === 1
+                ? "Administrador"
+                : "Usuario",
           });
         } else if (user) {
           const cargoName =
-            user.cargo?.nombre_cargo ||
-            (user.id_rol === 1 ? "Administrador" : "Académico");
+            user.id_rol === 1
+              ? "Administrador"
+              : user.id_rol === 2
+              ? "Académico"
+              : user.id_rol === 3
+              ? "Jefe de Departamento"
+              : "Usuario";
           setAdminInfo({
             nombre: `${user.nombres} ${user.apellidos}`,
             rut: user.rut_usuario,
@@ -696,66 +621,24 @@ export default function ReportsSection() {
 
         if (esAdminActual) {
           if (usuarioSeleccionado === "todos") {
-            obtenerReporteSemanal(
-              undefined,
-              undefined,
-              undefined,
-              true,
-              inicio,
-              fin
-            );
+            obtenerReporteSemanal(inicio, fin, undefined, true);
           } else {
-            obtenerReporteSemanal(
-              undefined,
-              undefined,
-              usuarioSeleccionado,
-              false,
-              inicio,
-              fin
-            );
+            obtenerReporteSemanal(inicio, fin, usuarioSeleccionado, false);
           }
         } else {
-          obtenerReporteSemanal(
-            undefined,
-            undefined,
-            undefined,
-            false,
-            inicio,
-            fin
-          );
+          obtenerReporteSemanal(inicio, fin);
         }
       } else {
         // rango libre
         if (fechaInicio && fechaFin) {
           if (esAdminActual) {
             if (usuarioSeleccionado === "todos") {
-              obtenerReporteSemanal(
-                undefined,
-                undefined,
-                undefined,
-                true,
-                fechaInicio,
-                fechaFin
-              );
+              obtenerReporteSemanal(fechaInicio, fechaFin, undefined, true);
             } else {
-              obtenerReporteSemanal(
-                undefined,
-                undefined,
-                usuarioSeleccionado,
-                false,
-                fechaInicio,
-                fechaFin
-              );
+              obtenerReporteSemanal(fechaInicio, fechaFin, usuarioSeleccionado, false);
             }
           } else {
-            obtenerReporteSemanal(
-              undefined,
-              undefined,
-              undefined,
-              false,
-              fechaInicio,
-              fechaFin
-            );
+            obtenerReporteSemanal(fechaInicio, fechaFin);
           }
         }
       }
@@ -974,7 +857,8 @@ export default function ReportsSection() {
           }
         });
 
-        dataRow.push(Math.round(totalHorasUsuario * 100) / 100);
+        // Asegura que la columna de horas totales por usuario sea HH:MM
+        dataRow.push(formatHorasMinutos(totalHorasUsuario));
         totalHorasGeneral += totalHorasUsuario;
       }
 
@@ -1052,7 +936,7 @@ export default function ReportsSection() {
     const totalValueCell = sheet.getCell(totalRowIndex, totalCols);
 
     totalLabelCell.value = "TOTAL GENERAL";
-    totalValueCell.value = Math.round(totalHorasGeneral * 100) / 100;
+    totalValueCell.value = formatHorasMinutos(totalHorasGeneral);
 
     [totalLabelCell, totalValueCell].forEach((cell) => {
       cell.font = {
@@ -1185,11 +1069,12 @@ export default function ReportsSection() {
         fechaLocal.toLocaleDateString("es-CL", { weekday: "long" });
 
       const slots = buildSlotsFromDetalle(detalle); // 👈 MISMA LÓGICA QUE WEEKLY
-      const horasDia = computeHorasDiaFromDetalle(detalle);
+      const horasDiaRaw = computeHorasDiaFromDetalle(detalle);
+      const horasDia = formatHorasMinutos(horasDiaRaw); // mostrar como HH:MM
       const estado = buildEstadoFromDetalle(detalle);
 
-      totalHorasExcel += horasDia;
-      if (horasDia > 0) diasTrabajadosExcel++;
+      totalHorasExcel += horasDiaRaw; // 🔹 usamos valor crudo para sumar
+      if (horasDiaRaw > 0) diasTrabajadosExcel++;
 
       const row = sheet.addRow([
         fechaFormateada,
@@ -1248,22 +1133,18 @@ export default function ReportsSection() {
       });
     });
 
-    const totalHorasExcelRounded = Math.round(totalHorasExcel * 100) / 100;
-    const promedioExcel =
-      diasTrabajadosExcel > 0
-        ? Math.round(
-            (totalHorasExcelRounded / diasTrabajadosExcel) * 100
-          ) / 100
-        : 0;
+    // Usar formato HH:MM para totales y promedio
+    const totalHorasExcelHHMM = formatHorasMinutos(totalHorasExcel);
+    const promedioExcelHHMM = diasTrabajadosExcel > 0 ? formatHorasMinutos(totalHorasExcel / diasTrabajadosExcel) : "0:00";
 
     sheet.addRow([]);
     const resumenRow = sheet.addRow([
       "RESUMEN",
       `Días trabajados: ${diasTrabajadosExcel}`,
       "",
-      `Horas totales: ${totalHorasExcelRounded}`,
+      `Horas totales: ${totalHorasExcelHHMM}`,
       "",
-      `Promedio: ${promedioExcel} hrs/día`,
+      `Promedio: ${promedioExcelHHMM} hrs/día`,
       "",
       "",
     ]);
@@ -1361,13 +1242,13 @@ export default function ReportsSection() {
           ).length;
         const promedio =
           diasTrabajados > 0
-            ? Math.round((totalHorasUsuario / diasTrabajados) * 100) / 100
-            : 0;
+            ? formatHorasMinutos(totalHorasUsuario / diasTrabajados)
+            : "0:00";
 
         return [
           p.rut_usuario || "N/A",
           nombreCompleto.trim(),
-          Math.round(totalHorasUsuario * 100) / 100,
+          formatHorasMinutos(totalHorasUsuario),
           diasTrabajados,
           promedio,
         ];
@@ -1377,7 +1258,7 @@ export default function ReportsSection() {
     tableData.push([
       "",
       "TOTAL GENERAL",
-      (Math.round(totalHorasGeneral * 100) / 100).toFixed(2),
+      formatHorasMinutos(totalHorasGeneral),
       "",
       "",
     ]);
@@ -1473,11 +1354,12 @@ export default function ReportsSection() {
         fechaLocal.toLocaleDateString("es-CL", { weekday: "long" });
 
       const slots = buildSlotsFromDetalle(detalle);
-      const horasDia = computeHorasDiaFromDetalle(detalle);
+      const horasDiaRaw = computeHorasDiaFromDetalle(detalle);
+      const horasDia = formatHorasMinutos(horasDiaRaw);
       const estado = buildEstadoFromDetalle(detalle);
 
-      totalHorasPDF += horasDia;
-      if (horasDia > 0) diasTrabajadosPDF++;
+      totalHorasPDF += horasDiaRaw;
+      if (horasDiaRaw > 0) diasTrabajadosPDF++;
 
       return [
         fechaFormateada,
@@ -1540,19 +1422,13 @@ export default function ReportsSection() {
       },
     });
 
-    const totalHorasRounded = Math.round(totalHorasPDF * 100) / 100;
-    const promedioPDF =
-      diasTrabajadosPDF > 0
-        ? Math.round((totalHorasRounded / diasTrabajadosPDF) * 100) / 100
-        : 0;
-
+    const totalHorasPDFHHMM = formatHorasMinutos(totalHorasPDF);
+    const promedioPDF = diasTrabajadosPDF > 0 ? formatHorasMinutos(totalHorasPDF / diasTrabajadosPDF) : "0:00";
     let finalY = (doc as any).lastAutoTable.finalY || 40;
-
     doc.setFontSize(12);
     doc.text("Resumen:", 14, finalY + 10);
-
     doc.setFontSize(10);
-    doc.text(`Horas Totales: ${totalHorasRounded}`, 14, finalY + 18);
+    doc.text(`Horas Totales: ${totalHorasPDFHHMM}`, 14, finalY + 18);
     doc.text(`Días Trabajados: ${diasTrabajadosPDF}`, 14, finalY + 26);
     doc.text(`Promedio Hrs/Día: ${promedioPDF}`, 14, finalY + 34);
     finalY = finalY + 34;
@@ -1910,6 +1786,9 @@ export default function ReportsSection() {
                             ? "bg-slate-500 text-white"
                             : "bg-orange-500 text-white";
 
+                        const horasRedondeadas =
+                          Math.round((r._horasUsuario || 0) * 100) / 100;
+
                         return (
                           <div
                             key={idx}
@@ -1925,7 +1804,7 @@ export default function ReportsSection() {
                                 <Award className="h-5 w-5 text-yellow-600" />
                               </div>
                               <span className="text-lg font-bold text-blue-600">
-                                {r._horasUsuario || 0}
+                                {horasRedondeadas}
                                 h
                               </span>
                             </div>
@@ -1947,7 +1826,7 @@ export default function ReportsSection() {
                   <Clock className="h-8 w-8 mb-2 opacity-80" />
                   <p className="text-sm opacity-90 mb-1">Total Horas</p>
                   <p className="text-2xl font-bold">
-                    {(reporteActual as any).resumen_basico?.horasTotales || 0}h
+                    {formatHorasMinutos((reporteActual as any).resumen_basico?.horasTotales || 0)}
                   </p>
                 </div>
 
@@ -1966,9 +1845,7 @@ export default function ReportsSection() {
                     Promedio Horas/Día
                   </p>
                   <p className="text-2xl font-bold">
-                    {(reporteActual as any).resumen_basico?.promedioHorasDia ||
-                      0}
-                    h
+                    {formatHorasMinutos((reporteActual as any).resumen_basico?.promedioHorasDia || 0)}
                   </p>
                 </div>
 

@@ -1,3 +1,10 @@
+// Helper para mostrar horas en formato HH:MM
+function formatHorasMinutos(horas) {
+  const totalMinutos = Math.round((Number(horas) || 0) * 60);
+  const h = Math.floor(totalMinutos / 60);
+  const m = totalMinutos % 60;
+  return `${h}:${m.toString().padStart(2, '0')}`;
+}
 import React, { useState, useEffect } from 'react';
 import { 
   AlertCircle, Users, RefreshCw, Clock, TrendingUp,
@@ -282,7 +289,7 @@ const AdminDashboard: React.FC = () => {
                     datasets: [
                       {
                         label: 'Horas Trabajadas',
-                        data: stats.attendance_analytics.semana_anterior_horas.map((item: SemanaAnteriorHora) => item.horas),
+                        data: stats.attendance_analytics.semana_anterior_horas.map((item: SemanaAnteriorHora) => Number(formatHorasMinutos(item.horas).replace(':', '.'))),
                         backgroundColor: 'rgba(59, 130, 246, 0.5)',
                         borderColor: 'rgba(59, 130, 246, 1)',
                         borderWidth: 1,
@@ -305,7 +312,7 @@ const AdminDashboard: React.FC = () => {
                         beginAtZero: true,
                         title: {
                           display: true,
-                          text: 'Horas'
+                          text: 'Horas (HH:MM)'
                         }
                       },
                       x: {

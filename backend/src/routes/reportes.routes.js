@@ -2,15 +2,13 @@
 
 import express from 'express';
 import { authenticateToken } from '../middlewares/authentication.middleware.js';
-import { getReporteMensual, getReporteComparativo, getEstadisticasAnuales } from '../controllers/reportes.controller.js';
+import { getReporteMensual } from '../controllers/reportes.controller.js';
 
 const router = express.Router();
 
 // ✅ RUTAS DE REPORTES
 router.get('/mensual', authenticateToken, getReporteMensual);
 router.get('/semanal', authenticateToken, getReporteMensual); // Reutiliza el mismo controlador
-router.get('/comparativo', authenticateToken, getReporteComparativo);
-router.get('/anual', authenticateToken, getEstadisticasAnuales);
 
 // ✅ RUTA DE PRUEBA
 router.get('/test', (req, res) => {
@@ -27,6 +25,6 @@ router.get('/test', (req, res) => {
     });
 });
 
-console.log('Handlers:', { getReporteMensual, getReporteComparativo, getEstadisticasAnuales });
+console.log('Handlers:', { getReporteMensual });
 
 export default router;

@@ -1,15 +1,13 @@
 "use strict";
 
 import {
-  getReportePersonalMensual,
-  getReporteComparativo as getReporteComparativoService,
-  getEstadisticasAnuales as getEstadisticasAnualesService
+  getReportePersonalMensual
 } from "../services/reportes.service.js";
 import Usuario from "../entities/usuario.entity.js";
 
 /**
  * 📊 CONTROLADOR DE REPORTES
- * Gestiona reportes mensuales, comparativos y anuales.
+ * Gestiona reportes mensuales y comparativos.
  */
 
 // ===========================================
@@ -147,76 +145,6 @@ export async function getReporteMensual(req, res) {
   }
 }
 
-// ===========================================
-// ✅ REPORTE COMPARATIVO (6 meses)
-// ===========================================
-export async function getReporteComparativo(req, res) {
-  console.log("📊 [REPORTES-CONTROLLER] GET REPORTE COMPARATIVO");
 
-  try {
-    const user = req.user;
-    const rut_usuario = user?.rut_usuario;
-
-    if (!rut_usuario) {
-      return res.status(400).json({
-        success: false,
-        error: "RUT no encontrado en el token",
-      });
-    }
-
-    const reporte = await getReporteComparativoService(rut_usuario);
-
-    return res.status(200).json({
-      success: true,
-      data: reporte,
-    });
-  } catch (error) {
-    console.error("❌ Error comparativo:", error.message);
-    return res.status(500).json({
-      success: false,
-      error: "Error generando reporte comparativo",
-    });
-  }
-}
-
-// ===========================================
-// ✅ ESTADÍSTICAS ANUALES
-// ===========================================
-export async function getEstadisticasAnuales(req, res) {
-  console.log("📊 [REPORTES-CONTROLLER] GET ESTADÍSTICAS ANUALES");
-
-  try {
-    const user = req.user;
-    const rut_usuario = user?.rut_usuario;
-    const { anio } = req.query;
-
-    if (!rut_usuario) {
-      return res.status(400).json({
-        success: false,
-        error: "RUT no encontrado en el token",
-      });
-    }
-
-    const anioConsulta = anio
-      ? parseInt(anio)
-      : new Date().getFullYear();
-
-    const estadisticas = await getEstadisticasAnualesService(
-      rut_usuario,
-      anioConsulta
-    );
-
-    return res.status(200).json({
-      success: true,
-      data: estadisticas,
-    });
-  } catch (error) {
-    console.error("❌ Error anual:", error.message);
-    return res.status(500).json({
-      success: false,
-      error: "Error generando estadísticas anuales",
-    });
-  }
-}
 
 console.log("📊 [REPORTES-CONTROLLER] Cargado correctamente");

@@ -1,3 +1,10 @@
+// Helper para mostrar horas en formato HH:MM
+function formatHorasMinutos(horas: number): string {
+  const totalMinutos = Math.round((Number(horas) || 0) * 60);
+  const h = Math.floor(totalMinutos / 60);
+  const m = totalMinutos % 60;
+  return `${h}:${m.toString().padStart(2, "0")}`;
+}
 // components/Attendance/WeeklyAttendanceWidget.tsx
 import React, { useState, useEffect } from "react";
 import {
@@ -45,7 +52,7 @@ interface DiaSemana {
   key: string; // YYYY-MM-DD
   label: string;
   marcajes: AsistenciaItem[];
-  totalHoras: number;
+  totalHoras: string;
   status:
     | "success"
     | "warning"
@@ -541,7 +548,7 @@ function WeeklyAttendanceWidget() {
       key,
       label: dayNamesShort[i],
       marcajes: marcajesDia,
-      totalHoras: Math.round(totalHoras * 100) / 100,
+      totalHoras: formatHorasMinutos(totalHoras),
       status: getStatusFromDay(totalHoras, marcajesDia),
     });
   }
@@ -932,7 +939,7 @@ function WeeklyAttendanceWidget() {
                   key={dia.key + "-total"}
                   className="py-2 px-2 border-l border-slate-200 first:border-l-0 text-center text-xs font-semibold text-slate-800"
                 >
-                  {dia.totalHoras > 0 ? `${dia.totalHoras} hrs` : "0 hrs"}
+                  {dia.totalHoras !== "0:00" && dia.totalHoras !== "0:0" ? `${dia.totalHoras} hrs` : "0 hrs"}
                 </div>
               ))}
             </div>
