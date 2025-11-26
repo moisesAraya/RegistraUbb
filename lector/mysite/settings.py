@@ -108,33 +108,23 @@ WSGI_APPLICATION = 'mysite.wsgi.application'
 
 
 # Configuración de base de datos según el entorno
-if DEBUG:  # DESARROLLO - Base de datos local
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'RegistraUbb',
-            'USER': 'postgres',
-            'PASSWORD': 'holiwis',
-            'HOST': 'localhost',
-            'PORT': '5432',
-        }
-    }
+
     # URL del backend para desarrollo (puede ser localhost si tienes el backend corriendo local)
-    BACKEND_URL = "http://127.0.0.1:3000/api/"  # Cambia el puerto según tu backend local
     
-else:  # PRODUCCIÓN - Base de datos remota
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'postgres',
-            'USER': 'postgres',
-            'PASSWORD': 'andrea2025',
-            'HOST': '146.83.194.142',
-            'PORT': '1774',
-        }
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'postgres',
+        'USER': 'postgres',
+        'PASSWORD': 'andrea2025',
+        'HOST': '146.83.194.142',
+        'PORT': '1774',
     }
-    # URL del backend para producción
-    BACKEND_URL = "https://asis.face.ubiobio.cl:1785/api/"
+}
+
+# URL del backend para producción
+BACKEND_URL = "https://asis.face.ubiobio.cl:1785/api/"
 
 
 # Password validation
