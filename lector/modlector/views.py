@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.http import JsonResponse
 from django.contrib import messages
 from django.utils import timezone
@@ -386,8 +387,12 @@ def reconfigurar_totem(request):
     if 'totem_nombre' in request.session:
         del request.session['totem_nombre']
     
+    # Generar la URL de destino para enviarla al frontend
+    url_destino = reverse('configuracion_totem')
+    
     return JsonResponse({
         'success': True,
         'redirect': True,
+        'url': url_destino, # Enviamos la URL correcta
         'icon': 'settings'
     })
