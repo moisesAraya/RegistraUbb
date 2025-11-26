@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../Context/AuthContext';
-import { useDashboard } from '../../hooks/useDashboard';
 import { UserAvatar } from '../Common/UserAvatar';
 import {
   Home,
@@ -19,6 +18,9 @@ import {
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
+// 👇 NUEVO: usamos el mismo contexto que WeeklyAttendanceWidget
+import { useAsistenciaContext } from '../../context/AsistenciaContext';
+
 interface MenuItem {
   id: string;
   label: string;
@@ -34,17 +36,19 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ 
-  activeTab, 
-  onTabChange, 
-  isOpen, 
-  onClose 
+const Sidebar: React.FC<SidebarProps> = ({
+  activeTab,
+  onTabChange,
+  isOpen,
+  onClose
 }) => {
   const { user, logout } = useAuth();
-  const { dashboardData } = useDashboard();
   const navigate = useNavigate();
   const location = useLocation();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+
+  // 👇 Datos de asistencia compartidos con el resto del sistema
+  const { asistenciaData } = useAsistenciaContext() as any;
 
   const getRoleName = (id_rol: number): string => {
     const roles: { [key: number]: string } = {
@@ -56,21 +60,28 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const getRoleInfo = (id_rol: number) => {
-    const roleInfo: { [key: number]: { name: string; color: string; bgColor: string; icon: React.ReactNode } } = {
-      1: { 
-        name: 'Administrador', 
+    const roleInfo: {
+      [key: number]: {
+        name: string;
+        color: string;
+        bgColor: string;
+        icon: React.ReactNode;
+      };
+    } = {
+      1: {
+        name: 'Administrador',
         color: 'from-red-500 to-red-600',
         bgColor: 'bg-red-50 border-red-200 text-red-700',
         icon: <Shield className="h-4 w-4" />
       },
-      2: { 
-        name: 'Académico', 
+      2: {
+        name: 'Académico',
         color: 'from-blue-500 to-blue-600',
         bgColor: 'bg-blue-50 border-blue-200 text-blue-700',
         icon: <Award className="h-4 w-4" />
       },
-      3: { 
-        name: 'Usuario', 
+      3: {
+        name: 'Usuario',
         color: 'from-green-500 to-green-600',
         bgColor: 'bg-green-50 border-green-200 text-green-700',
         icon: <User className="h-4 w-4" />
@@ -85,26 +96,26 @@ const Sidebar: React.FC<SidebarProps> = ({
         {
           id: 'dashboard',
           label: 'Dashboard',
-          icon: <Home className="h-5 w-5" />,
+          icon: <Home className="h-5 w-5" />
         }
       ];
     }
-    
+
     return [
       {
         id: 'dashboard',
         label: 'Dashboard',
-        icon: <Home className="h-5 w-5" />,
+        icon: <Home className="h-5 w-5" />
       },
       {
         id: 'my-qr-code',
         label: 'Mi Código QR',
-        icon: <QrCode className="h-5 w-5" />,
+        icon: <QrCode className="h-5 w-5" />
       },
       {
         id: 'id-card',
         label: 'Mi Tarjeta ID',
-        icon: <CreditCard className="h-5 w-5" />,
+        icon: <CreditCard className="h-5 w-5" />
       }
     ];
   };
@@ -114,61 +125,61 @@ const Sidebar: React.FC<SidebarProps> = ({
       {
         id: 'users',
         label: 'Gestión Usuarios',
-        icon: <User className="h-5 w-5" />,
+        icon: <User className="h-5 w-5" />
       },
       {
         id: 'totems',
         label: 'Gestión Totems',
-        icon: <Settings className="h-5 w-5" />,
+        icon: <Settings className="h-5 w-5" />
       },
       {
         id: 'reports',
         label: 'Reportes',
-        icon: <BarChart3 className="h-5 w-5" />,
+        icon: <BarChart3 className="h-5 w-5" />
       },
       {
         id: 'settings',
         label: 'Configuración',
-        icon: <Settings className="h-5 w-5" />,
+        icon: <Settings className="h-5 w-5" />
       }
     ],
     academic: [
       {
         id: 'attendance',
         label: 'Mi Asistencia',
-        icon: <Clock className="h-5 w-5" />,
+        icon: <Clock className="h-5 w-5" />
       },
       {
         id: 'calendar',
         label: 'Calendario',
-        icon: <Calendar className="h-5 w-5" />,
+        icon: <Calendar className="h-5 w-5" />
       },
       {
         id: 'my-reports',
         label: 'Mis Reportes',
-        icon: <BarChart3 className="h-5 w-5" />,
+        icon: <BarChart3 className="h-5 w-5" />
       },
       {
         id: 'justifications',
         label: 'Justificaciones',
-        icon: <FileText className="h-5 w-5" />,
+        icon: <FileText className="h-5 w-5" />
       }
     ],
     usuario: [
       {
         id: 'attendance',
         label: 'Mi Asistencia',
-        icon: <Clock className="h-5 w-5" />,
+        icon: <Clock className="h-5 w-5" />
       },
       {
         id: 'calendar',
         label: 'Calendario',
-        icon: <Calendar className="h-5 w-5" />,
+        icon: <Calendar className="h-5 w-5" />
       },
       {
         id: 'justifications',
         label: 'Justificaciones',
-        icon: <FileText className="h-5 w-5" />,
+        icon: <FileText className="h-5 w-5" />
       }
     ]
   };
@@ -205,7 +216,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const handleTabClick = (tabId: string) => {
     onTabChange(tabId);
     onClose();
-    
+
     switch (tabId) {
       case 'dashboard':
         navigate('/dashboard');
@@ -245,46 +256,69 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const menuItems = getMenuItems();
   const roleInfo = user ? getRoleInfo(user.id_rol) : getRoleInfo(3);
-  const nombreCompleto = user ? `${user.nombres || ''} ${user.apellidos || ''}`.trim() : '';
+  const nombreCompleto = user
+    ? `${user.nombres || ''} ${user.apellidos || ''}`.trim()
+    : '';
 
-  // ✅ DATOS REALES DEL DASHBOARD
-  const weekHours =
-    dashboardData?.personal_basic_stats?.week_hours || 0;
+  // ✅ CÁLCULO DE HORAS SEMANALES USANDO LOS MISMOS DATOS QUE EL RESTO (asistenciaData)
+  const registros = (asistenciaData?.asistencias || []) as any[];
 
-  // Calcular porcentaje semanal correctamente: horas_semana / 44h_objetivo * 100
-  const weeklyAttendanceRate = weekHours > 0 
-    ? Math.round((weekHours / 44) * 100)
-    : 0;
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0-6
+  const diffToMonday = (dayOfWeek + 6) % 7; // lunes = 0
+  const startOfWeek = new Date(today);
+  startOfWeek.setHours(0, 0, 0, 0);
+  startOfWeek.setDate(today.getDate() - diffToMonday);
+
+  const registrosSemana = registros.filter((r: any) => {
+    if (!r.fecha) return false;
+    const fechaStr =
+      typeof r.fecha === 'string'
+        ? r.fecha.substring(0, 10)
+        : new Date(r.fecha).toISOString().substring(0, 10);
+    const fecha = new Date(`${fechaStr}T00:00:00`);
+    return fecha >= startOfWeek && fecha <= today;
+  });
+
+  // 🔹 Aquí ya viene aplicada la regla de colación en horasTrabajadas/horas_diarias
+  const weekHours = registrosSemana.reduce((sum: number, r: any) => {
+    const h = Number(r.horasTrabajadas ?? r.horas_diarias ?? 0);
+    return sum + (isNaN(h) ? 0 : h);
+  }, 0);
+
+  const weeklyAttendanceRate =
+    weekHours > 0 ? Math.round((weekHours / 44) * 100) : 0;
 
   if (!user) return null;
+
   return (
     <>
       {/* Overlay para móviles */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden backdrop-blur-sm"
           onClick={onClose}
         />
       )}
-      
+
       {/* Sidebar */}
-      <aside className={`
+      <aside
+        className={`
         fixed top-0 left-0 z-50 h-full w-80 bg-white border-r border-slate-200 shadow-xl transform transition-all duration-300 ease-in-out
         lg:translate-x-0 lg:static lg:z-auto
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         flex flex-col
-      `}>
-        
+      `}
+      >
         {/* Header del sidebar - Info del usuario con foto */}
         <div className="bg-gradient-to-br from-slate-50 to-slate-100 border-b border-slate-200 p-6 mt-16 lg:mt-0 flex-shrink-0">
           <div className="flex items-center space-x-4">
-            {/* ✅ USANDO EL COMPONENTE USERAVATAR */}
-            <UserAvatar 
-              user={user} 
+            <UserAvatar
+              user={user}
               size="lg"
               className="shadow-lg border-2 border-white"
             />
-            
+
             <div className="flex-1 min-w-0">
               <p className="text-lg font-bold text-slate-900 truncate">
                 {nombreCompleto}
@@ -293,10 +327,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                 {user.rut_usuario}
               </p>
               <div className="flex items-center space-x-2">
-                <span className={`
+                <span
+                  className={`
                   inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border
                   ${roleInfo.bgColor}
-                `}>
+                `}
+                >
                   {roleInfo.icon}
                   <span className="ml-1.5">{roleInfo.name}</span>
                 </span>
@@ -313,7 +349,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 Navegación
               </p>
             </div>
-            
+
             {menuItems.map((item) => (
               <button
                 key={item.id}
@@ -322,44 +358,60 @@ const Sidebar: React.FC<SidebarProps> = ({
                 onMouseLeave={() => setHoveredItem(null)}
                 className={`
                   group flex items-center justify-between w-full px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200
-                  ${activeTab === item.id
-                    ? 'bg-slate-900 text-white shadow-lg'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  ${
+                    activeTab === item.id
+                      ? 'bg-slate-900 text-white shadow-lg'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                   }
                 `}
               >
                 <div className="flex items-center space-x-3">
-                  <div className={`
+                  <div
+                    className={`
                     transition-all duration-200
-                    ${activeTab === item.id ? 'text-white' : 'group-hover:scale-110'}
-                  `}>
+                    ${
+                      activeTab === item.id
+                        ? 'text-white'
+                        : 'group-hover:scale-110'
+                    }
+                  `}
+                  >
                     {item.icon}
                   </div>
                   <span className="font-medium">{item.label}</span>
                 </div>
-                
+
                 <div className="flex items-center space-x-2">
                   {item.badge && (
-                    <span className={`
+                    <span
+                      className={`
                       px-2 py-1 text-xs font-bold rounded-full
-                      ${activeTab === item.id 
-                        ? 'bg-white/20 text-white' 
-                        : 'bg-blue-100 text-blue-600'
+                      ${
+                        activeTab === item.id
+                          ? 'bg-white/20 text-white'
+                          : 'bg-blue-100 text-blue-600'
                       }
-                    `}>
+                    `}
+                    >
                       {item.badge}
                     </span>
                   )}
-                  
-                  <ChevronRight className={`
+
+                  <ChevronRight
+                    className={`
                     h-4 w-4 transition-all duration-200
-                    ${activeTab === item.id ? 'text-white rotate-90' : 'text-slate-400 group-hover:text-slate-600'}
+                    ${
+                      activeTab === item.id
+                        ? 'text-white rotate-90'
+                        : 'text-slate-400 group-hover:text-slate-600'
+                    }
                     ${hoveredItem === item.id ? 'translate-x-1' : ''}
-                  `} />
+                  `}
+                  />
                 </div>
               </button>
             ))}
-            
+
             {/* Logout button */}
             <div className="pt-6 mt-6 border-t border-slate-200">
               <button
@@ -376,7 +428,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </nav>
         </div>
 
-        {/* ✅ FOOTER CON DATOS REALES DEL DASHBOARD */}
+        {/* ✅ FOOTER CON DATOS REALES DEL MISMO ORIGEN QUE EL DASHBOARD */}
         <div className="px-4 py-4 border-t border-slate-200 bg-slate-50 flex-shrink-0">
           <div className="grid grid-cols-2 gap-3 text-center">
             <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-200">
@@ -392,7 +444,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               <div className="text-xs text-slate-500">Esta semana</div>
             </div>
           </div>
-          
+
           {/* Status indicator */}
           <div className="flex items-center justify-center mt-3 space-x-2">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
