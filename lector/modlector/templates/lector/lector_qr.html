@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lector QR - RegistraUBB</title>
     
+    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
     <style>
@@ -565,6 +566,7 @@
     </style>
 </head>
 <body>
+    <!-- Botón pantalla completa -->
     <button class="fullscreen-toggle" id="fullscreen-btn" title="Pantalla completa">
         <i data-lucide="maximize" style="width: 24px; height: 24px;"></i>
     </button>
@@ -596,6 +598,7 @@
         </div>
         {% endif %}
 
+        <!-- Estado del sistema -->
         <div class="status-section">
             <p>
                 <span class="status-indicator status-ready" id="status-indicator"></span>
@@ -603,6 +606,7 @@
             </p>
         </div>
 
+        <!-- Área de escaneo -->
         <div class="scanner-section">
             <div class="scanner-icon-wrapper">
                 <i data-lucide="scan" class="scanner-icon" style="width: 64px; height: 64px;"></i>
@@ -619,6 +623,7 @@
                    autofocus>
         </div>
 
+        <!-- Información del usuario (sin hash visible) -->
         <div id="usuario-info" class="usuario-info">
             <h3>
                 <i data-lucide="user-check" style="width: 28px; height: 28px;"></i>
@@ -632,9 +637,11 @@
             </div>
         </div>
 
+        <!-- Mensajes -->
         <div id="mensajes"></div>
     </div>
 
+    <!-- Modal PIN -->
     <div class="modal-overlay" id="pin-modal">
         <div class="modal-content">
             <h1>
@@ -642,6 +649,7 @@
                 Verificación
             </h1>
 
+            <!-- Mostrar nombre del usuario -->
             <div style="background: linear-gradient(135deg, #e6fffa 0%, #d3f9d8 100%); border: 2px solid #48bb78; border-radius: 12px; padding: 1rem; margin: 1rem 0;">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 10px; color: #22543d; font-weight: 600; font-size: 1.125rem;">
                     <i data-lucide="user" style="width: 24px; height: 24px;"></i>
@@ -654,6 +662,7 @@
                 Ingresa tu PIN
             </h2>
             
+            <!-- Área de notificaciones dentro del modal -->
             <div class="modal-notification" id="modal-notification"></div>
             
             <div class="pin-display" id="pin-display">••••</div>
@@ -688,6 +697,7 @@
         </div>
     </div>
 
+    <!-- Botón limpiar -->
     <button id="limpiar" class="btn btn-secondary" title="Limpiar pantalla">
         <i data-lucide="refresh-cw" style="width: 28px; height: 28px;"></i>
     </button>
@@ -789,7 +799,7 @@
             codigoQRActual = codigo;
             actualizarEstado('Procesando...', 'waiting');
             
-            fetch('procesar_qr/', {
+            fetch('/procesar_qr/', {
                 method: 'POST',
                 headers: {  
                     'Content-Type': 'application/json',
@@ -875,7 +885,7 @@
             actualizarEstado('Verificando...', 'waiting');
             mostrarNotificacionModal('Verificando PIN...', 'success', 'loader');
 
-            fetch('verificar_pin/', {
+            fetch('/verificar_pin/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -978,35 +988,30 @@
             statusIndicator.className = `status-indicator status-${estado}`;
         }
 
-        // AQUÍ ESTÁ LA CORRECCIÓN
         function reconfigurarTotem() {
-            if (confirm('¿Deseas reconfigurar el totem de este dispositivo?')) {
-                // 1. Apuntamos a la vista que borra la sesión (reconfigurar_totem)
-                fetch('reconfigurar_totem/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // 2. Usamos la URL que nos devuelve el servidor para redirigir
-                        // Si el servidor envía data.url, usamos eso. Si no, usamos un fallback.
-                        if (data.url) {
-                            window.location.href = data.url;
-                        } else {
-                             // Fallback por si acaso el views.py no se actualizó
-                             window.location.href = '/lector/configuracion/';
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error("Error:", error);
-                    mostrarMensaje('Error al reconfigurar', 'error', 'alert-octagon');
-                });
-            }
+        if (confirm('¿Deseas reconfigurar el totem de este dispositivo?')) {
+            fetch('/lector/reconfigurar_totem/', {   // ← corregido
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('404');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success && data.redirect) {
+                    window.location.href = '/lector/configuracion/';
+                }
+            })
+            .catch(error => {
+                mostrarMensaje('Error al reconfigurar el tótem', 'error', 'alert-octagon');
+            });
         }
+    }
 
         // Teclas del teclado para PIN
         document.addEventListener('keydown', function(e) {
