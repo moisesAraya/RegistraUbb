@@ -25,16 +25,17 @@ urlpatterns = [
     path('favicon.ico', favicon_view),
     path('admin/', admin.site.urls),
 
-    # --- RUTAS CON PREFIJO LECTOR (CORREGIDAS) ---
-    # Al agregar 'lector/' aquí, la redirección ahora será: .../lector/configuracion/
-    path('lector/configuracion/', views.configuracion_totem_view, name='configuracion_totem'),
-    path('lector/guardar_totem/', views.guardar_totem, name='guardar_totem'),
+    # VISTAS DE CONFIGURACIÓN
+    path('configuracion/', views.configuracion_totem_view, name='configuracion_totem'),
+    # Nota: guardar_totem suele llamarse desde la pagina de configuracion, así que el prefijo está bien
+    path('configuracion/guardar_totem/', views.guardar_totem, name='guardar_totem'),
     
-    # Esta ruta es la que usa el fetch de JavaScript
-    path('lector/reconfigurar_totem/', views.reconfigurar_totem, name='reconfigurar_totem'),
+    # CORRECCIÓN AQUÍ: 
+    # Quitamos 'configuracion/' del inicio para que coincida con el fetch('reconfigurar_totem/') 
+    # que haces desde la página principal.
+    path('reconfigurar_totem/', views.reconfigurar_totem, name='reconfigurar_totem'),
 
-
-    # --- RUTAS PRINCIPALES ---
+    # VISTAS PRINCIPALES (LECTOR)
     path('', views.lector_qr_view, name='lector_qr'),
     path('procesar_qr/', views.procesar_qr, name='procesar_qr'),
     path('verificar_pin/', views.verificar_pin, name='verificar_pin'),
