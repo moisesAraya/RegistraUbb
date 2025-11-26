@@ -280,8 +280,16 @@ export default function ReportsSection() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
 
   // Disponibilidad de meses/años según estadísticas anuales
-  const [yearsAvailability, setYearsAvailability] = useState<Record<number, boolean>>({});
-  const [monthsAvailability, setMonthsAvailability] = useState<Record<number, { mes:number; horas:number }[]>>({});
+  const [yearsAvailability, setYearsAvailability] = useState<
+    Record<number, boolean>
+  >({});
+  const [monthsAvailability, setMonthsAvailability] = useState<
+    Record<number, { mes: number; horas: number }[]>
+  >({});
+
+  // 🔹 Año y mes seleccionados (para usar con la disponibilidad)
+  const [anio, setAnio] = useState<number>(new Date().getFullYear());
+  const [mes, setMes] = useState<number>(new Date().getMonth() + 1);
 
   const [adminInfo, setAdminInfo] = useState<AdminInfo>(() => {
     if (user) {
@@ -315,7 +323,10 @@ export default function ReportsSection() {
     const currentYear = new Date().getFullYear();
     const candidateYears = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
-    const canQueryForSelected = !isAdmin || usuarioSeleccionado === "todos" || usuarioSeleccionado === user?.rut_usuario;
+    const canQueryForSelected =
+      !isAdmin ||
+      usuarioSeleccionado === "todos" ||
+      usuarioSeleccionado === user?.rut_usuario;
 
     candidateYears.forEach(async (y) => {
       try {
@@ -335,7 +346,12 @@ export default function ReportsSection() {
           const totalHoras = Number(json.data.totalHoras || 0);
           setYearsAvailability((prev) => ({ ...prev, [y]: totalHoras > 0 }));
           // Guardar meses con sus horas para usar en el select
-          const meses = Array.isArray(json.data.meses) ? json.data.meses.map((m: any) => ({ mes: m.mes, horas: Number(m.horas || 0) })) : [];
+          const meses = Array.isArray(json.data.meses)
+            ? json.data.meses.map((m: any) => ({
+                mes: m.mes,
+                horas: Number(m.horas || 0),
+              }))
+            : [];
           setMonthsAvailability((prev) => ({ ...prev, [y]: meses }));
         } else {
           setYearsAvailability((prev) => ({ ...prev, [y]: false }));
@@ -351,6 +367,7 @@ export default function ReportsSection() {
 
   // Si el año seleccionado no tiene meses con horas, auto-seleccionar el primer año disponible
   useEffect(() => {
+    if (!anio) return;
     const available = yearsAvailability[anio];
     if (available === false) {
       const firstAvailableYear = Object.keys(yearsAvailability)
@@ -358,11 +375,11 @@ export default function ReportsSection() {
         .find((y) => yearsAvailability[y]);
       if (firstAvailableYear) setAnio(firstAvailableYear);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yearsAvailability]);
+  }, [yearsAvailability, anio]);
 
   // Si el mes seleccionado está deshabilitado para el año actual, auto-seleccionar el primer mes con horas
   useEffect(() => {
+    if (!anio) return;
     const mesesForYear = monthsAvailability[anio] || [];
     if (mesesForYear.length === 0) return;
     const currentMesInfo = mesesForYear.find((mm) => mm.mes === mes);
@@ -370,18 +387,14 @@ export default function ReportsSection() {
       const primerDisponible = mesesForYear.find((mm) => mm.horas > 0);
       if (primerDisponible) setMes(primerDisponible.mes);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [monthsAvailability, anio]);
+  }, [monthsAvailability, anio, mes]);
 
   const fetchUsuarios = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/usuarios`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/usuarios`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (response.ok) {
         const data = await response.json();
         const lista: Usuario[] = data.data || [];
@@ -397,7 +410,8 @@ export default function ReportsSection() {
           setAdminInfo({
             nombre: `${director.nombres} ${director.apellidos}`,
             rut: director.rut_usuario,
-            cargo: director.cargo?.nombre_cargo || "Director de Departamento",
+            cargo:
+              director.cargo?.nombre_cargo || "Director de Departamento",
           });
         } else if (user) {
           const cargoName =
@@ -432,7 +446,14 @@ export default function ReportsSection() {
 
         if (esAdminActual) {
           if (usuarioSeleccionado === "todos") {
-            obtenerReporteSemanal(undefined, undefined, undefined, true, inicio, fin);
+            obtenerReporteSemanal(
+              undefined,
+              undefined,
+              undefined,
+              true,
+              inicio,
+              fin
+            );
           } else {
             obtenerReporteSemanal(
               undefined,
@@ -552,7 +573,10 @@ export default function ReportsSection() {
         }, 0);
       return total > 0;
     } else {
-      const resumen = (reporteActual as any).resumen_basico || (reporteActual as any).resumen || null;
+      const resumen =
+        (reporteActual as any).resumen_basico ||
+        (reporteActual as any).resumen ||
+        null;
       const horas = resumen?.horasTotales ?? resumen?.horas_totales ?? 0;
       const registros = (reporteActual as any).asistencias_detalle || [];
       return Number(horas) > 0 || registros.length > 0;
@@ -685,21 +709,20 @@ export default function ReportsSection() {
         });
         dataRow.push(msg);
       } else {
-fechasOrdenadas.forEach((fecha) => {
-  const marcajesDia = asistenciasPorFecha.get(fecha) || [];
+        fechasOrdenadas.forEach((fecha) => {
+          const marcajesDia = asistenciasPorFecha.get(fecha) || [];
 
-  if (marcajesDia.length > 0) {
-    // Usamos siempre los slots para que respete JUST solo en la mañana
-    const detalle = marcajesDia[0];
-    const slots = buildSlotsFromDetalle(detalle);
-    dataRow.push(...slots);
-    totalHorasUsuario += computeHorasDiaFromDetalle(detalle);
-  } else {
-    // Día sin marcajes ni justificación
-    dataRow.push("X", "X", "X", "X");
-  }
-});
-
+          if (marcajesDia.length > 0) {
+            // Usamos siempre los slots para que respete JUST solo en la mañana
+            const detalle = marcajesDia[0];
+            const slots = buildSlotsFromDetalle(detalle);
+            dataRow.push(...slots);
+            totalHorasUsuario += computeHorasDiaFromDetalle(detalle);
+          } else {
+            // Día sin marcajes ni justificación
+            dataRow.push("X", "X", "X", "X");
+          }
+        });
 
         dataRow.push(Math.round(totalHorasUsuario * 100) / 100);
         totalHorasGeneral += totalHorasUsuario;
@@ -722,8 +745,7 @@ fechasOrdenadas.forEach((fecha) => {
 
         if (typeof cell.value === "string") {
           if (cell.value.startsWith("Ausencia:")) {
-            const asist =
-              p.reporte?.asistencias_detalle || [];
+            const asist = p.reporte?.asistencias_detalle || [];
             const justificacion = asist.find(
               (a: any) => a.justificacion
             )?.justificacion;
@@ -978,8 +1000,9 @@ fechasOrdenadas.forEach((fecha) => {
     const totalHorasExcelRounded = Math.round(totalHorasExcel * 100) / 100;
     const promedioExcel =
       diasTrabajadosExcel > 0
-        ? Math.round((totalHorasExcelRounded / diasTrabajadosExcel) * 100) /
-          100
+        ? Math.round(
+            (totalHorasExcelRounded / diasTrabajadosExcel) * 100
+          ) / 100
         : 0;
 
     sheet.addRow([]);
@@ -1087,8 +1110,7 @@ fechasOrdenadas.forEach((fecha) => {
           ).length;
         const promedio =
           diasTrabajados > 0
-            ? Math.round((totalHorasUsuario / diasTrabajados) * 100) /
-              100
+            ? Math.round((totalHorasUsuario / diasTrabajados) * 100) / 100
             : 0;
 
         return [
@@ -1300,9 +1322,7 @@ fechasOrdenadas.forEach((fecha) => {
     );
     doc.setTextColor(0, 0, 0);
 
-    doc.save(
-      `Reporte_${nombreUsuario}_${periodo.replace(/\s+/g, "_")}.pdf`
-    );
+    doc.save(`Reporte_${nombreUsuario}_${periodo.replace(/\s+/g, "_")}.pdf`);
   };
 
   // ================= UI =================
@@ -1499,9 +1519,7 @@ fechasOrdenadas.forEach((fecha) => {
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-blue-700">
-                      RUT
-                    </p>
+                    <p className="text-xs font-medium text-blue-700">RUT</p>
                     <p className="mt-0.5 text-blue-900 font-semibold">
                       {adminInfo.rut}
                     </p>
