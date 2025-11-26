@@ -48,7 +48,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
     return url;
   };
 
-  // Obtener logo desde MinIO (presigned URL con fallback directo)
+  // ✅ Obtener logo desde MinIO (presigned URL con fallback directo)
   useEffect(() => {
     const fetchLogo = async () => {
       try {
@@ -105,4 +105,210 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
               onClick={onToggleSidebar}
               className="lg:hidden p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-200"
             >
-              {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5
+              {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+
+            {/* Logo desde MinIO */}
+            <div className="flex items-center">
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt="Logo RegistraUBB"
+                  className="h-10 w-auto object-contain"
+                />
+              ) : (
+                <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                  </svg>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right side - User menu and notifications */}
+          <div className="flex items-center space-x-3">
+            {/* Notifications */}
+            <div className="relative">
+              <button
+                className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-200 relative"
+                onClick={() => {
+                  if (unreadCount > 0) {
+                    const firstUnread = notificaciones.find((n: any) => !(n.read ?? n.leida));
+                    if (firstUnread) {
+                      markAsRead(
+                        firstUnread.id ??
+                          firstUnread.id_notificacion ??
+                          firstUnread.idNotificacion
+                      );
+                    }
+                  }
+                  setShowNotificaciones(!showNotificaciones);
+                }}
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold shadow-lg">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {showNotificaciones && (
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 py-2 z-50 max-h-96 overflow-y-auto">
+                  <div className="px-4 py-2 border-b border-slate-100 font-semibold text-slate-900">
+                    Notificaciones
+                  </div>
+                  {(!notificaciones || notificaciones.length === 0) && (
+                    <div className="px-4 py-4 text-slate-500 text-sm">
+                      No tienes notificaciones.
+                    </div>
+                  )}
+                  {notificaciones &&
+                    notificaciones.map((n: any) => (
+                      <div
+                        key={n.id}
+                        className={`px-4 py-2 text-sm border-b last:border-b-0 ${
+                          (n.read ?? n.leida) ? 'bg-white' : 'bg-blue-50'
+                        }`}
+                      >
+                        <div className="font-medium">
+                          {n.message || n.mensaje || n.title}
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {new Date(n.createdAt || n.fecha).toLocaleString()}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            {/* User info - Desktop */}
+            <div className="hidden sm:flex items-center space-x-3">
+              <div className="text-right">
+                <p className="text-sm font-semibold text-slate-900 leading-tight">
+                  {nombreCompleto}
+                </p>
+                <div className="flex items-center justify-end space-x-2">
+                  <span
+                    className={`
+                      inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border
+                      ${getRoleColor(user.id_rol)}
+                    `}
+                  >
+                    {getRoleLabel(user.id_rol)}
+                  </span>
+                </div>
+              </div>
+
+              {/* User Avatar */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="flex items-center space-x-2 p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-200"
+                >
+                  <UserAvatar
+                    nombres={user.nombres}
+                    apellidos={user.apellidos}
+                    rut_usuario={user.rut_usuario}
+                    size="sm"
+                    className="bg-gradient-to-br from-slate-500 to-slate-600 text-white shadow-md border border-slate-200"
+                  />
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform duration-200 ${
+                      isUserMenuOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+
+                {isUserMenuOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-2xl border border-slate-200 py-2 z-50">
+                    <div className="px-4 py-3 border-b border-slate-100 flex items-center space-x-3">
+                      <UserAvatar
+                        nombres={user.nombres}
+                        apellidos={user.apellidos}
+                        rut_usuario={user.rut_usuario}
+                        size="md"
+                        className="bg-gradient-to-br from-slate-500 to-slate-600 text-white shadow-md border border-slate-200"
+                      />
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {nombreCompleto}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {user.email || user.rut_usuario}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="py-1">
+                      <Link to="/perfil">
+                        <button
+                          className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                          onClick={() => setIsUserMenuOpen(false)}
+                        >
+                          <User className="w-4 h-4 text-slate-500" />
+                          <span>Mi Perfil</span>
+                        </button>
+                      </Link>
+                      <Link to="/ayuda">
+                        <button
+                          className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                          onClick={() => setIsUserMenuOpen(false)}
+                        >
+                            <HelpCircle className="w-4 h-4 text-slate-500" />
+                            <span>Ayuda</span>
+                        </button>
+                      </Link>
+                    </div>
+                    <div className="border-t border-slate-100 py-1">
+                      <button
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          onLogout();
+                        }}
+                        className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        <span>Cerrar Sesión</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* User avatar - Mobile */}
+            <div className="sm:hidden flex items-center space-x-2">
+              <UserAvatar
+                nombres={user.nombres}
+                apellidos={user.apellidos}
+                rut_usuario={user.rut_usuario}
+                size="sm"
+                className="bg-gradient-to-br from-slate-500 to-slate-600 text-white shadow-md"
+              />
+              <button
+                onClick={onLogout}
+                className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-200"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {(isUserMenuOpen || showNotificaciones) && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => {
+            setIsUserMenuOpen(false);
+            setShowNotificaciones(false);
+          }}
+        ></div>
+      )}
+    </header>
+  );
+};
+
+export default Header;

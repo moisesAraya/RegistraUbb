@@ -61,6 +61,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
         alt={`Foto de perfil de ${nombres} ${apellidos}`}
         className={`${baseClasses} ${borderClass} object-cover ${className}`}
         onError={() => setImageError(true)}
+        crossOrigin="anonymous"
       />
     );
   }

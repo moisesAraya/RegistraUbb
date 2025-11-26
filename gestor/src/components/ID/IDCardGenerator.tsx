@@ -518,7 +518,34 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
 
       // Luego cargar la foto de perfil
       const loadProfileImage = async () => {
-        // Base relativa para que use el mismo host y puerto que el frontend
+        try {
+          const token = localStorage.getItem('token');
+          const res = await fetch(
+            `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/profile/foto-perfil-url/${encodeURIComponent(user.rut_usuario)}`,
+            { method: 'GET', credentials: 'include', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } }
+          );
+          const json = await res.json();
+
+          if (json.success && json.foto_url) {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+              console.log('✅ Imagen de perfil cargada desde URL presigned');
+              setUserImage(img);
+              setImageLoaded(true);
+            };
+            img.onerror = () => {
+              console.log('⚠️ Error con URL presigned, intentando acceso directo');
+              tryDirectProfileAccess();
+            };
+            img.src = json.foto_url;
+            return;
+          }
+        } catch (err) {
+          console.warn('❌ Falló petición a backend para foto de perfil, intentando acceso directo', err);
+        }
+
+        // Fallback directo por si presigned no funciona
         let minioBase = import.meta.env.VITE_MINIO_ENDPOINT || '/minio';
         minioBase = minioBase.replace(/\/+$/, '');
 
