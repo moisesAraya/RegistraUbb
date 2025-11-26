@@ -1,76 +1,292 @@
-<script>
-    let totemSeleccionado = null;
-
-    function seleccionarTotem(totemId) {
-        // Quitar selección anterior
-        document.querySelectorAll('.totem-card').forEach(card => {
-            card.classList.remove('selected');
-        });
-
-        // Seleccionar nuevo totem
-        const card = document.querySelector(`[data-totem-id="${totemId}"]`);
-        card.classList.add('selected');
-        
-        totemSeleccionado = totemId;
-        
-        // Habilitar botón confirmar
-        const btnConfirmar = document.getElementById('confirmar-btn');
-        btnConfirmar.classList.add('enabled');
-    }
-
-    document.getElementById('confirmar-btn').addEventListener('click', function() {
-        if (!totemSeleccionado) {
-            mostrarAlerta('Selecciona un totem primero', 'error');
-            return;
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración Totem - RegistraUBB</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        this.textContent = 'Configurando...';
-        this.disabled = true;
 
-        // Desde /lector/configuracion/ esto resuelve a /lector/configuracion/guardar_totem/
-        fetch('guardar_totem/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                totem_id: totemSeleccionado
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            padding: 50px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            width: 90%;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        .header {
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.2em;
+        }
+
+        .config-icon {
+            font-size: 5em;
+            color: #3498db;
+            margin-bottom: 30px;
+        }
+
+        .totem-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .totem-card {
+            background: #f8f9fa;
+            border: 3px solid #e9ecef;
+            border-radius: 15px;
+            padding: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .totem-card:hover {
+            border-color: #007bff;
+            background: #e7f3ff;
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,123,255,0.15);
+        }
+
+        .totem-card.selected {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+
+        .totem-icon {
+            font-size: 3em;
+            color: #6c757d;
+            margin-bottom: 15px;
+        }
+
+        .totem-card.selected .totem-icon {
+            color: #28a745;
+        }
+
+        .totem-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .totem-location {
+            color: #6c757d;
+            font-size: 1em;
+        }
+
+        .check-mark {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #28a745;
+            color: white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .totem-card.selected .check-mark {
+            display: flex;
+        }
+
+        .btn {
+            background: #007bff;
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            margin: 20px 10px;
+            transition: all 0.3s ease;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .btn.enabled {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .btn:hover.enabled {
+            background: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-success:hover.enabled {
+            background: #218838;
+        }
+
+        .alert {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .container {
+            animation: slideIn 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="config-icon"></div>
+            <h1>Configuración del Dispositivo</h1>
+            <p>Selecciona el totem correspondiente a este dispositivo</p>
+        </div>
+
+        <div class="totem-grid">
+            {% for totem in totems %}
+            <div class="totem-card" data-totem-id="{{ totem.id_totem }}" onclick="seleccionarTotem('{{ totem.id_totem }}')">
+                <div class="check-mark">✓</div>
+                <div class="totem-icon"></div>
+                <div class="totem-location">{{ totem.ubicacion }}</div>
+            </div>
+            {% empty %}
+            <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
+                <h3>No hay totems disponibles</h3>
+                <p>Contacta al administrador para configurar los totems</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div id="alert" class="alert"></div>
+
+        <div style="margin-top: 40px;">
+            <button id="confirmar-btn" class="btn btn-success">Confirmar Configuración</button>
+        </div>
+    </div>
+
+    <script>
+        let totemSeleccionado = null;
+
+        function seleccionarTotem(totemId) {
+            // Quitar selección anterior
+            document.querySelectorAll('.totem-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+
+            // Seleccionar nuevo totem
+            const card = document.querySelector(`[data-totem-id="${totemId}"]`);
+            card.classList.add('selected');
+            
+            totemSeleccionado = totemId;
+            
+            // Habilitar botón confirmar
+            const btnConfirmar = document.getElementById('confirmar-btn');
+            btnConfirmar.classList.add('enabled');
+        }
+
+        document.getElementById('confirmar-btn').addEventListener('click', function() {
+            if (!totemSeleccionado) {
+                mostrarAlerta('Selecciona un totem primero', 'error');
+                return;
+            }
+            this.textContent = 'Configurando...';
+            this.disabled = true;
+
+            fetch('guardar_totem/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    totem_id: totemSeleccionado
+                })
             })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // En la vista mandas id y ubicacion, así que uso ubicacion
-                const nombreTotem = data.totem?.ubicacion || 'Totem configurado';
-                mostrarAlerta(`Dispositivo configurado como: ${nombreTotem}`, 'success');
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // en el backend mandas "ubicacion", no "nombre"
+                    mostrarAlerta(`Dispositivo configurado como: ${data.totem.ubicacion}`, 'success');
+                    setTimeout(() => {
+                        // aquí redirigimos al lector, no al gestor
+                        window.location.href = '/lector/';
+                    }, 1000);
+                } else {
+                    mostrarAlerta(data.error, 'error');
+                    this.textContent = 'Confirmar Configuración';
+                    this.disabled = false;
+                }
+            })
 
-                // Redirigir al lector QR
-                const redirectUrl = data.redirect_url || '/lector/';
-                setTimeout(() => {
-                    window.location.href = redirectUrl;
-                }, 1000);
-            } else {
-                mostrarAlerta(data.error || 'Error al guardar configuración', 'error');
+            .catch(error => {
+                mostrarAlerta('Error de conexión', 'error');
                 this.textContent = 'Confirmar Configuración';
                 this.disabled = false;
-            }
-        })
-        .catch(error => {
-            mostrarAlerta('Error de conexión', 'error');
-            this.textContent = 'Confirmar Configuración';
-            this.disabled = false;
+            });
         });
-    });
 
-    function mostrarAlerta(mensaje, tipo) {
-        const alert = document.getElementById('alert');
-        alert.className = `alert alert-${tipo}`;
-        alert.textContent = mensaje;
-        alert.style.display = 'block';
-        
-        if (tipo === 'success') {
-            setTimeout(() => {
-                alert.style.display = 'none';
-            }, 3000);
+        function mostrarAlerta(mensaje, tipo) {
+            const alert = document.getElementById('alert');
+            alert.className = `alert alert-${tipo}`;
+            alert.textContent = mensaje;
+            alert.style.display = 'block';
+            
+            if (tipo === 'success') {
+                setTimeout(() => {
+                    alert.style.display = 'none';
+                }, 3000);
+            }
         }
-    }
-</script>
+    </script>
+</body>
+</html>
