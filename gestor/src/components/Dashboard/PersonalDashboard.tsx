@@ -354,7 +354,7 @@ const PersonalDashboard: React.FC = () => {
                   <Clock3 className="w-6 h-6 text-blue-600" />
                   <div>
                     <h2 className="text-lg md:text-xl font-semibold text-slate-900">
-                      Progreso semanal
+                      Progreso semana actual
                     </h2>
                     <p className="text-slate-600 text-sm">
                       Objetivo: {weeklyProgress.target_weekly_hours} horas esta semana
