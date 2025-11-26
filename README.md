@@ -233,8 +233,7 @@
   <h2 id="instalacion-ejecucion">🚀 Instalación y ejecución</h2>
 
   <h3>1. Clonar el repositorio</h3>
-  <pre><code>git clone &lt;URL_DEL_REPO&gt;
-cd &lt;NOMBRE_DEL_REPO&gt;
+  <pre><code>git clone &lt;https://github.com/moisesAraya/RegistraUbb&gt;;
 </code></pre>
 
   <h3>2. Backend (Node.js + Express)</h3>
@@ -457,12 +456,6 @@ DEBUG=False  # en producción
 
   <hr />
 
-  <h2 id="licencia">📄 Licencia</h2>
-
-  <p>
-    Define aquí la licencia que desees utilizar (por ejemplo, MIT, GPL-3.0, etc.).
-    Si no estás seguro, un buen punto de partida suele ser <strong>MIT</strong>.
-  </p>
 
 </body>
 </html>
