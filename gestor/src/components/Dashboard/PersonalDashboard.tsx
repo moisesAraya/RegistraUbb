@@ -418,7 +418,6 @@ const PersonalDashboard: React.FC = () => {
                     ) : (
                       <span className="inline-flex items-center gap-1">
                         <CheckCircle className="w-4 h-4 text-green-600" />
-                        <span>Objetivo semanal cumplido</span>
                       </span>
                     )}
                   </span>
