@@ -491,12 +491,15 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
       };
 
       const tryDirectAccess = () => {
-        // Intentar acceso directo a MinIO
-        const directUrl = `${import.meta.env.VITE_MINIO_ENDPOINT || 'http://localhost:9000'}/registraubb/logo_registraubb.png`;
+        // Base relativa para que use el mismo host y puerto que el frontend
+        let minioBase = import.meta.env.VITE_MINIO_ENDPOINT || '/minio';
+        minioBase = minioBase.replace(/\/+$/, ''); // sin barra al final
+
+        const directUrl = `${minioBase}/registraubb/logo_registraubb.png`;
         console.log('🔄 Intentando acceso directo:', directUrl);
-        
+
         const logoImg = new Image();
-        logoImg.crossOrigin = 'anonymous';
+        logoImg.crossOrigin = 'anonymous'; // la puedes dejar, aunque sea mismo origen
         logoImg.onload = () => {
           console.log('✅ Logo cargado desde acceso directo');
           setLogoImage(logoImg);
@@ -509,6 +512,7 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
         };
         logoImg.src = directUrl;
       };
+
 
       loadLogo();
 
