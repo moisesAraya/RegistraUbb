@@ -1,7 +1,6 @@
 import { Sequelize, DataTypes } from "sequelize";
 import { sequelize } from "../config/dbconfig.js";
 
-// NO importes Justificacion aquí para evitar dependencias circulares
 
 const Usuario = sequelize.define(
   "Usuario",
@@ -129,5 +128,4 @@ const Usuario = sequelize.define(
   }
 );
 
-// Exporta como named export
 export default Usuario;

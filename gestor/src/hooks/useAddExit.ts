@@ -43,7 +43,6 @@ export function useAddExit(): UseAddExitResult {
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          console.log('✅ Salida agregada exitosamente');
           return true;
         } else {
           setError(data.message || 'Error agregando salida');

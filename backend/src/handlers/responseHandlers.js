@@ -7,7 +7,6 @@ export const handleSuccess = (res, statusCode, message, data = null) => {
     data
   };
   
-  console.log('📤 Enviando respuesta exitosa:', response);
   return res.status(statusCode).json(response);
 };
 
@@ -18,7 +17,6 @@ export const handleErrorClient = (res, statusCode, message) => {
     data: null
   };
   
-  console.log('📤 Enviando error del cliente:', response);
   return res.status(statusCode).json(response);
 };
 
@@ -29,6 +27,5 @@ export const handleErrorServer = (res, statusCode, message) => {
     data: null
   };
   
-  console.log('📤 Enviando error del servidor:', response);
   return res.status(statusCode).json(response);
 };

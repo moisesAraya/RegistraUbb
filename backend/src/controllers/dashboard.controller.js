@@ -8,27 +8,18 @@ import {
   getAdminDashboardMetrics
 } from '../services/dashboard.service.js';
 
-console.log('🚀 [DASHBOARD-CONTROLLER] ✅ CONTROLLER CONFIGURADO CON SERVICIO REAL ✅');
 
 /**
  * 📊 OBTENER MÉTRICAS BÁSICAS DEL DASHBOARD (usuario)
  */
 export async function getBasicStats(req, res) {
-  console.log('📊 [DASHBOARD-CONTROLLER] ===== GET BASIC STATS =====');
-  console.log('👤 Usuario del request:', req.user);
   
   try {
     const user = req.user;
     const rut_usuario = user?.rut_usuario || user?.rut;
     
-    console.log('👤 [DASHBOARD-CONTROLLER] Datos del usuario:', {
-      user_completo: user,
-      rut_extraido: rut_usuario,
-      tipo_rut: typeof rut_usuario
-    });
 
     if (!rut_usuario) {
-      console.error('❌ [DASHBOARD-CONTROLLER] No se pudo obtener RUT del usuario');
       return res.status(400).json({
         success: false,
         error: 'RUT de usuario no encontrado en el token'
@@ -39,15 +30,6 @@ export async function getBasicStats(req, res) {
 
     const metrics = await getCompleteMetrics(rut_usuario);
     
-    console.log('✅ [DASHBOARD-CONTROLLER] Métricas obtenidas del servicio:', {
-      tipo: typeof metrics,
-      keys: metrics ? Object.keys(metrics) : 'null',
-      tiene_personal_stats: !!metrics?.personal_basic_stats,
-      today_hours: metrics?.personal_basic_stats?.today_hours,
-      week_hours: metrics?.personal_basic_stats?.week_hours,
-      month_hours: metrics?.personal_basic_stats?.month_hours,
-      attendance_rate: metrics?.personal_basic_stats?.attendance_rate
-    });
 
     console.log('📤 [DASHBOARD-CONTROLLER] Enviando respuesta con métricas reales');
 
@@ -57,8 +39,6 @@ export async function getBasicStats(req, res) {
     });
 
   } catch (error) {
-    console.error('❌ [DASHBOARD-CONTROLLER] Error en getBasicStats:', error.message);
-    console.error('❌ [DASHBOARD-CONTROLLER] Stack completo:', error.stack);
     
     return res.status(500).json({
       success: false,
@@ -72,7 +52,6 @@ export async function getBasicStats(req, res) {
  * ⚡ OBTENER DATOS EN TIEMPO REAL
  */
 export async function getRealTime(req, res) {
-  console.log('⚡ [DASHBOARD-CONTROLLER] ===== GET REAL TIME =====');
   
   try {
     const user = req.user;
@@ -95,7 +74,6 @@ export async function getRealTime(req, res) {
     });
 
   } catch (error) {
-    console.error('❌ [DASHBOARD-CONTROLLER] Error en getRealTime:', error);
     
     return res.status(500).json({
       success: false,
@@ -109,7 +87,6 @@ export async function getRealTime(req, res) {
  * 📈 OBTENER ANALÍTICAS AVANZADAS
  */
 export async function getAdvanced(req, res) {
-  console.log('📈 [DASHBOARD-CONTROLLER] ===== GET ADVANCED =====');
   
   try {
     const user = req.user;
@@ -132,7 +109,6 @@ export async function getAdvanced(req, res) {
     });
 
   } catch (error) {
-    console.error('❌ [DASHBOARD-CONTROLLER] Error en getAdvanced:', error);
     
     return res.status(500).json({
       success: false,
@@ -146,7 +122,6 @@ export async function getAdvanced(req, res) {
  * 🔍 OBTENER INFO DE DEBUG
  */
 export async function getDebug(req, res) {
-  console.log('🔍 [DASHBOARD-CONTROLLER] ===== GET DEBUG =====');
   
   try {
     const user = req.user;

@@ -38,7 +38,6 @@ export class DashboardApiService {
       },
     };
 
-    console.log(`🌐 [DASHBOARD-API] ${config.method || 'GET'} ${endpoint}`);
 
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, config);
@@ -49,15 +48,9 @@ export class DashboardApiService {
 
       const data = await response.json();
       
-      console.log(`✅ [DASHBOARD-API] Success:`, {
-        endpoint,
-        processingTime: data.performance?.processing_time_ms,
-        dataSize: JSON.stringify(data.data).length
-      });
 
       return data;
     } catch (error) {
-      console.error(`❌ [DASHBOARD-API] Error:`, { endpoint, error: error.message });
       throw error;
     }
   }

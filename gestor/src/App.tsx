@@ -5,7 +5,6 @@ import { AsistenciaProvider } from './context/AsistenciaContext';
 import AppRoutes from './components/Layout/AppRoutes';
 
 const App: React.FC = () => {
-  console.log('🚀 App principal iniciando...');
   
   return (
     <BrowserRouter>

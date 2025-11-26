@@ -1117,5 +1117,43 @@ export async function deleteManualEntryController(req, res) {
   }
 }
 
+// controllers/asistencia.controller.js
+
+// ...importaciones que ya tengas
+// por ejemplo: import { isSemanaCerradaService } from '../services/asistencia.service.js';
+
+export async function getEstadoSemanaController(req, res) {
+  try {
+    const { fecha_inicio, fecha_fin } = req.query;
+
+    if (!fecha_inicio || !fecha_fin) {
+      return res.status(400).json({
+        success: false,
+        error: 'Parámetros fecha_inicio y fecha_fin son requeridos',
+      });
+    }
+
+    const rut_usuario = req.user?.rut_usuario || req.user?.rut || null;
+
+    // Si quieres que sea por usuario, pásalo al service. Si es global, puedes ignorarlo.
+    // Por ahora lo mantengo simple.
+    // const cerrada = await isSemanaCerradaService(rut_usuario, fecha_inicio, fecha_fin);
+
+    const cerrada = false; // 🔴 POR AHORA SIEMPRE "NO CERRADA" HASTA CONECTAR CON TU LÓGICA REAL
+
+    return res.json({
+      success: true,
+      data: { cerrada },
+    });
+  } catch (error) {
+    console.error('❌ [getEstadoSemanaController] Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Error al obtener estado de la semana',
+    });
+  }
+}
+
+
 console.log('👤 [ASISTENCIA-CTRL] ✅ CONTROLLER LIMPIO SIN EXPORTS DUPLICADOS ✅');
 console.log('✅ [DASHBOARD-CONTROLLER] Controlador configurado correctamente');
