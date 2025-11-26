@@ -15,14 +15,14 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
-from django.urls import path, include
-
+from modlector import views
 
 @csrf_exempt
 @never_cache
@@ -38,9 +38,18 @@ def favicon_view(request):
 urlpatterns = [
     path('favicon.ico', favicon_view),
     path('admin/', admin.site.urls),
-    path('lector/', include('lector_urls')),  
-]
 
+    # 👇 Ajustamos estas tres
+    path('configuracion/', views.configuracion_totem_view, name='configuracion_totem'),
+    path('configuracion/guardar_totem/', views.guardar_totem, name='guardar_totem'),
+    path('configuracion/reconfigurar_totem/', views.reconfigurar_totem, name='reconfigurar_totem'),
+
+    # Lo demás se queda igual que antes
+    path('', views.lector_qr_view, name='lector_qr'),
+    path('procesar_qr/', views.procesar_qr, name='procesar_qr'),
+    path('verificar_pin/', views.verificar_pin, name='verificar_pin'),
+    path('reset/', views.reset_session, name='reset_session'),
+]
 
 # Servir archivos estáticos en desarrollo
 if settings.DEBUG:
