@@ -34,8 +34,10 @@ const ProfilePage: React.FC = () => {
 
       setImageLoading(true);
       try {
+        const token = localStorage.getItem('token');
         const response = await fetch(
-          `${API_BASE_URL}/profile/foto-perfil-url/${user.rut_usuario}`
+          `${API_BASE_URL}/profile/foto-perfil-url/${encodeURIComponent(user.rut_usuario)}`,
+          { method: 'GET', credentials: 'include', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } }
         );
         const data = await response.json();
 
@@ -90,8 +92,10 @@ const ProfilePage: React.FC = () => {
       const data = await response.json();
       if (data.success) {
         // Recargar la imagen desde el servidor para asegurar que se muestre
+        const token = localStorage.getItem('token');
         const imageResponse = await fetch(
-          `${API_BASE_URL}/profile/foto-perfil-url/${user.rut_usuario}`
+          `${API_BASE_URL}/profile/foto-perfil-url/${encodeURIComponent(user.rut_usuario)}`,
+          { method: 'GET', credentials: 'include', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } }
         );
         const imageData = await imageResponse.json();
 

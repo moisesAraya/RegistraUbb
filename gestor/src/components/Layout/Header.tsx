@@ -91,8 +91,16 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
           return;
         }
 
+        const token = localStorage.getItem('token');
         const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/profile/foto-perfil-url/${encodeURIComponent(rut)}`
+          `${import.meta.env.VITE_API_URL}/profile/foto-perfil-url/${encodeURIComponent(rut)}`,
+          {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {})
+            }
+          }
         );
         const json = await res.json();
 
