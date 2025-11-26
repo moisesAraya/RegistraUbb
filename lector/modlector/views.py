@@ -8,6 +8,19 @@ import json
 import pytz
 
 
+def _sanitizar_qr(codigo_qr):
+    """
+    Corrige errores de lectura de pistolas de códigos de barras.
+    Reemplaza la Ñ por : debido a configuraciones de teclado ES/US.
+    """
+    if not codigo_qr:
+        return ""
+    # Si es un string, hacemos el reemplazo
+    if isinstance(codigo_qr, str):
+        return codigo_qr.replace('Ñ', ':')
+    return codigo_qr
+
+
 def _ocultar_codigo_qr(codigo_qr):
     """
     Oculta el código QR mostrando solo los primeros y últimos caracteres.
@@ -105,7 +118,8 @@ def procesar_qr(request):
                 }, status=400)
             
             data = json.loads(request.body)
-            codigo_qr = data.get('codigo_qr')
+            # APLICAMOS LA CORRECCIÓN DE Ñ -> : AQUÍ
+            codigo_qr = _sanitizar_qr(data.get('codigo_qr'))
             
             # Buscar el QR en la base de datos
             qr_obj = get_object_or_404(QR, codigo_unico=codigo_qr, estado_qr=True)
@@ -160,7 +174,8 @@ def verificar_pin(request):
                 }, status=400)
             
             data = json.loads(request.body)
-            codigo_qr = data.get('codigo_qr')
+            # APLICAMOS LA CORRECCIÓN DE Ñ -> : AQUÍ
+            codigo_qr = _sanitizar_qr(data.get('codigo_qr'))
             pin_ingresado = data.get('pin')
             
             # Buscar el QR y usuario
@@ -303,7 +318,8 @@ def obtener_marcajes_usuario(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            codigo_qr = data.get('codigo_qr')
+            # APLICAMOS LA CORRECCIÓN DE Ñ -> : AQUÍ
+            codigo_qr = _sanitizar_qr(data.get('codigo_qr'))
             
             # Buscar el QR y usuario
             qr_obj = get_object_or_404(QR, codigo_unico=codigo_qr, estado_qr=True)
