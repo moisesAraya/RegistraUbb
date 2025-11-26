@@ -1870,7 +1870,7 @@ export default function ReportsSection() {
 // 🔹 Helper: ajusta una hora restando 3 horas (para corregir desfase del servidor)
 const adjustTimeMinusOffset = (
   time: string | null,
-  offsetMinutes = 180
+  offsetMinutes = 240
 ): string | null => {
   if (!time) return null;
 
