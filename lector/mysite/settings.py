@@ -23,9 +23,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-g-xo9*6zdqi0+39a!!*(kb$=$+d*bmt@grp1n4*b_h)#6z9c1q'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG =   False
+DEBUG =  False
 
-ALLOWED_HOSTS = ['146.83.194.142', 'localhost', '127.0.0.1', '0.0.0.0', '*', 'https://asis.face.ubiobio.cl', 'asis.face.ubiobio.cl']
+ALLOWED_HOSTS = [
+    "146.83.194.142",
+    "localhost",
+    "127.0.0.1",
+    "asis.face.ubiobio.cl",
+]
 
 # Configuraciones CSRF para HTTP
 CSRF_TRUSTED_ORIGINS = [
@@ -36,20 +41,21 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1',
     'http://127.0.0.1:8000',
-    'https://asis.face.ubiobio.cl:1785/',
     'https://asis.face.ubiobio.cl',
+    'https://asis.face.ubiobio.cl:1785',
 ]
 
+
 # Configuraciones CSRF más permisivas
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
 
 CSRF_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SAMESITE = 'Lax'
 
 
 
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Application definition
 
@@ -128,7 +134,7 @@ else:  # PRODUCCIÓN - Base de datos remota
         }
     }
     # URL del backend para producción
-    BACKEND_URL = "http://146.83.194.142:1772/api/"
+    BACKEND_URL = "https://asis.face.ubiobio.cl:1785/api/"
 
 
 # Password validation
