@@ -431,8 +431,9 @@ const buildSlotsFromDetalle = (detalle: any): string[] => {
 
   marcajesRaw.forEach((m: any) => {
     pseudoMarcajes.push({
-      horaIngreso: m.hora_entrada || null,
-      horaSalida: m.hora_salida || null,
+      // 👇 Aquí corregimos el desfase de +3 horas SOLO para exportar
+      horaIngreso: adjustTimeMinusOffset(m.hora_entrada || null),
+      horaSalida: adjustTimeMinusOffset(m.hora_salida || null),
       justificacion: null,
     });
   });
@@ -1058,11 +1059,13 @@ export default function ReportsSection() {
 
     registros.forEach((detalle: any) => {
       const [year, month, day] = detalle.fecha.split("-");
+      // Ajusta la fecha local restando 3 horas
       const fechaLocal = new Date(
         parseInt(year),
         parseInt(month) - 1,
         parseInt(day)
       );
+      fechaLocal.setHours(fechaLocal.getHours() - 3);
       const fechaFormateada = fechaLocal.toLocaleDateString("es-CL");
       const diaSemana =
         detalle.dia_semana ||
@@ -1343,11 +1346,13 @@ export default function ReportsSection() {
 
     const tableData = registros.map((detalle: any) => {
       const [year, month, day] = detalle.fecha.split("-");
+      // Ajusta la fecha local restando 3 horas
       const fechaLocal = new Date(
         parseInt(year),
         parseInt(month) - 1,
         parseInt(day)
       );
+      fechaLocal.setHours(fechaLocal.getHours() - 3);
       const fechaFormateada = fechaLocal.toLocaleDateString("es-CL");
       const diaSemana =
         detalle.dia_semana ||
@@ -1718,20 +1723,20 @@ export default function ReportsSection() {
                         Total de Horas (Todos los Usuarios)
                       </p>
                       <p className="text-4xl font-bold">
-                        {reporteActual
-                          .filter((r: any) => r.usuario?.id_rol !== 1)
-                          .reduce((sum: number, r: any) => {
-                            const asistencias =
-                              r.reporte?.asistencias_detalle || [];
-                            const horasUsuario = asistencias.reduce(
-                              (s: number, det: any) =>
-                                s + computeHorasDiaFromDetalle(det),
-                              0
-                            );
-                            return sum + horasUsuario;
-                          }, 0)
-                          .toFixed(2)}{" "}
-                        hrs
+                        {formatHorasMinutos(
+                          reporteActual
+                            .filter((r: any) => r.usuario?.id_rol !== 1)
+                            .reduce((sum: number, r: any) => {
+                              const asistencias =
+                                r.reporte?.asistencias_detalle || [];
+                              const horasUsuario = asistencias.reduce(
+                                (s: number, det: any) =>
+                                  s + computeHorasDiaFromDetalle(det),
+                                0
+                              );
+                              return sum + horasUsuario;
+                            }, 0)
+                        )} hrs
                       </p>
                       <p className="text-blue-100 text-xs mt-2">
                         {
@@ -1786,9 +1791,6 @@ export default function ReportsSection() {
                             ? "bg-slate-500 text-white"
                             : "bg-orange-500 text-white";
 
-                        const horasRedondeadas =
-                          Math.round((r._horasUsuario || 0) * 100) / 100;
-
                         return (
                           <div
                             key={idx}
@@ -1804,7 +1806,7 @@ export default function ReportsSection() {
                                 <Award className="h-5 w-5 text-yellow-600" />
                               </div>
                               <span className="text-lg font-bold text-blue-600">
-                                {horasRedondeadas}
+                                {formatHorasMinutos(r._horasUsuario || 0)}
                                 h
                               </span>
                             </div>
@@ -1864,3 +1866,41 @@ export default function ReportsSection() {
     </div>
   );
 }
+
+// 🔹 Helper: ajusta una hora restando 3 horas (para corregir desfase del servidor)
+const adjustTimeMinusOffset = (
+  time: string | null,
+  offsetMinutes = 180
+): string | null => {
+  if (!time) return null;
+
+  try {
+    // Caso ISO: "2025-11-26T15:30:00"
+    if (time.includes("T")) {
+      const d = new Date(time);
+      d.setMinutes(d.getMinutes() - offsetMinutes);
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+
+    // Caso "HH:MM" o "HH:MM:SS"
+    const parts = time.split(":");
+    if (parts.length < 2) return time;
+
+    let h = parseInt(parts[0], 10);
+    let m = parseInt(parts[1], 10);
+    if (isNaN(h) || isNaN(m)) return time;
+
+    let total = h * 60 + m - offsetMinutes;
+    const DAY = 24 * 60;
+    // Normalizamos al rango [0, 24h)
+    total = ((total % DAY) + DAY) % DAY;
+
+    const hh = String(Math.floor(total / 60)).padStart(2, "0");
+    const mm = String(total % 60).padStart(2, "0");
+    return `${hh}:${mm}`;
+  } catch {
+    return time;
+  }
+};
