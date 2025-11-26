@@ -799,7 +799,7 @@
             codigoQRActual = codigo;
             actualizarEstado('Procesando...', 'waiting');
             
-            fetch('/procesar_qr/', {
+            fetch('procesar_qr/', {
                 method: 'POST',
                 headers: {  
                     'Content-Type': 'application/json',
@@ -885,7 +885,7 @@
             actualizarEstado('Verificando...', 'waiting');
             mostrarNotificacionModal('Verificando PIN...', 'success', 'loader');
 
-            fetch('/verificar_pin/', {
+            fetch('verificar_pin/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -990,7 +990,7 @@
 
         function reconfigurarTotem() {
             if (confirm('¿Deseas reconfigurar el totem de este dispositivo?')) {
-                fetch('/reconfigurar_totem/', {
+                fetch('reconfigurar_totem/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
