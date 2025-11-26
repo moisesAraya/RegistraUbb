@@ -34,7 +34,6 @@
     <li><a href="#endpoints">Endpoints principales (API)</a></li>
     <li><a href="#roadmap">Roadmap y trabajo futuro</a></li>
     <li><a href="#creditos">Créditos</a></li>
-    <li><a href="#licencia">Licencia</a></li>
   </ul>
 
   <hr />
