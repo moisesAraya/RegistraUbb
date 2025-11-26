@@ -34,6 +34,8 @@ interface AdminInfo {
   cargo: string;
 }
 
+// ==================== HELPERS GENERALES ====================
+
 // 🔹 Helper: diferencia en minutos entre dos horas ("HH:MM[:SS]" o ISO)
 const diffMinutes = (start: string | null, end: string | null) => {
   if (!start || !end) return 0;
@@ -56,15 +58,26 @@ const diffMinutes = (start: string | null, end: string | null) => {
   return (e.getTime() - s.getTime()) / 60000;
 };
 
-// 🔹 Helper: time → minutos desde medianoche
+// 🔹 Helper: time → minutos desde medianoche (MISMA LÓGICA QUE WeeklyAttendanceWidget)
 const timeToMinutes = (timeString: string | null): number | null => {
   if (!timeString) return null;
-  const parts = timeString.split(":");
-  if (parts.length < 2) return null;
-  const h = parseInt(parts[0], 10);
-  const m = parseInt(parts[1], 10);
-  if (isNaN(h) || isNaN(m)) return null;
-  return h * 60 + m;
+
+  try {
+    if (timeString.includes("T")) {
+      const d = new Date(timeString);
+      return d.getHours() * 60 + d.getMinutes();
+    }
+    const parts = timeString.split(":");
+    if (parts.length >= 2) {
+      const h = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      if (isNaN(h) || isNaN(m)) return null;
+      return h * 60 + m;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 };
 
 // 🔹 Helper: formatea "HH:MM[:SS]" a "HH:MM"
@@ -96,6 +109,250 @@ const applyMarcajeDescuentoGeneral = (marcajes: any[]): number => {
     }
   }
   return marcajes.reduce((sum, m) => sum + (m.horasTrabajadas || 0), 0);
+};
+
+// ================== HELPERS TIPO Weekly PARA PERSONAL ==================
+
+// Versión mínima del AsistenciaItem que necesitamos para slots
+interface SlotAsistenciaItem {
+  horaIngreso: string | null;
+  horaSalida: string | null;
+  justificacion?: {
+    motivo: string;
+    descripcion: string | null;
+    es_justificada: boolean;
+    horas_compensadas: number;
+    tipo?: string;
+    jornada?: string;
+  } | null;
+}
+
+type TipoEvento = "entrada" | "salida" | "justificacion";
+
+interface EventoSlot {
+  marcaje: SlotAsistenciaItem;
+  tipo: TipoEvento;
+  displayTime: string | null;
+}
+
+/**
+ * ⚠️ MISMA LÓGICA QUE buildEventosFromMarcajes DEL WeeklyAttendanceWidget
+ * Construye los "eventos" a mostrar en los 4 slots de un día
+ */
+const buildEventosFromMarcajes = (
+  marcajes: SlotAsistenciaItem[]
+): (EventoSlot | null)[] => {
+  // 🔹 CASO ESPECIAL: solo justificación
+  const tieneSoloJustificacion =
+    marcajes.length > 0 &&
+    marcajes.every(
+      (m) => !m.horaIngreso && !m.horaSalida && !!m.justificacion
+    );
+
+  if (tieneSoloJustificacion) {
+    const baseMarcaje = marcajes[0];
+    const just = baseMarcaje.justificacion!;
+    const horas = just.horas_compensadas ?? 0;
+    const esNoJustificada = !just.es_justificada;
+
+    const rawJornada =
+      (just.jornada || just.tipo || "").toString().toLowerCase();
+
+    const makeEvt = (): EventoSlot => ({
+      marcaje: baseMarcaje,
+      tipo: "justificacion",
+      displayTime: null,
+    });
+
+    const esDiaCompleto =
+      horas >= 7 ||
+      rawJornada === "completa" ||
+      rawJornada === "dia_completo" ||
+      rawJornada === "jornada_completa";
+
+    if (esDiaCompleto) {
+      return [makeEvt(), makeEvt(), makeEvt(), makeEvt()];
+    }
+
+    const esMediaJornada = horas > 0 && horas <= 5;
+
+    if (esMediaJornada) {
+      const esTarde =
+        rawJornada === "tarde" ||
+        rawJornada === "media_tarde" ||
+        rawJornada === "jornada_tarde";
+
+      if (esTarde) {
+        return [null, null, makeEvt(), makeEvt()];
+      } else {
+        return [makeEvt(), makeEvt(), null, null];
+      }
+    }
+
+    if (esNoJustificada && horas === 0) {
+      return [makeEvt(), makeEvt(), makeEvt(), makeEvt()];
+    }
+
+    return [makeEvt(), null, null, null];
+  }
+
+  // 🔹 CASO: justificación + marcajes en el mismo día (media jornada)
+  const justMarcaje = marcajes.find((m) => m.justificacion);
+  const hayMarcajesConHora = marcajes.some(
+    (m) => m.horaIngreso || m.horaSalida
+  );
+
+  if (justMarcaje && hayMarcajesConHora && justMarcaje.justificacion) {
+    const just = justMarcaje.justificacion;
+    const horasJust = just.horas_compensadas ?? 0;
+    const rawJornada =
+      (just.jornada || just.tipo || "").toString().toLowerCase();
+
+    const esMediaJornada = horasJust > 0 && horasJust <= 5;
+
+    if (esMediaJornada) {
+      const esTarde =
+        rawJornada === "tarde" ||
+        rawJornada === "media_tarde" ||
+        rawJornada === "jornada_tarde";
+
+      const slots: (EventoSlot | null)[] = [null, null, null, null];
+
+      const eventosMarcajes: EventoSlot[] = [];
+      marcajes.forEach((m) => {
+        if (m.horaIngreso) {
+          eventosMarcajes.push({
+            marcaje: m,
+            tipo: "entrada",
+            displayTime: m.horaIngreso,
+          });
+        }
+        if (m.horaSalida) {
+          eventosMarcajes.push({
+            marcaje: m,
+            tipo: "salida",
+            displayTime: m.horaSalida,
+          });
+        }
+      });
+
+      eventosMarcajes.sort((a, b) => {
+        const ta = timeToMinutes(a.displayTime);
+        const tb = timeToMinutes(b.displayTime);
+        if (ta === null && tb === null) return 0;
+        if (ta === null) return -1;
+        if (tb === null) return 1;
+        return ta - tb;
+      });
+
+      const makeJustEvt = (): EventoSlot => ({
+        marcaje: justMarcaje,
+        tipo: "justificacion",
+        displayTime: null,
+      });
+
+      if (esTarde) {
+        // 👉 Mañana trabaja, tarde justificada
+        if (eventosMarcajes[0]) slots[0] = eventosMarcajes[0];
+        if (eventosMarcajes[1]) slots[1] = eventosMarcajes[1];
+        slots[2] = makeJustEvt();
+        slots[3] = makeJustEvt();
+      } else {
+        // 👉 Mañana justificada, tarde trabaja
+        slots[0] = makeJustEvt();
+        slots[1] = makeJustEvt();
+        if (eventosMarcajes[0]) slots[2] = eventosMarcajes[0];
+        if (eventosMarcajes[1]) slots[3] = eventosMarcajes[1];
+      }
+
+      return slots;
+    }
+    // Si no es media jornada, cae a lógica normal
+  }
+
+  // 🔹 LÓGICA NORMAL (marcajes con o sin justificación residual)
+  const eventos: EventoSlot[] = [];
+
+  marcajes.forEach((m) => {
+    const hasIngreso = !!m.horaIngreso;
+    const hasSalida = !!m.horaSalida;
+    const hasJust = !!m.justificacion;
+
+    if (hasIngreso) {
+      eventos.push({
+        marcaje: m,
+        tipo: "entrada",
+        displayTime: m.horaIngreso,
+      });
+    }
+
+    if (hasSalida) {
+      eventos.push({
+        marcaje: m,
+        tipo: "salida",
+        displayTime: m.horaSalida,
+      });
+    }
+
+    if (!hasIngreso && !hasSalida && hasJust) {
+      eventos.push({
+        marcaje: m,
+        tipo: "justificacion",
+        displayTime: null,
+      });
+    }
+  });
+
+  if (eventos.length === 0) {
+    return [null, null, null, null];
+  }
+
+  eventos.sort((a, b) => {
+    const ta = timeToMinutes(a.displayTime);
+    const tb = timeToMinutes(b.displayTime);
+
+    if (ta === null && tb === null) return 0;
+    if (ta === null) return -1;
+    if (tb === null) return 1;
+    return ta - tb;
+  });
+
+  // REGLA: 2 eventos y > 6h => primer y último recuadro
+  if (eventos.length === 2) {
+    const t1 = timeToMinutes(eventos[0].displayTime);
+    const t2 = timeToMinutes(eventos[1].displayTime);
+
+    if (t1 !== null && t2 !== null) {
+      let diffMin = t2 - t1;
+      if (diffMin < 0) diffMin += 24 * 60;
+      const diffHoras = diffMin / 60;
+
+      if (diffHoras > 6) {
+        const slots: (EventoSlot | null)[] = [null, null, null, null];
+        slots[0] = eventos[0];
+        slots[3] = eventos[1];
+        return slots;
+      }
+    }
+  }
+
+  // REGLA: si el primer evento con hora es después de las 12:00 → 3er recuadro
+  let offset = 0;
+  const firstWithTime = eventos.find((e) => e.displayTime);
+  if (firstWithTime) {
+    const mins = timeToMinutes(firstWithTime.displayTime);
+    if (mins !== null && mins >= 12 * 60) {
+      offset = 2;
+    }
+  }
+
+  const result: (EventoSlot | null)[] = [null, null, null, null];
+  let slotIndex = offset;
+  for (let i = 0; i < eventos.length && slotIndex < 4; i++, slotIndex++) {
+    result[slotIndex] = eventos[i];
+  }
+
+  return result;
 };
 
 // ===================== HELPERS PARA REPORTE PERSONAL =====================
@@ -164,58 +421,51 @@ const formatDateToISO = (dt: Date) => {
   return `${y}-${m}-${d}`;
 };
 
-// 🔹 Construye slots [M-E, M-S, T-E, T-S] a partir de JUST + marcajes_raw
+/**
+ * 🔹 NUEVO: Construye slots [M-E, M-S, T-E, T-S] usando EXACTAMENTE
+ * la misma lógica de WeeklyAttendanceWidget (buildEventosFromMarcajes),
+ * pero a partir de detalle.marcajes_raw + detalle.justificacion.
+ */
 const buildSlotsFromDetalle = (detalle: any): string[] => {
   const slots = ["X", "X", "X", "X"]; // [M-E, M-S, T-E, T-S]
 
-  const manana = detalle.manana || {};
-  const tarde = detalle.tarde || {};
-
-  // 1) JUST por mañana/tarde
-  if (manana.entrada === "JUST" || manana.salida === "JUST") {
-    slots[0] = "JUST";
-    slots[1] = "JUST";
-  }
-  if (tarde.entrada === "JUST" || tarde.salida === "JUST") {
-    slots[2] = "JUST";
-    slots[3] = "JUST";
-  }
-
-  // 2) Colocar marcajes reales según hora y tipo (entrada/salida)
-  const placeEvent = (tipo: "entrada" | "salida", time: string) => {
-    const mins = timeToMinutes(time);
-    if (mins === null) return;
-
-    // 🔸 Ajuste: ahora consideramos mañana hasta las 13:00 (inclusive 12:59)
-    const isMorning = mins < 13 * 60;
-    const value = formatHora(time);
-
-    if (isMorning) {
-      if (tipo === "entrada") {
-        if (slots[0] === "X") slots[0] = value;
-        else if (slots[1] === "X") slots[1] = value;
-      } else {
-        if (slots[1] === "X") slots[1] = value;
-        else if (slots[0] === "X") slots[0] = value;
-      }
-    } else {
-      if (tipo === "entrada") {
-        if (slots[2] === "X") slots[2] = value;
-        else if (slots[3] === "X") slots[3] = value;
-      } else {
-        if (slots[3] === "X") slots[3] = value;
-        else if (slots[2] === "X") slots[2] = value;
-      }
-    }
-  };
+  // Construimos pseudo-marcajes en el mismo formato que usa WeeklyAttendanceWidget
+  const pseudoMarcajes: SlotAsistenciaItem[] = [];
 
   const marcajesRaw = Array.isArray(detalle.marcajes_raw)
     ? detalle.marcajes_raw
     : [];
 
   marcajesRaw.forEach((m: any) => {
-    if (m.hora_entrada) placeEvent("entrada", m.hora_entrada);
-    if (m.hora_salida) placeEvent("salida", m.hora_salida);
+    pseudoMarcajes.push({
+      horaIngreso: m.hora_entrada || null,
+      horaSalida: m.hora_salida || null,
+      justificacion: null,
+    });
+  });
+
+  if (detalle.justificacion) {
+    pseudoMarcajes.push({
+      horaIngreso: null,
+      horaSalida: null,
+      justificacion: detalle.justificacion,
+    });
+  }
+
+  // Si no hay nada, devolvemos X
+  if (pseudoMarcajes.length === 0) {
+    return slots;
+  }
+
+  const eventos = buildEventosFromMarcajes(pseudoMarcajes);
+
+  eventos.forEach((evento, idx) => {
+    if (!evento) return;
+    if (evento.tipo === "justificacion") {
+      slots[idx] = "JUST";
+    } else {
+      slots[idx] = formatHora(evento.displayTime);
+    }
   });
 
   return slots;
@@ -713,7 +963,7 @@ export default function ReportsSection() {
           const marcajesDia = asistenciasPorFecha.get(fecha) || [];
 
           if (marcajesDia.length > 0) {
-            // Usamos siempre los slots para que respete JUST solo en la mañana
+            // Usamos buildSlotsFromDetalle → MISMA LÓGICA QUE LA VISTA SEMANAL
             const detalle = marcajesDia[0];
             const slots = buildSlotsFromDetalle(detalle);
             dataRow.push(...slots);
@@ -828,7 +1078,7 @@ export default function ReportsSection() {
     });
 
     sheet.getColumn(1).width = 25;
-    // 🔸 Celdas un poco más anchas para evitar que se vea tan apretado
+    // 🔸 Celdas más anchas
     for (let i = 2; i <= fechasOrdenadas.length * 4 + 1; i++) {
       sheet.getColumn(i).width = 11;
     }
@@ -934,7 +1184,7 @@ export default function ReportsSection() {
         detalle.dia_semana ||
         fechaLocal.toLocaleDateString("es-CL", { weekday: "long" });
 
-      const slots = buildSlotsFromDetalle(detalle);
+      const slots = buildSlotsFromDetalle(detalle); // 👈 MISMA LÓGICA QUE WEEKLY
       const horasDia = computeHorasDiaFromDetalle(detalle);
       const estado = buildEstadoFromDetalle(detalle);
 
@@ -975,7 +1225,8 @@ export default function ReportsSection() {
         }
 
         if (colNumber === 8 && typeof cell.value === "string") {
-          if (cell.value.includes("Justificada:")) {
+          const textVal = cell.value as string;
+          if (textVal.includes("Justificada:")) {
             cell.font = { color: { argb: "FF00AA00" }, bold: true };
             cell.fill = {
               type: "pattern",
@@ -983,8 +1234,8 @@ export default function ReportsSection() {
               fgColor: { argb: "FFE8F5E9" },
             };
           } else if (
-            cell.value.includes("Injustificada:") ||
-            cell.value === "Ausencia"
+            textVal.includes("Injustificada:") ||
+            textVal === "Ausencia"
           ) {
             cell.font = { color: { argb: "FFFF0000" }, bold: true };
             cell.fill = {
