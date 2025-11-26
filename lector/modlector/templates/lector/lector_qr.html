@@ -982,7 +982,7 @@
         function reconfigurarTotem() {
             if (confirm('¿Deseas reconfigurar el totem de este dispositivo?')) {
                 // 1. Apuntamos a la vista que borra la sesión (reconfigurar_totem)
-                fetch('reconfigurar_totem/', {
+                fetch('/lector/reconfigurar_totem/', {  // <--- Agrega la barra al inicio y 'lector/'
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
