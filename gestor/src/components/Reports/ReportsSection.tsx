@@ -211,24 +211,24 @@ const buildSlotsFromDetalle = (detalle: any): string[] => {
   return slots;
 };
 
-// 🔹 Construye estado de la fila (Presente / Falta Justificada / Falta No Justificada / Falta)
+// 🔹 Construye estado de la fila (Presente / Ausencia Justificada / Ausencia Injustificada / Ausencia)
 const buildEstadoFromDetalle = (detalle: any): string => {
   if (detalle.justificacion) {
     const motivoFmt = formatMotivo(detalle.justificacion.motivo);
     return detalle.justificacion.es_justificada
-      ? `Falta Justificada: ${motivoFmt}`
-      : `Falta No Justificada: ${motivoFmt}`;
+      ? `Ausencia Justificada: ${motivoFmt}`
+      : `Ausencia Injustificada: ${motivoFmt}`;
   }
 
   if (detalle.estado) {
     const est = detalle.estado.toString().toLowerCase();
     if (est === "presente") return "Presente";
-    if (est === "falta") return "Falta";
+    if (est === "falta") return "Ausencia";
     return formatMotivo(detalle.estado);
   }
 
   const h = computeHorasDiaFromDetalle(detalle);
-  if (h <= 0) return "Falta";
+  if (h <= 0) return "Ausencia";
 
   return "Presente";
 };
@@ -642,7 +642,7 @@ export default function ReportsSection() {
             const motivo = formatMotivo(
               marcajesDia[0].justificacion.motivo
             );
-            dataRow.push(`Falta: ${motivo}`, "", "", "");
+            dataRow.push(`Ausencia: ${motivo}`, "", "", "");
             totalHorasUsuario += computeHorasDiaFromDetalle(
               marcajesDia[0]
             );
@@ -672,7 +672,7 @@ export default function ReportsSection() {
         };
 
         if (typeof cell.value === "string") {
-          if (cell.value.startsWith("Falta:")) {
+          if (cell.value.startsWith("Ausencia:")) {
             const asist =
               p.reporte?.asistencias_detalle || [];
             const justificacion = asist.find(
@@ -931,8 +931,8 @@ export default function ReportsSection() {
               fgColor: { argb: "FFE8F5E9" },
             };
           } else if (
-            cell.value.includes("No Justificada:") ||
-            cell.value === "Falta"
+            cell.value.includes("Injustificada:") ||
+            cell.value === "Ausencia"
           ) {
             cell.font = { color: { argb: "FFFF0000" }, bold: true };
             cell.fill = {
@@ -1243,8 +1243,8 @@ export default function ReportsSection() {
             data.cell.styles.textColor = [0, 170, 0];
             data.cell.styles.fontStyle = "bold";
           } else if (
-            cellText.includes("No Justificada:") ||
-            cellText === "Falta"
+            cellText.includes("Injustificada:") ||
+            cellText === "Ausencia"
           ) {
             data.cell.styles.textColor = [255, 0, 0];
             data.cell.styles.fontStyle = "bold";

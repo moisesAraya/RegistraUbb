@@ -23,9 +23,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-g-xo9*6zdqi0+39a!!*(kb$=$+d*bmt@grp1n4*b_h)#6z9c1q'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True  
+DEBUG =   False
 
-ALLOWED_HOSTS = ['146.83.194.142', 'localhost', '127.0.0.1', '0.0.0.0', '*']
+ALLOWED_HOSTS = ['146.83.194.142', 'localhost', '127.0.0.1', '0.0.0.0', '*', 'https://asis.face.ubiobio.cl', 'asis.face.ubiobio.cl']
 
 # Configuraciones CSRF para HTTP
 CSRF_TRUSTED_ORIGINS = [
@@ -36,6 +36,8 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1',
     'http://127.0.0.1:8000',
+    'https://asis.face.ubiobio.cl:1785/',
+    'https://asis.face.ubiobio.cl',
 ]
 
 # Configuraciones CSRF más permisivas

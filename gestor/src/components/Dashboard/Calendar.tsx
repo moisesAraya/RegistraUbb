@@ -118,7 +118,7 @@ const AttendanceCalendar: React.FC = () => {
   const rawAsistencias: any[] = asistenciaData?.asistencias || [];
   const rawJustificaciones: any[] =
     (asistenciaData as any)?.justificaciones ||
-    (asistenciaData as any)?.faltas ||
+    (asistenciaData as any)?.ausencias ||
     [];
 
   // Mapa por fecha YYYY-MM-DD
@@ -176,7 +176,7 @@ const AttendanceCalendar: React.FC = () => {
       // si ya había horasTrabajadas, las mantenemos;
       // si no, usamos horas_compensadas o 0
       horasTrabajadas: base.horasTrabajadas ?? j.horas_compensadas ?? 0,
-      estado: j.es_justificada ? 'justificada' : 'no_justificada',
+      estado: j.es_justificada ? 'justificada' : 'injustificada',
       justificacion: {
         motivo: j.motivo,
         descripcion: j.descripcion,
@@ -359,7 +359,7 @@ const AttendanceCalendar: React.FC = () => {
           </div>
           <div className="flex items-center space-x-1">
             <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[6px] border-b-red-500"></div>
-            <span className="text-slate-700">No justificada</span>
+            <span className="text-slate-700">Injustificada</span>
           </div>
         </div>
 
@@ -483,10 +483,10 @@ const AttendanceCalendar: React.FC = () => {
                         : 'text-red-800'
                     }`}
                   >
-                    Falta{' '}
+                    Ausencia{' '}
                     {selectedDay.attendance.justificacion.es_justificada
                       ? 'Justificada'
-                      : 'No Justificada'}
+                      : 'Injustificada'}
                   </span>
                 </div>
                 <p
@@ -637,9 +637,9 @@ const AttendanceCalendar: React.FC = () => {
               </div>
               <div className="bg-white rounded-lg p-2 text-center">
                 <p className="text-xl font-bold text-red-600">
-                  {asistenciaData.resumen.faltas}
+                  {asistenciaData.resumen.ausencias}
                 </p>
-                <p className="text-xs text-slate-600">faltas</p>
+                <p className="text-xs text-slate-600">ausencias</p>
               </div>
             </div>
           </div>

@@ -805,7 +805,7 @@ function WeeklyAttendanceWidget() {
                   if (evento.tipo === "justificacion") {
                     label = marcaje.justificacion?.es_justificada
                       ? "Justificada"
-                      : "No justificada";
+                      : "Injustificada";
                   } else {
                     label = formatTimeLabel(evento.displayTime);
                   }

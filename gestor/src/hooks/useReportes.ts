@@ -10,7 +10,7 @@ interface ReportePersonal {
   resumen_basico: {
     horasTotales: number;
     diasTrabajados: number;
-    faltas: number;
+    ausencias: number;
     promedioHorasDia: number;
   };
   asistencias_detalle: any[];
@@ -54,7 +54,7 @@ interface ReporteComparativo {
     nombre_semana: string;
     horas_totales: number;
     dias_trabajados: number;
-    faltas: number;
+    ausencias: number;
     justificaciones: number;
     porcentaje_asistencia: number;
   }>;
@@ -145,7 +145,7 @@ export const useReportes = () => {
             resumen_basico: {
               horasTotales: 0,
               diasTrabajados: 0,
-              faltas: 0,
+              ausencias: 0,
               promedioHorasDia: 0,
             },
             asistencias_detalle: [],

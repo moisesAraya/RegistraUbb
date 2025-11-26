@@ -183,7 +183,7 @@ const PersonalDashboard: React.FC = () => {
       status = infoDia.justificacion.es_justificada ? 'justified' : 'unjustified';
     } else if (infoDia) {
       const tieneFalta = infoDia.estados.some(
-        (e) => e === 'falta' || e === 'no_justificada' || e === 'ausente',
+        (e) => e === 'falta' || e === 'injustificada' || e === 'ausente',
       );
 
       if (horas >= 7) status = 'success';

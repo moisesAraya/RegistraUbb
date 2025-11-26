@@ -26,7 +26,7 @@ interface ResumenAsistencia {
   diasTrabajados: number;
   horasTotales: number;
   horasPromedio: number;
-  faltas: number;
+  ausencias: number;
 }
 
 interface EstadisticasAsistencia {
