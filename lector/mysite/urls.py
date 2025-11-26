@@ -33,7 +33,7 @@ urlpatterns = [
     # CORRECCIÓN AQUÍ: 
     # Quitamos 'configuracion/' del inicio para que coincida con el fetch('reconfigurar_totem/') 
     # que haces desde la página principal.
-    path('reconfigurar_totem/', views.reconfigurar_totem, name='reconfigurar_totem'),
+    path('configuracion/reconfigurar_totem/', views.reconfigurar_totem, name='reconfigurar_totem'),
 
     # VISTAS PRINCIPALES (LECTOR)
     path('', views.lector_qr_view, name='lector_qr'),
