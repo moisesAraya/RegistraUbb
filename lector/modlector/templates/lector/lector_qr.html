@@ -990,7 +990,7 @@
 
         function reconfigurarTotem() {
             if (confirm('¿Deseas reconfigurar el totem de este dispositivo?')) {
-                fetch('reconfigurar_totem/', {
+                fetch('configuracion/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
