@@ -491,12 +491,15 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
       };
 
       const tryDirectAccess = () => {
-        // Intentar acceso directo a MinIO
-        const directUrl = `${import.meta.env.VITE_MINIO_ENDPOINT || 'http://localhost:9000'}/registraubb/logo_registraubb.png`;
+        // Base relativa para que use el mismo host y puerto que el frontend
+        let minioBase = import.meta.env.VITE_MINIO_ENDPOINT || '/minio';
+        minioBase = minioBase.replace(/\/+$/, ''); // sin barra al final
+
+        const directUrl = `${minioBase}/registraubb/logo_registraubb.png`;
         console.log('🔄 Intentando acceso directo:', directUrl);
-        
+
         const logoImg = new Image();
-        logoImg.crossOrigin = 'anonymous';
+        logoImg.crossOrigin = 'anonymous'; // la puedes dejar, aunque sea mismo origen
         logoImg.onload = () => {
           console.log('✅ Logo cargado desde acceso directo');
           setLogoImage(logoImg);
@@ -510,43 +513,122 @@ const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
         logoImg.src = directUrl;
       };
 
+
       loadLogo();
 
       // Luego cargar la foto de perfil
-      try {
-        const res = await fetch(
-          `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/profile/foto-perfil-url/${user.rut_usuario}`
-        );
-        const json = await res.json();
-        if (json.success && json.foto_url) {
-          setFotoPerfilUrl(json.foto_url);
-          
-          // ✅ Cargar imagen para el canvas
-          const img = new Image();
-          img.crossOrigin = 'anonymous'; // Para evitar problemas de CORS
-          img.onload = () => {
-            console.log('✅ Imagen de perfil cargada correctamente');
-            setUserImage(img);
+      const loadProfileImage = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const res = await fetch(
+            `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/profile/foto-perfil-url/${encodeURIComponent(user.rut_usuario)}`,
+            { method: 'GET', credentials: 'include', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } }
+          );
+          const json = await res.json();
+
+          if (json.success && json.foto_url) {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+              console.log('✅ Imagen de perfil cargada desde URL presigned');
+              setUserImage(img);
+              setImageLoaded(true);
+            };
+            img.onerror = () => {
+              console.log('⚠️ Error con URL presigned, intentando acceso directo');
+              tryDirectProfileAccess();
+            };
+            img.src = json.foto_url;
+            return;
+          }
+        } catch (err) {
+          console.warn('❌ Falló petición a backend para foto de perfil, intentando acceso directo', err);
+        }
+
+        // Fallback directo por si presigned no funciona
+        let minioBase = import.meta.env.VITE_MINIO_ENDPOINT || '/minio';
+        minioBase = minioBase.replace(/\/+$/, '');
+
+        const jpgUrl = `${minioBase}/registraubb/${user.rut_usuario}.jpg`;
+        const pngUrl = `${minioBase}/registraubb/${user.rut_usuario}.png`;
+
+        console.log('🔄 Intentando foto perfil (.jpg):', jpgUrl);
+
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+
+        img.onload = () => {
+          console.log('✅ Imagen de perfil cargada (.jpg)');
+          setUserImage(img);
+          setImageLoaded(true);
+        };
+
+        img.onerror = () => {
+          console.log('⚠️ Error .jpg, intentando .png:', pngUrl);
+          const imgPng = new Image();
+          imgPng.crossOrigin = 'anonymous';
+          imgPng.onload = () => {
+            console.log('✅ Imagen de perfil cargada (.png)');
+            setUserImage(imgPng);
             setImageLoaded(true);
           };
-          img.onerror = () => {
-            console.log('⚠️ Error cargando imagen, usando iniciales');
+          imgPng.onerror = () => {
+            console.log('❌ Error cargando imagen, usando iniciales');
             setUserImage(null);
-            setImageLoaded(true); // Marcamos como "cargado" para continuar
+            setImageLoaded(true);
           };
-          img.src = json.foto_url;
-        } else {
-          console.log('ℹ️ No hay foto de perfil, usando iniciales');
-          setFotoPerfilUrl(null);
+          imgPng.src = pngUrl;
+        };
+
+        img.src = jpgUrl;
+      };
+
+
+      const tryDirectProfileAccess = () => {
+        // Base relativa para que use el mismo host y puerto que el frontend
+        let minioBase = import.meta.env.VITE_MINIO_ENDPOINT || '/minio';
+        minioBase = minioBase.replace(/\/+$/, ''); // sin barra al final
+
+        const directUrl = `${minioBase}/registraubb/profile-${user.rut_usuario}.jpg`;
+        console.log('🔄 Intentando acceso directo a foto de perfil:', directUrl);
+
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          console.log('✅ Imagen de perfil cargada desde acceso directo');
+          setUserImage(img);
+          setImageLoaded(true);
+        };
+        img.onerror = () => {
+          console.log('⚠️ Error cargando imagen directa (.jpg), intentando con (.png)');
+          tryDirectProfileAccessPng();
+        };
+        img.src = directUrl;
+      };
+
+      const tryDirectProfileAccessPng = () => {
+        let minioBase = import.meta.env.VITE_MINIO_ENDPOINT || '/minio';
+        minioBase = minioBase.replace(/\/+$/, '');
+
+        const directUrl = `${minioBase}/registraubb/profile-${user.rut_usuario}.png`;
+        console.log('🔄 Intentando acceso directo (.png):', directUrl);
+
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          console.log('✅ Imagen de perfil cargada (.png)');
+          setUserImage(img);
+          setImageLoaded(true);
+        };
+        img.onerror = () => {
+          console.log('❌ Error cargando imagen, usando iniciales');
           setUserImage(null);
-          setImageLoaded(true); // Marcamos como "cargado" para continuar
-        }
-      } catch (error) {
-        console.error('Error cargando imagen de perfil:', error);
-        setFotoPerfilUrl(null);
-        setUserImage(null);
-        setImageLoaded(true); // Marcamos como "cargado" para continuar
-      }
+          setImageLoaded(true);
+        };
+        img.src = directUrl;
+      };
+
+      loadProfileImage();
     };
     
     initializeCard();

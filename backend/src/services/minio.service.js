@@ -29,7 +29,7 @@ async function ensureBucket() {
   
   try {
     await minioClient.setBucketPolicy(bucketName, JSON.stringify(policy));
-    console.log(`🔓 [MINIO] Bucket configurado como público: ${bucketName}`);
+    // console.log(`🔓 [MINIO] Policy verificada`); // Comentado para menos ruido
   } catch (error) {
     console.warn(`⚠️ [MINIO] No se pudo configurar policy pública:`, error.message);
   }
@@ -40,7 +40,6 @@ export async function uploadProfileImage(file, rut_usuario) {
   try {
     console.log('📤 [MINIO] Iniciando upload:', {
       fileName: file.originalname,
-      fileSize: file.size,
       rut_usuario,
       bucketName
     });
@@ -51,33 +50,32 @@ export async function uploadProfileImage(file, rut_usuario) {
     const objectName = `${rut_usuario}${extension}`;
     const filePath = file.path;
 
-    console.log('📤 [MINIO] Subiendo archivo:', {
-      objectName,
-      filePath,
-      bucketName
-    });
-
     await minioClient.fPutObject(bucketName, objectName, filePath);
     
     console.log('✅ [MINIO] Archivo subido exitosamente');
 
     // Eliminar archivo temporal
-    fs.unlinkSync(filePath);
-
-    // Generar URL firmada (válida por 7 días)
     try {
-      const signedUrl = await minioClient.presignedGetObject(bucketName, objectName, 7 * 24 * 60 * 60);
-      console.log('✅ [MINIO] URL firmada generada:', signedUrl);
-      return [signedUrl, null];
-    } catch (signError) {
-      console.warn('⚠️ [MINIO] Error generando URL firmada, usando URL pública');
-      const publicUrl = `http://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT}/${bucketName}/${objectName}`;
-      console.log('📤 [MINIO] URL pública generada:', publicUrl);
-      return [publicUrl, null];
+        fs.unlinkSync(filePath);
+    } catch (e) {
+        console.warn('No se pudo borrar archivo temporal', e);
     }
+
+    // --- CORRECCIÓN AQUÍ ---
+    // En lugar de pedir URL firmada, construimos la URL Pública directamente
+    // para que el Front la pueda mostrar de inmediato sin errores SSL.
+    
+    const publicBase = process.env.MINIO_PUBLIC_URL || 'https://asis.face.ubiobio.cl:1785/minio';
+    const cleanBase = publicBase.replace(/\/$/, '');
+    const publicUrl = `${cleanBase}/${bucketName}/${objectName}`;
+
+    console.log('✅ [MINIO] URL Pública retornada:', publicUrl);
+    
+    // Retornamos la URL limpia
+    return [publicUrl, null];
+
   } catch (error) {
     console.error("💥 [MINIO] Error al subir imagen:", error);
-    console.error("💥 [MINIO] Stack:", error.stack);
     return [null, `Error al subir la imagen: ${error.message}`];
   }
 }
@@ -89,29 +87,23 @@ export async function getProfileImageUrl(rut_usuario) {
     
     await ensureBucket();
     
-    // Buscar imagen con diferentes extensiones
     const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
     
     for (const ext of extensions) {
       const objectName = `${rut_usuario}${ext}`;
       try {
+        // Verificamos existencia física
         await minioClient.statObject(bucketName, objectName);
         
-        // Intentar URL pública primero
-        const publicUrl = `http://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT}/${bucketName}/${objectName}`;
-        console.log('🔗 [MINIO] Intentando URL pública:', publicUrl);
+        // Construimos URL Pública
+        const publicBase = process.env.MINIO_PUBLIC_URL || 'https://asis.face.ubiobio.cl:1785/minio';
+        const cleanBase = publicBase.replace(/\/$/, '');
+        const finalUrl = `${cleanBase}/${bucketName}/${objectName}`;
         
-        // Generar URL firmada como backup (válida por 7 días)
-        try {
-          const signedUrl = await minioClient.presignedGetObject(bucketName, objectName, 7 * 24 * 60 * 60);
-          console.log('✅ [MINIO] URL firmada generada:', signedUrl);
-          return [signedUrl, null];
-        } catch (signError) {
-          console.warn('⚠️ [MINIO] Error generando URL firmada, usando URL pública:', signError.message);
-          return [publicUrl, null];
-        }
+        console.log('🔗 [MINIO] Encontrada:', finalUrl);
+        return [finalUrl, null];
+
       } catch (err) {
-        // Continuar con la siguiente extensión
         continue;
       }
     }

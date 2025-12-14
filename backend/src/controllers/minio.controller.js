@@ -11,50 +11,52 @@ export async function getFotoPerfilUrl(req, res) {
     try {
         const { rut_usuario } = req.params;
         const bucketName = process.env.MINIO_BUCKET || 'usuarios-fotos';
-        
-        console.log('📸 [MINIO-CTRL] Obteniendo foto de perfil para:', rut_usuario);
 
-        // Buscar archivos con el RUT (puede ser .jpg, .png, etc.)
+        // 1. Definir la URL base pública EXACTA como la quieres en el Front
+        // Debería ser: https://asis.face.ubiobio.cl:1785/minio
+        const publicUrlBase = process.env.MINIO_PUBLIC_URL || 'https://asis.face.ubiobio.cl:1785/minio';
+
+        console.log('📸 [MINIO-CTRL] Buscando foto para:', rut_usuario);
+
+        // 2. Buscar extensión correcta
         const extensions = ['.jpg', '.jpeg', '.png', '.webp'];
-        let objectName = null;
+        let finalFilename = null;
 
         for (const ext of extensions) {
             const fileName = `${rut_usuario}${ext}`;
             try {
+                // Solo verificamos si existe físicamente en el disco de MinIO
                 await minioClient.statObject(bucketName, fileName);
-                objectName = fileName;
-                break;
+                finalFilename = fileName;
+                break; // Encontramos la imagen, salimos del loop
             } catch (err) {
-                // Archivo no existe, continuar con siguiente extensión
                 continue;
             }
         }
 
-        if (!objectName) {
+        if (!finalFilename) {
             return res.status(404).json({
                 success: false,
                 message: 'Foto de perfil no encontrada'
             });
         }
 
-        // Generar URL presigned (válida por 24 horas)
-        const url = await minioClient.presignedGetObject(bucketName, objectName, 24 * 60 * 60);
+        // 3. CONSTRUCCIÓN MANUAL DE LA URL (Sin firmas, sin reemplazos raros)
+        // Resultado: https://asis.face.ubiobio.cl:1785/minio/usuarios-fotos/13308258-1.png
+        const cleanBase = publicUrlBase.replace(/\/$/, ''); // Quitar slash final si existe
+        const urlFinal = `${cleanBase}/${bucketName}/${finalFilename}`;
 
-        console.log('✅ [MINIO-CTRL] URL generada para:', objectName);
+        console.log('✅ [MINIO-CTRL] URL generada:', urlFinal);
 
         res.json({
             success: true,
-            foto_url: url,
-            filename: objectName
+            foto_url: urlFinal,
+            filename: finalFilename
         });
 
     } catch (error) {
-        console.error('❌ [MINIO-CTRL] Error obteniendo foto de perfil:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Error obteniendo foto de perfil',
-            message: error.message
-        });
+        console.error('❌ [MINIO-CTRL] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 }
 
@@ -72,9 +74,9 @@ export async function getLogoUrl(req, res) {
             });
         }
 
-        console.log('🎨 [MINIO-CTRL] Obteniendo logo:', { bucket, filename });
+        console.log('🎨 [MINIO-CTRL] Buscando logo:', { bucket, filename });
 
-        // Verificar si el objeto existe
+        // 1. Verificar si el objeto existe físicamente
         try {
             await minioClient.statObject(bucket, filename);
         } catch (err) {
@@ -85,14 +87,18 @@ export async function getLogoUrl(req, res) {
             });
         }
 
-        // Generar URL presigned (válida por 24 horas)
-        const url = await minioClient.presignedGetObject(bucket, filename, 24 * 60 * 60);
+        // 2. Construir URL Pública (Igual que en foto de perfil)
+        const publicUrlBase = process.env.MINIO_PUBLIC_URL || 'https://asis.face.ubiobio.cl:1785/minio';
+        const cleanBase = publicUrlBase.replace(/\/$/, '');
+        
+        // Construimos: https://asis.face.ubiobio.cl:1785/minio/bucket-logos/logo.png
+        const urlFinal = `${cleanBase}/${bucket}/${filename}`;
 
-        console.log('✅ [MINIO-CTRL] URL del logo generada');
+        console.log('✅ [MINIO-CTRL] URL del logo generada:', urlFinal);
 
         res.json({
             success: true,
-            url,
+            url: urlFinal,
             filename
         });
 

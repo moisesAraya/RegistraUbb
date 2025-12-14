@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { useAuth } from "../Context/AuthContext";
 import { Camera, Lock, Eye, EyeOff, X, Key } from "lucide-react";
 import { UserAvatar } from "../Common/UserAvatar";
+import { useProfileImage } from "../../hooks/useProfileImage";
 
 // ✅ Mappings de roles y cargos
 const rolesMap: Record<number, string> = {
@@ -21,39 +22,19 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api"
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [imageLoading, setImageLoading] = useState(true);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ---------------- FOTO PERFIL ----------------
-  React.useEffect(() => {
-    const loadProfileImage = async () => {
-      if (!user?.rut_usuario) return;
+  const { imageUrl, loading: imageLoading, refreshImage } = useProfileImage(
+    user?.rut_usuario
+  );
 
-      setImageLoading(true);
-      try {
-        const response = await fetch(
-          `${API_BASE_URL}/profile/foto-perfil-url/${user.rut_usuario}`
-        );
-        const data = await response.json();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  // previewUrl solo para previsualizar la imagen local recién elegida
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-        if (data.success && data.foto_url) {
-          setPreviewUrl(data.foto_url);
-        } else {
-          setPreviewUrl(null);
-        }
-      } catch (error) {
-        console.error("Error cargando imagen de perfil:", error);
-        setPreviewUrl(null);
-      } finally {
-        setImageLoading(false);
-      }
-    };
-
-    loadProfileImage();
-  }, [user?.rut_usuario]);
+  const currentImage = previewUrl || imageUrl;
 
   if (!user) {
     return (
@@ -80,30 +61,28 @@ const ProfilePage: React.FC = () => {
 
     setLoading(true);
     try {
+      const token = localStorage.getItem("token");
       const response = await fetch(
         `${API_BASE_URL}/profile/upload/${user.rut_usuario}`,
         {
           method: "POST",
           body: formData,
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: "include",
         }
       );
+
       const data = await response.json();
       if (data.success) {
-        // Recargar la imagen desde el servidor para asegurar que se muestre
-        const imageResponse = await fetch(
-          `${API_BASE_URL}/profile/foto-perfil-url/${user.rut_usuario}`
-        );
-        const imageData = await imageResponse.json();
-
-        if (imageData.success && imageData.foto_url) {
-          setPreviewUrl(imageData.foto_url);
-          alert("✅ Foto actualizada correctamente");
-        } else {
-          setPreviewUrl(data.data.imageUrl);
-          alert("✅ Foto actualizada correctamente");
-        }
+        // Recargar imagen desde el hook (usa URL segura /minio/... y maneja https)
+        await refreshImage();
+        // dejamos de usar la URL local, ahora mostrará la real desde MinIO/backend
+        setPreviewUrl(null);
+        alert("✅ Foto actualizada correctamente");
       } else {
-        alert("❌ " + data.message);
+        alert("❌ " + (data.message || "Error al subir la imagen"));
       }
     } catch (error) {
       console.error("Error subiendo imagen:", error);
@@ -284,9 +263,9 @@ const ProfilePage: React.FC = () => {
             <div className="w-32 h-32 bg-gray-200 rounded-full flex items-center justify-center border-4 border-blue-300 shadow-lg">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
-          ) : previewUrl ? (
+          ) : currentImage ? (
             <img
-              src={previewUrl}
+              src={currentImage}
               alt="Foto de perfil"
               className="w-32 h-32 rounded-full border-4 border-blue-300 shadow-lg object-cover"
               onError={() => {
@@ -460,7 +439,7 @@ const ProfilePage: React.FC = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-12"
                     placeholder="Ingresa tu nueva contraseña"
                   />
-                <button
+                  <button
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"

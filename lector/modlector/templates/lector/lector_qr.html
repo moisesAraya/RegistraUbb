@@ -989,24 +989,29 @@
         }
 
         function reconfigurarTotem() {
-            if (confirm('¿Deseas reconfigurar el totem de este dispositivo?')) {
-                fetch('/reconfigurar_totem/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        window.location.href = '/configuracion/';
-                    }
-                })
-                .catch(error => {
-                    mostrarMensaje('Error al reconfigurar', 'error', 'alert-octagon');
-                });
-            }
+        if (confirm('¿Deseas reconfigurar el totem de este dispositivo?')) {
+            fetch('/lector/reconfigurar_totem/', {   // ← corregido
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('404');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success && data.redirect) {
+                    window.location.href = '/lector/configuracion/';
+                }
+            })
+            .catch(error => {
+                mostrarMensaje('Error al reconfigurar el tótem', 'error', 'alert-octagon');
+            });
         }
+    }
 
         // Teclas del teclado para PIN
         document.addEventListener('keydown', function(e) {

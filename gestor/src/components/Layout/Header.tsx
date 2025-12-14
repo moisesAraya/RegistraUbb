@@ -22,99 +22,64 @@ interface HeaderProps {
   onToggleSidebar: () => void;
 }
 
-interface Notificacion {
-  id: number;
-  mensaje: string;
-  leida: boolean;
-  fecha: string;
-}
-
 const LOGO_FILENAME = 'logo_registraubb.png'; // nombre en MinIO
 const LOGO_BUCKET = 'registraubb';
 
 const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggleSidebar }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  // usamos hook centralizado de notificaciones
-  const { notifications: notificaciones, unreadCount, markAsRead, refresh } = useNotifications();
+  const { notifications: notificaciones, unreadCount, markAsRead } = useNotifications();
   const [showNotificaciones, setShowNotificaciones] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [fotoPerfilUrl, setFotoPerfilUrl] = useState<string | null>(null);
 
-  // Si quieres refrescar manualmente: refresh()
+  const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(
+    /\/+$/,
+    ''
+  );
+  const MINIO_ENDPOINT = (import.meta.env.VITE_MINIO_ENDPOINT || 'http://localhost:9000').replace(
+    /\/+$/,
+    ''
+  );
 
-  // Obtener logo desde MinIO (presigned URL)
+  const normalizeUrl = (url: string): string => {
+    if (typeof window === 'undefined') return url;
+    if (window.location.protocol === 'https:' && url.startsWith('http://')) {
+      return url.replace(/^http:\/\//i, 'https://');
+    }
+    return url;
+  };
+
+  // ✅ Obtener logo desde MinIO (presigned URL con fallback directo)
   useEffect(() => {
     const fetchLogo = async () => {
       try {
         const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/minio/logo-url?bucket=${LOGO_BUCKET}&filename=${LOGO_FILENAME}`
+          `${API_BASE_URL}/minio/logo-url?bucket=${LOGO_BUCKET}&filename=${LOGO_FILENAME}`
         );
         const json = await res.json();
+
         if (json.success && json.url) {
-          setLogoUrl(json.url);
+          setLogoUrl(normalizeUrl(json.url));
         } else {
-          const directUrl = `${
-            import.meta.env.VITE_MINIO_ENDPOINT || 'http://localhost:9000'
-          }/${LOGO_BUCKET}/${LOGO_FILENAME}`;
+          const directUrl = `${MINIO_ENDPOINT}/${LOGO_BUCKET}/${LOGO_FILENAME}`;
           console.log('🔄 Intentando acceso directo al logo:', directUrl);
-          setLogoUrl(directUrl);
+          setLogoUrl(normalizeUrl(directUrl));
         }
       } catch (error) {
         console.error('❌ Error obteniendo logo:', error);
-        const directUrl = `${
-          import.meta.env.VITE_MINIO_ENDPOINT || 'http://localhost:9000'
-        }/${LOGO_BUCKET}/${LOGO_FILENAME}`;
+        const directUrl = `${MINIO_ENDPOINT}/${LOGO_BUCKET}/${LOGO_FILENAME}`;
         console.log('🔄 Intentando acceso directo al logo (fallback):', directUrl);
-        setLogoUrl(directUrl);
+        setLogoUrl(normalizeUrl(directUrl));
       }
     };
+
     fetchLogo();
-  }, []);
-
-  // Obtener foto de perfil desde backend / MinIO
-  useEffect(() => {
-    if (import.meta.env.VITE_ENABLE_MINIO !== 'true') {
-      setFotoPerfilUrl(null);
-      return;
-    }
-
-    const fetchFotoPerfil = async () => {
-      try {
-        const rut =
-          (user as any).rut_usuario ??
-          (user as any).rut ??
-          user.email ??
-          '';
-
-        if (!rut) {
-          setFotoPerfilUrl(null);
-          return;
-        }
-
-        const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/profile/foto-perfil-url/${encodeURIComponent(rut)}`
-        );
-        const json = await res.json();
-
-        if (json.success && json.foto_url) {
-          setFotoPerfilUrl(json.foto_url);
-        } else {
-          setFotoPerfilUrl(null);
-        }
-      } catch (err) {
-        console.error('❌ Error obteniendo foto de perfil:', err);
-        setFotoPerfilUrl(null);
-      }
-    };
-
-    fetchFotoPerfil();
-  }, [user]);
+  }, [API_BASE_URL, MINIO_ENDPOINT]);
 
   const getRoleLabel = (id_rol: number) => {
     const roles = {
       1: 'Administrador',
       2: 'Académico',
-      3: 'Usuario'
+      3: 'Usuario',
     };
     return roles[id_rol as keyof typeof roles] || 'Usuario';
   };
@@ -123,7 +88,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
     const colors = {
       1: 'bg-red-50 text-red-700 border-red-200',
       2: 'bg-blue-50 text-blue-700 border-blue-200',
-      3: 'bg-green-50 text-green-700 border-green-200'
+      3: 'bg-green-50 text-green-700 border-green-200',
     };
     return colors[id_rol as keyof typeof colors] || 'bg-slate-50 text-slate-700 border-slate-200';
   };
@@ -132,7 +97,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
 
   return (
     <header className="bg-white border-b border-slate-200 shadow-sm relative z-30">
-      {/* 🔽 AQUÍ: ancho completo, sin max-w ni mx-auto */}
       <div className="w-full px-3 sm:px-4 lg:px-6">
         <div className="flex justify-between items-center h-14 lg:h-16">
           {/* Left side - Mobile menu button y logo */}
@@ -169,12 +133,14 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
               <button
                 className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-200 relative"
                 onClick={() => {
-                  // al hacer click en la campana marcamos una notificación como leída (si existe)
                   if (unreadCount > 0) {
                     const firstUnread = notificaciones.find((n: any) => !(n.read ?? n.leida));
                     if (firstUnread) {
-                      // usar id tal cual venga
-                      markAsRead(firstUnread.id ?? firstUnread.id_notificacion ?? firstUnread.idNotificacion);
+                      markAsRead(
+                        firstUnread.id ??
+                          firstUnread.id_notificacion ??
+                          firstUnread.idNotificacion
+                      );
                     }
                   }
                   setShowNotificaciones(!showNotificaciones);
@@ -198,19 +164,22 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
                       No tienes notificaciones.
                     </div>
                   )}
-                  {notificaciones && notificaciones.map((n: any) => (
-                    <div
-                      key={n.id}
-                      className={`px-4 py-2 text-sm border-b last:border-b-0 ${
-                        (n.read ?? n.leida) ? 'bg-white' : 'bg-blue-50'
-                      }`}
-                    >
-                      <div className="font-medium">{n.message || n.mensaje || n.title}</div>
-                      <div className="text-xs text-slate-400">
-                        {new Date(n.createdAt || n.fecha).toLocaleString()}
+                  {notificaciones &&
+                    notificaciones.map((n: any) => (
+                      <div
+                        key={n.id}
+                        className={`px-4 py-2 text-sm border-b last:border-b-0 ${
+                          (n.read ?? n.leida) ? 'bg-white' : 'bg-blue-50'
+                        }`}
+                      >
+                        <div className="font-medium">
+                          {n.message || n.mensaje || n.title}
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {new Date(n.createdAt || n.fecha).toLocaleString()}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               )}
             </div>
@@ -264,7 +233,9 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
                         className="bg-gradient-to-br from-slate-500 to-slate-600 text-white shadow-md border border-slate-200"
                       />
                       <div>
-                        <p className="text-sm font-semibold text-slate-900">{nombreCompleto}</p>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {nombreCompleto}
+                        </p>
                         <p className="text-xs text-slate-500">
                           {user.email || user.rut_usuario}
                         </p>
@@ -285,8 +256,8 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, isSidebarOpen, onToggle
                           className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
                           onClick={() => setIsUserMenuOpen(false)}
                         >
-                          <HelpCircle className="w-4 h-4 text-slate-500" />
-                          <span>Ayuda</span>
+                            <HelpCircle className="w-4 h-4 text-slate-500" />
+                            <span>Ayuda</span>
                         </button>
                       </Link>
                     </div>

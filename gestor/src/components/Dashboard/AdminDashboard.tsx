@@ -392,7 +392,7 @@ const AdminDashboard: React.FC = () => {
             Accesos Rápidos
           </h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <a
               href="/users"
               className="flex items-center space-x-3 p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors group"
@@ -426,16 +426,7 @@ const AdminDashboard: React.FC = () => {
               </div>
             </a>
 
-            <a
-              href="/settings"
-              className="flex items-center space-x-3 p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors group"
-            >
-              <Shield className="h-6 w-6 text-orange-600 group-hover:scale-110 transition-transform" />
-              <div>
-                <p className="font-medium text-slate-900">Configuración</p>
-                <p className="text-xs text-slate-600">Ajustes del sistema</p>
-              </div>
-            </a>
+            {/* Configuración eliminada según solicitud del administrador */}
           </div>
         </div>
 

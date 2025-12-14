@@ -256,47 +256,109 @@ const PersonalDashboard: React.FC = () => {
                 Progreso semanal
               </h2>
             </div>
-            <span className="text-xs text-slate-500">
-              Semana del {startOfWeek.toLocaleDateString('es-CL')}
-            </span>
-          </div>
+          ) : (
+            <>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                <div className="flex items-center space-x-3">
+                  <Clock3 className="w-6 h-6 text-blue-600" />
+                  <div>
+                    <h2 className="text-lg md:text-xl font-semibold text-slate-900">
+                      Progreso semana actual
+                    </h2>
+                    <p className="text-slate-600 text-sm">
+                      Objetivo: {weeklyProgress.target_weekly_hours} horas esta semana
+                    </p>
+                  </div>
+                </div>
 
-          <div className="flex justify-between mb-2">
-            <span className="text-2xl font-bold">
-              {formatHorasMinutos(hoursThisWeek)}h
-            </span>
-            <span className="text-sm text-slate-600">
-              de {formatHorasMinutos(targetHours)}h
-            </span>
-          </div>
+                <div
+                  className={`px-3 py-1 rounded-full text-xs md:text-sm font-medium text-center ${
+                    weeklyProgress.progress_percentage >= 100
+                      ? 'bg-green-100 text-green-700'
+                      : weeklyProgress.progress_percentage >= 75
+                      ? 'bg-blue-100 text-blue-700'
+                      : weeklyProgress.progress_percentage >= 50
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'bg-red-100 text-red-700'
+                  }`}
+                >
+                  {weeklyProgress.status === 'completed'
+                    ? 'Completado'
+                    : weeklyProgress.status === 'on_track'
+                    ? 'En ruta'
+                    : 'Retrasado'}
+                </div>
+              </div>
 
-          <div className="w-full bg-slate-200 rounded-full h-4 overflow-hidden">
-            <div
-              className="h-4 bg-blue-600 transition-all"
-              style={{ width: `${Math.min(progressPercentage, 100)}%` }}
-            />
-          </div>
+              {/* Barra de progreso */}
+              <div className="mb-3">
+                <div className="flex items-baseline justify-between mb-2">
+                  <span className="text-2xl font-bold text-slate-900">
+                    {weeklyProgress.hours_this_week}h
+                  </span>
+                  <span className="text-sm text-slate-600">
+                    de {weeklyProgress.target_weekly_hours}h esta semana
+                  </span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-4 overflow-hidden">
+                  <div
+                    className={`
+                      h-4 rounded-full transition-all duration-500 
+                      ${
+                        weeklyProgress.progress_percentage >= 100
+                          ? 'bg-gradient-to-r from-green-500 to-green-600'
+                          : weeklyProgress.progress_percentage >= 75
+                          ? 'bg-gradient-to-r from-blue-500 to-blue-600'
+                          : weeklyProgress.progress_percentage >= 50
+                          ? 'bg-gradient-to-r from-yellow-500 to-yellow-600'
+                          : 'bg-gradient-to-r from-red-500 to-red-600'
+                      }
+                    `}
+                    style={{
+                      width: `${Math.min(weeklyProgress.progress_percentage, 100)}%`,
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-2 text-xs md:text-sm text-slate-600">
+                  <span>{weeklyProgress.progress_percentage}% completado</span>
+                  <span>
+                    {weeklyProgress.hours_remaining > 0 ? (
+                      `${weeklyProgress.hours_remaining}h restantes para el objetivo`
+                    ) : (
+                      <span className="inline-flex items-center gap-1">
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      </span>
+                    )}
+                  </span>
+                </div>
+              </div>
 
-          <div className="flex justify-between mt-2 text-xs text-slate-600">
-            <span>{progressPercentage}% completado</span>
-            {hoursRemaining > 0 ? (
-              <span>{formatHorasMinutos(hoursRemaining)}h restantes</span>
-            ) : (
-              <span className="flex items-center gap-1 text-green-600">
-                <CheckCircle className="w-4 h-4" />
-                Objetivo cumplido
-              </span>
-            )}
-          </div>
-
-          <div className="flex gap-2 mt-3 text-xs">
-            <span className="px-2 py-1 bg-slate-100 rounded-full">
-              Días trabajados: <b>{daysWorkedThisWeek}</b>
-            </span>
-            <span className="px-2 py-1 bg-slate-100 rounded-full">
-              Promedio diario: <b>{formatHorasMinutos(avgDailyHours)}h</b>
-            </span>
-          </div>
+              <div className="flex flex-wrap gap-2 mt-1 text-xs md:text-sm">
+                <div className="px-3 py-1 rounded-full bg-slate-100 text-slate-700">
+                  Días trabajados:{' '}
+                  <span className="font-semibold">
+                    {weeklyProgress.days_worked_this_week || 0}
+                  </span>
+                </div>
+                <div className="px-3 py-1 rounded-full bg-slate-100 text-slate-700">
+                  Promedio diario:{' '}
+                  <span className="font-semibold">
+                    {weeklyProgress.avg_daily_hours || 0}h
+                  </span>
+                </div>
+                {typeof weeklyProgress.days_to_complete === 'number' && (
+                  <div className="px-3 py-1 rounded-full bg-slate-100 text-slate-700">
+                    Para completar:{' '}
+                    <span className="font-semibold">
+                      {weeklyProgress.days_to_complete > 0
+                        ? `${weeklyProgress.days_to_complete} día(s)`
+                        : 'Objetivo alcanzado'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         {/* CALENDARIO SEMANAL */}
