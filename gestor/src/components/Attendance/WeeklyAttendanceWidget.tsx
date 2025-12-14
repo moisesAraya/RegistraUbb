@@ -47,6 +47,11 @@ interface AsistenciaItem {
   es_manual?: boolean;
 }
 
+interface Props {
+  weekOffset: number;
+  onWeekChange: (offset: number) => void;
+}
+
 interface DiaSemana {
   date: Date;
   key: string; // YYYY-MM-DD
@@ -411,7 +416,7 @@ const buildEventosFromMarcajes = (
 
 // ----------------- COMPONENTE -----------------
 
-function WeeklyAttendanceWidget() {
+function WeeklyAttendanceWidget({ weekOffset, onWeekChange }: Props) {
   const {
     asistenciaData, // { asistencias, resumen, periodo }
     estadisticas, // no se usa aquí, pero lo dejamos por si luego lo necesitas
@@ -425,7 +430,12 @@ function WeeklyAttendanceWidget() {
     isSemanaCerrada, // 👈 NUEVO: desde el contexto
   } = useAsistenciaContext() as any;
 
-  const [referenceDate, setReferenceDate] = useState(new Date());
+  // referenceDate depende de weekOffset
+  const referenceDate = React.useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + weekOffset * 7);
+    return d;
+  }, [weekOffset]);
   const [isWeekLocked, setIsWeekLocked] = useState(false); // 👈 NUEVO
 
   const [editing, setEditing] = useState<null | {
@@ -560,21 +570,9 @@ function WeeklyAttendanceWidget() {
     weekStart.toDateString() === currentWeekStart.toDateString() &&
     weekEnd.toDateString() === currentWeekEnd.toDateString();
 
-  const goToPreviousWeek = () => {
-    const newDate = new Date(referenceDate);
-    newDate.setDate(referenceDate.getDate() - 7);
-    setReferenceDate(newDate);
-  };
-
-  const goToNextWeek = () => {
-    const newDate = new Date(referenceDate);
-    newDate.setDate(referenceDate.getDate() + 7);
-    setReferenceDate(newDate);
-  };
-
-  const goToCurrentWeek = () => {
-    setReferenceDate(new Date());
-  };
+  const goToPreviousWeek = () => onWeekChange(weekOffset - 1);
+  const goToNextWeek = () => onWeekChange(weekOffset + 1);
+  const goToCurrentWeek = () => onWeekChange(0);
 
   const handleRefresh = () => {
     const mes = asistenciaData?.periodo?.mes;
