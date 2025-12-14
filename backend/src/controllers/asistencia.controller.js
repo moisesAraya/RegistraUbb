@@ -27,7 +27,7 @@ function buildTimestamp(fecha, hora) {
   const time = hora.length === 5 ? `${hora}:00` : hora;
 
   // 📌 Forzamos zona horaria Chile (-03:00) para evitar desfase 8 → 5
-  const isoWithOffset = `${fecha}T${time}-03:00`;
+  const isoWithOffset = `${fecha}T${time}`;
 
   // Devolvemos un Date; Sequelize lo mapea a timestamptz sin drama
   return new Date(isoWithOffset);
